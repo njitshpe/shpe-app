@@ -181,7 +181,10 @@ This document provides full JSON Schema definitions for request bodies (inputs) 
 ### GET /events/{event_id}/rsvps (admin)
 - **Input Schema**: N/A
 - **Output Schema** (200):
-```json
+
+//should be changed to list of rsvps per event
+
+```json 
 {
   "type": "object",
   "properties": {
