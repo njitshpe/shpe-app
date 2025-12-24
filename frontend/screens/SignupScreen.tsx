@@ -21,7 +21,7 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const handleSignup = async () => {
     if (!email || !password || !confirmPassword) {
@@ -46,11 +46,18 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
       Alert.alert('Error', error.message);
     } else {
       Alert.alert(
-        'Check your email',
-        'We sent you a confirmation link. Please check your email to complete sign up.',
+        'Success',
+        'Account created! You can now sign in.',
         [{ text: 'OK', onPress: onNavigateToLogin }]
       );
     }
+    setLoading(false);
+  };
+
+  const handleGoogleSignup = async () => {
+    setLoading(true);
+    const { error } = await signInWithGoogle();
+    if (error) Alert.alert('Error', error.message);
     setLoading(false);
   };
 
@@ -72,6 +79,20 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
         </View>
 
         <View style={styles.form}>
+          <TouchableOpacity
+            style={[styles.googleButton, loading && styles.buttonDisabled]}
+            onPress={handleGoogleSignup}
+            disabled={loading}
+          >
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <AuthInput
             label="Email"
             value={email}
@@ -158,6 +179,35 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  googleButtonText: {
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#999',
+    fontSize: 14,
   },
   button: {
     backgroundColor: '#D35400',

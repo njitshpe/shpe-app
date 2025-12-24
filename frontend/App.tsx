@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginScreen } from './screens/LoginScreen';
 import { SignupScreen } from './screens/SignupScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { makeRedirectUri } from 'expo-auth-session';
+
+console.log('Redirect URI:', makeRedirectUri());
 
 type AuthScreen = 'login' | 'signup';
 

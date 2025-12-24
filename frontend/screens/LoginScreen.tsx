@@ -20,7 +20,7 @@ export function LoginScreen({ onNavigateToSignup }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,6 +30,13 @@ export function LoginScreen({ onNavigateToSignup }: LoginScreenProps) {
 
     setLoading(true);
     const { error } = await signIn(email, password);
+    if (error) Alert.alert('Error', error.message);
+    setLoading(false);
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const { error } = await signInWithGoogle();
     if (error) Alert.alert('Error', error.message);
     setLoading(false);
   };
@@ -52,6 +59,20 @@ export function LoginScreen({ onNavigateToSignup }: LoginScreenProps) {
         </View>
 
         <View style={styles.form}>
+          <TouchableOpacity
+            style={[styles.googleButton, loading && styles.buttonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <AuthInput
             label="Email"
             value={email}
@@ -130,6 +151,35 @@ const styles = StyleSheet.create({
   },
   form: {
     width: '100%',
+  },
+  googleButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  googleButtonText: {
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#999',
+    fontSize: 14,
   },
   button: {
     backgroundColor: '#D35400',
