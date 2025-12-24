@@ -1,20 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LoginScreen } from './screens/LoginScreen';
-import { SignupScreen } from './screens/SignupScreen';
-import { HomeScreen } from './screens/HomeScreen';
-import { makeRedirectUri } from 'expo-auth-session';
 
-console.log('Redirect URI:', makeRedirectUri());
-
-type AuthScreen = 'login' | 'signup';
+// Make sure your file in /screens/ is actually named ProfileScreen.tsx
+import { ProfileScreen } from './screens/ProfileScreen'; 
 
 function AppContent() {
-  const { session, isLoading } = useAuth();
-  const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
+  const { isLoading } = useAuth();
 
+  // Show a loader while checking for a session
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -23,17 +18,8 @@ function AppContent() {
     );
   }
 
-  // User is logged in
-  if (session) {
-    return <HomeScreen />;
-  }
-
-  // User is not logged in - show auth screens
-  if (authScreen === 'login') {
-    return <LoginScreen onNavigateToSignup={() => setAuthScreen('signup')} />;
-  }
-
-  return <SignupScreen onNavigateToLogin={() => setAuthScreen('login')} />;
+  // Directly return the ProfileScreen to bypass the Login flow
+  return <ProfileScreen />;
 }
 
 export default function App() {
