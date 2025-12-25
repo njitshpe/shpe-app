@@ -2,6 +2,7 @@ import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Make sure your file in /screens/ is actually named ProfileScreen.tsx
 import { ProfileScreen } from './screens/ProfileScreen'; 
@@ -25,8 +26,10 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <StatusBar style="auto" />
-      <AppContent />
+      <NotificationProvider>
+        <StatusBar style="auto" />
+        <AppContent />
+      </NotificationProvider>
     </AuthProvider>
   );
 }
