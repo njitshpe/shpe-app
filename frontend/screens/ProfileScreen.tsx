@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Modal } from 'react-native';
 import { QRScannerScreen } from './QRScannerScreen';
+import { NotificationSettingsScreen } from './NotificationSettingsScreen';
 
 // SHPE Brand Colors
 const SHPE_COLORS = {
@@ -15,6 +16,7 @@ export function ProfileScreen() {
   // Local state for UI testing (so you don't need the service yet)
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
   // Hardcoded User Data (This will come from AuthContext later)
   const firstName = "Sofia";
@@ -35,6 +37,11 @@ export function ProfileScreen() {
   // Handle successful check-in
   const handleScanSuccess = (eventName: string) => {
     Alert.alert('Success', `Checked in to ${eventName}!`);
+  };
+
+  // Open notification settings
+  const handleNotificationSettings = () => {
+    setShowNotificationSettings(true);
   };
 
   return (
@@ -73,6 +80,11 @@ export function ProfileScreen() {
           <Text style={styles.secondaryButtonText}>Scan QR Code</Text>
         </TouchableOpacity>
 
+        {/* The "Notification Settings" Button */}
+        <TouchableOpacity style={styles.primaryButton} onPress={handleNotificationSettings}>
+          <Text style={styles.primaryButtonText}>Notification Settings</Text>
+        </TouchableOpacity>
+
       </View>
 
       {/* QR Scanner Modal */}
@@ -84,6 +96,17 @@ export function ProfileScreen() {
         <QRScannerScreen
           onClose={() => setShowScanner(false)}
           onSuccess={handleScanSuccess}
+        />
+      </Modal>
+
+      {/* Notification Settings Modal */}
+      <Modal
+        visible={showNotificationSettings}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <NotificationSettingsScreen
+          onClose={() => setShowNotificationSettings(false)}
         />
       </Modal>
 
