@@ -15,6 +15,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -24,12 +26,10 @@ const STORAGE_KEYS = {
 };
 
 class NotificationService {
-  /**
-   * Request notification permissions from the user
-   */
+  // Request notification permissions from the user
   async requestPermission(): Promise<NotificationPermissionStatus> {
     try {
-      // Check if we're on a physical device
+      // Check if we're on an actual device
       if (!Device.isDevice) {
         console.warn('Notifications only work on physical devices');
         return {
@@ -66,9 +66,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Check current notification permission status without requesting
-   */
+  // Check current notification permission status without requesting
   async checkPermission(): Promise<NotificationPermissionStatus> {
     try {
       const { status } = await Notifications.getPermissionsAsync();
@@ -90,9 +88,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Handle permission denial by showing appropriate message
-   */
+  // Handle permission denial, show appropriate message
   handlePermissionDenied(canAskAgain: boolean): void {
     if (!canAskAgain) {
       Alert.alert(
@@ -112,9 +108,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Schedule a local notification
-   */
+  // Schedule a local notification
   async scheduleNotification(
     title: string,
     body: string,
@@ -149,9 +143,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Schedule an event reminder notification
-   */
+  // Schedule an event reminder notification
   async scheduleEventReminder(
     eventName: string,
     eventTime: Date,
@@ -159,7 +151,7 @@ class NotificationService {
   ): Promise<string | null> {
     const reminderTime = new Date(eventTime.getTime() - reminderMinutesBefore * 60 * 1000);
 
-    // Don't schedule if reminder time is in the past
+    // Dont schedule if reminder time is in the past
     if (reminderTime <= new Date()) {
       console.warn('Reminder time is in the past, not scheduling');
       return null;
@@ -177,9 +169,7 @@ class NotificationService {
     );
   }
 
-  /**
-   * Send an immediate notification
-   */
+  // Send an immediate notification
   async sendImmediateNotification(
     title: string,
     body: string,
@@ -200,7 +190,7 @@ class NotificationService {
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger: null, // null means send immediately
+        trigger: null, // Null means send immediately
       });
 
       return notificationId;
@@ -210,9 +200,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Send a new event announcement notification
-   */
+  // Send a new event announcement notification
   async sendNewEventNotification(eventName: string, eventTime: Date): Promise<string | null> {
     const formattedTime = eventTime.toLocaleDateString('en-US', {
       weekday: 'long',
@@ -233,9 +221,7 @@ class NotificationService {
     );
   }
 
-  /**
-   * Send a general announcement notification
-   */
+  // Send a general announcement notification
   async sendAnnouncementNotification(
     title: string,
     message: string
@@ -245,9 +231,7 @@ class NotificationService {
     });
   }
 
-  /**
-   * Cancel a scheduled notification
-   */
+  // Cancel a scheduled notification
   async cancelNotification(notificationId: string): Promise<void> {
     try {
       await Notifications.cancelScheduledNotificationAsync(notificationId);
@@ -256,9 +240,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Cancel all scheduled notifications
-   */
+  // Cancel all scheduled notifications
   async cancelAllNotifications(): Promise<void> {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
@@ -267,9 +249,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Get all scheduled notifications
-   */
+  // Get all scheduled notifications
   async getAllScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
     try {
       return await Notifications.getAllScheduledNotificationsAsync();
@@ -279,9 +259,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Dismiss all displayed notifications
-   */
+  // Dismiss all displayed notifications
   async dismissAllNotifications(): Promise<void> {
     try {
       await Notifications.dismissAllNotificationsAsync();
@@ -290,9 +268,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Get badge count (iOS)
-   */
+  // Get badge count (iOS)
   async getBadgeCount(): Promise<number> {
     try {
       return await Notifications.getBadgeCountAsync();
@@ -302,9 +278,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Set badge count (iOS)
-   */
+  // Set badge count (iOS)
   async setBadgeCount(count: number): Promise<void> {
     try {
       await Notifications.setBadgeCountAsync(count);
@@ -313,17 +287,13 @@ class NotificationService {
     }
   }
 
-  /**
-   * Clear badge count
-   */
+  // Clear badge count (iOS)
   async clearBadgeCount(): Promise<void> {
     await this.setBadgeCount(0);
   }
 
-  /**
-   * Register notification listeners
-   * Returns cleanup function
-   */
+  // Register notifications listeners
+  // Returns cleanup function
   registerNotificationListeners(
     onNotificationReceived?: (notification: Notifications.Notification) => void,
     onNotificationResponse?: (response: Notifications.NotificationResponse) => void
