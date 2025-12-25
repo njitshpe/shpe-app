@@ -17,10 +17,12 @@ import { ProfileScreen } from './screens/ProfileScreen'; // Brought in from V1
 console.log('Redirect URI:', makeRedirectUri());
 
 type AuthScreen = 'login' | 'signup';
+type AppScreen = 'home' | 'profile';
 
 function AppContent() {
   const { session, isLoading } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
+  const [appScreen, setAppScreen] = useState<AppScreen>('home');
 
   // 1. Loading State
   if (isLoading) {
@@ -31,16 +33,13 @@ function AppContent() {
     );
   }
 
-  return <ProfileScreen />;
   // 2. Authenticated State (User is logged in)
-  /*
   if (session) {
-    // Ideally, you would use React Navigation here to switch between Home and Profile.
-    // For now, I am returning HomeScreen. 
-    // IF you want to see ProfileScreen instead, change this to return <ProfileScreen />;
-    return <HomeScreen />;
+    if (appScreen === 'profile') {
+      return <ProfileScreen onNavigateBack={() => setAppScreen('home')} />;
+    }
+    return <HomeScreen onNavigateToProfile={() => setAppScreen('profile')} />;
   }
-    */
 
   // 3. Unauthenticated State (User needs to log in)
   if (authScreen === 'login') {

@@ -1,7 +1,7 @@
 // Event model matching database schema
 export interface Event {
   id: string;
-  event_id: string;  // The simple ID used in QR codes
+  event_id: string;  // The simple ID associated with events in supabase, stored in QR codes
   name: string;
   description?: string;
   location?: string;
@@ -27,7 +27,7 @@ export interface EventAttendance {
   longitude?: number;
 }
 
-// API response types
+// API response cases
 export interface CheckInResponse {
   success: boolean;
   attendance?: EventAttendance;

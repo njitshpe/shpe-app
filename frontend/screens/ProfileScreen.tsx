@@ -12,7 +12,11 @@ const SHPE_COLORS = {
   gray: '#F4F4F4',     // Placeholders
 };
 
-export function ProfileScreen() {
+interface ProfileScreenProps {
+  onNavigateBack?: () => void;
+}
+
+export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
   // Local state for UI testing (so you don't need the service yet)
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
@@ -46,7 +50,14 @@ export function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      
+
+      {/* Back Button */}
+      {onNavigateBack && (
+        <TouchableOpacity style={styles.backButton} onPress={onNavigateBack}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+      )}
+
       {/* --- Profile Header Section --- */}
       <View style={styles.headerContainer}>
         <View style={styles.avatarWrapper}>
@@ -120,6 +131,17 @@ const styles = StyleSheet.create({
     backgroundColor: SHPE_COLORS.white,
     alignItems: 'center',
     paddingTop: 80, // Push content down from the top
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+  },
+  backButtonText: {
+    fontSize: 18,
+    color: SHPE_COLORS.orange,
+    fontWeight: '600',
   },
   headerContainer: {
     alignItems: 'center',
