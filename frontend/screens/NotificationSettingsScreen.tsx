@@ -98,6 +98,112 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
     Alert.alert('Test Sent', 'Check your notifications!', [{ text: 'OK' }]);
   };
 
+  const handleTestEventReminder = async () => {
+    if (!permissionStatus.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please enable notifications first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const { notificationService } = await import('../lib/notificationService');
+
+    // Schedule a notification for 10 seconds from now
+    const eventTime = new Date(Date.now() + 10000); // 10 seconds from now
+
+    await notificationService.scheduleEventReminder(
+      'SHPE Tech Workshop',
+      eventTime,
+      0 // 0 minutes before = right at event time
+    );
+
+    Alert.alert(
+      'Event Reminder Scheduled',
+      'You will receive a notification in 10 seconds!',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleTestNewEvent = async () => {
+    if (!permissionStatus.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please enable notifications first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const { notificationService } = await import('../lib/notificationService');
+
+    const eventTime = new Date(Date.now() + 24 * 60 * 60 * 1000); // Tomorrow
+    await notificationService.sendNewEventNotification(
+      'SHPE Networking Night',
+      eventTime
+    );
+
+    Alert.alert('New Event Notification Sent', 'Check your notifications!', [{ text: 'OK' }]);
+  };
+
+  const handleTestAnnouncement = async () => {
+    if (!permissionStatus.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please enable notifications first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const { notificationService } = await import('../lib/notificationService');
+
+    await notificationService.sendAnnouncementNotification(
+      'Important SHPE Update',
+      'General meeting location has been changed to Room 305!'
+    );
+
+    Alert.alert('Announcement Sent', 'Check your notifications!', [{ text: 'OK' }]);
+  };
+
+  const handleCheckDatabaseEvents = async () => {
+    if (!permissionStatus.granted) {
+      Alert.alert(
+        'Permission Required',
+        'Please enable notifications first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const { eventNotificationHelper } = await import('../lib/eventNotificationHelper');
+      const result = await eventNotificationHelper.checkAndNotifyNewEvents();
+
+      if (result.count > 0) {
+        Alert.alert(
+          'Events Found!',
+          `Sent notifications for ${result.count} new event(s) from the database.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'No New Events',
+          'No new events found in the database since your last check.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to check for events. Make sure the database is set up.', [
+        { text: 'OK' },
+      ]);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -246,15 +352,103 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
           </View>
         </View>
 
-        {/* Test Notification Button */}
+        {/* Test Notification Buttons */}
         {permissionStatus.granted && (
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Test Notifications</Text>
+
             <TouchableOpacity
-              style={styles.testButton}
+              style={[
+                styles.testButton,
+                (!preferences.all_enabled || updating) && styles.disabledButton,
+              ]}
               onPress={handleTestNotification}
-              disabled={updating}
+              disabled={!preferences.all_enabled || updating}
             >
-              <Text style={styles.testButtonText}>Send Test Notification</Text>
+              <Text
+                style={[
+                  styles.testButtonText,
+                  (!preferences.all_enabled || updating) && styles.disabledButtonText,
+                ]}
+              >
+                Send Immediate Test
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                { marginTop: 10 },
+                (!preferences.all_enabled || updating) && styles.disabledButton,
+              ]}
+              onPress={handleTestEventReminder}
+              disabled={!preferences.all_enabled || updating}
+            >
+              <Text
+                style={[
+                  styles.testButtonText,
+                  (!preferences.all_enabled || updating) && styles.disabledButtonText,
+                ]}
+              >
+                Test Event Reminder (10s)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                { marginTop: 10 },
+                (!preferences.all_enabled || updating) && styles.disabledButton,
+              ]}
+              onPress={handleTestNewEvent}
+              disabled={!preferences.all_enabled || updating}
+            >
+              <Text
+                style={[
+                  styles.testButtonText,
+                  (!preferences.all_enabled || updating) && styles.disabledButtonText,
+                ]}
+              >
+                Test New Event Announcement
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                { marginTop: 10 },
+                (!preferences.all_enabled || updating) && styles.disabledButton,
+              ]}
+              onPress={handleTestAnnouncement}
+              disabled={!preferences.all_enabled || updating}
+            >
+              <Text
+                style={[
+                  styles.testButtonText,
+                  (!preferences.all_enabled || updating) && styles.disabledButtonText,
+                ]}
+              >
+                Test General Announcement
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                { marginTop: 10, backgroundColor: SHPE_COLORS.orange },
+                (!preferences.all_enabled || updating) && styles.disabledButton,
+              ]}
+              onPress={handleCheckDatabaseEvents}
+              disabled={!preferences.all_enabled || updating}
+            >
+              <Text
+                style={[
+                  styles.testButtonText,
+                  (!preferences.all_enabled || updating) && styles.disabledButtonText,
+                ]}
+              >
+                Check Database for New Events
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -406,6 +600,13 @@ const styles = StyleSheet.create({
     color: SHPE_COLORS.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: SHPE_COLORS.gray,
+    opacity: 0.6,
+  },
+  disabledButtonText: {
+    color: SHPE_COLORS.darkGray,
   },
   infoCard: {
     backgroundColor: SHPE_COLORS.gray,
