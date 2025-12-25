@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     right: 5,
-    backgroundColor: SHPE_COLORS.white,
+    backgroundColor: SHPE_COLORS.darkBlue,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   nameText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: SHPE_COLORS.white,
+    color: SHPE_COLORS.darkBlue,
     marginBottom: 5,
   },
   roleText: {
