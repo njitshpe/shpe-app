@@ -138,8 +138,8 @@ class NotificationService {
         },
         trigger:
           trigger instanceof Date
-            ? trigger
-            : { seconds: trigger.seconds },
+            ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger }
+            : { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: trigger.seconds },
       });
 
       return notificationId;
