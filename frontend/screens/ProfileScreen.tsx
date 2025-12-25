@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Modal } from 'react-native';
+import { QRScannerScreen } from './QRScannerScreen';
 
 // SHPE Brand Colors
 const SHPE_COLORS = {
@@ -13,6 +14,7 @@ const SHPE_COLORS = {
 export function ProfileScreen() {
   // Local state for UI testing (so you don't need the service yet)
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Hardcoded User Data (This will come from AuthContext later)
   const firstName = "Sofia";
@@ -25,10 +27,14 @@ export function ProfileScreen() {
     // Later, you will call: await photosService.pickImage()
   };
 
-  // Placeholder function for Camera Service
+  // Open QR Scanner
   const handleScanQR = () => {
-    Alert.alert("Camera Service", "Temp placer");
-    // Later, you will call: await cameraService.scanQR()
+    setShowScanner(true);
+  };
+
+  // Handle successful check-in
+  const handleScanSuccess = (eventName: string) => {
+    Alert.alert('Success', `Checked in to ${eventName}!`);
   };
 
   return (
@@ -68,6 +74,18 @@ export function ProfileScreen() {
         </TouchableOpacity>
 
       </View>
+
+      {/* QR Scanner Modal */}
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <QRScannerScreen
+          onClose={() => setShowScanner(false)}
+          onSuccess={handleScanSuccess}
+        />
+      </Modal>
 
     </View>
   );
