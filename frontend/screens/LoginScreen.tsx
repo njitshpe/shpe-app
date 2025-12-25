@@ -12,8 +12,11 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { AuthInput } from '../components/AuthInput';
 
-// We don't need the interface anymore
-export function LoginScreen({ navigation }: any) {
+interface LoginScreenProps {
+  onNavigateToSignup: () => void;
+}
+
+export function LoginScreen({ onNavigateToSignup }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -98,7 +101,7 @@ export function LoginScreen({ navigation }: any) {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+            <TouchableOpacity onPress={onNavigateToSignup}>
               <Text style={styles.link}>Sign Up</Text>
             </TouchableOpacity>
           </View>
