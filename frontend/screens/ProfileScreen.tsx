@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 
-// 🎨 SHPE Brand Colors
+// SHPE Brand Colors
 const SHPE_COLORS = {
   darkBlue: '#002855', // Primary Background
   orange: '#FF5F05',   // Action Buttons
@@ -11,21 +11,21 @@ const SHPE_COLORS = {
 };
 
 export function ProfileScreen() {
-  // 🖼️ Local state for UI testing (so you don't need the service yet)
+  // Local state for UI testing (so you don't need the service yet)
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // 👤 Hardcoded User Data (This will come from AuthContext later)
+  // Hardcoded User Data (This will come from AuthContext later)
   const firstName = "Sofia";
   const lastName = "Molina";
   const role = "Member";
 
-  // 🛠️ Placeholder function for your Photo Service
+  // Placeholder function for Photo Service
   const handleEditPicture = () => {
     Alert.alert("Photo Service", "Themp placer");
     // Later, you will call: await photosService.pickImage()
   };
 
-  // 📸 Placeholder function for your Friend's Camera Service
+  // Placeholder function for Camera Service
   const handleScanQR = () => {
     Alert.alert("Camera Service", "Temp placer");
     // Later, you will call: await cameraService.scanQR()
