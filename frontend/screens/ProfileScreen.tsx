@@ -3,45 +3,41 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Modal } from 'r
 import { QRScannerScreen } from './QRScannerScreen';
 import { NotificationSettingsScreen } from './NotificationSettingsScreen';
 
+// IMPORTS
+import { PhotoHelper } from '../lib/PhotoService';
+import { ImageSourceModal } from '../components/ImageSourceModal';
+
 // SHPE Brand Colors
 const SHPE_COLORS = {
-  darkBlue: '#002855', // Primary Background
-  orange: '#FF5F05',   // Action Buttons
-  white: '#FFFFFF',    // Text
-  lightBlue: '#00A3E0',// Secondary Accents
-  gray: '#F4F4F4',     // Placeholders
+  darkBlue: '#002855',
+  orange: '#FF5F05',
+  white: '#FFFFFF',
+  lightBlue: '#00A3E0',
+  gray: '#F4F4F4',
 };
 
 export function ProfileScreen() {
-  // Local state for UI testing (so you don't need the service yet)
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [showImageOptions, setShowImageOptions] = useState(false);
 
-  // Hardcoded User Data (This will come from AuthContext later)
+  // Hardcoded User Data
   const firstName = "Sofia";
   const lastName = "Molina";
   const role = "Member";
 
-  // Placeholder function for Photo Service
-  const handleEditPicture = () => {
-    Alert.alert("Photo Service", "Themp placer");
-    // Later, you will call: await photosService.pickImage()
-  };
+  // --- UPDATED HANDLER (No Timer Needed!) ---
+  const handleImageSelection = async (method: () => Promise<string | null>) => {
+    // 1. Close the overlay instantly
+    setShowImageOptions(false);
 
-  // Open QR Scanner
-  const handleScanQR = () => {
-    setShowScanner(true);
-  };
-
-  // Handle successful check-in
-  const handleScanSuccess = (eventName: string) => {
-    Alert.alert('Success', `Checked in to ${eventName}!`);
-  };
-
-  // Open notification settings
-  const handleNotificationSettings = () => {
-    setShowNotificationSettings(true);
+    // 2. Run the picker immediately
+    // Since we aren't using a native Modal anymore, there is no conflict!
+    const uri = await method();
+    if (uri) {
+      setProfileImage(uri);
+    }
   };
 
   return (
@@ -53,62 +49,53 @@ export function ProfileScreen() {
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.avatar} />
           ) : (
-            // Fallback Initials if no image
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.initialsText}>
-                {firstName[0]}{lastName[0]}
-              </Text>
+              <Text style={styles.initialsText}>{firstName[0]}{lastName[0]}</Text>
             </View>
           )}
-
         </View>
 
         <Text style={styles.nameText}>{firstName} {lastName}</Text>
         <Text style={styles.roleText}>{role}</Text>
       </View>
 
-      {/* --- Action Buttons Section --- */}
+      {/* --- Action Buttons --- */}
       <View style={styles.actionSection}>
-        
-        {/* The "Edit Profile Picture" Button (Explicit) */}
-        <TouchableOpacity style={styles.primaryButton} onPress={handleEditPicture}>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => setShowImageOptions(true)}>
           <Text style={styles.primaryButtonText}>Change Profile Photo</Text>
         </TouchableOpacity>
 
-        {/* The "Scan QR Code" Button (Primary Action) */}
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleScanQR}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowScanner(true)}>
           <Text style={styles.secondaryButtonText}>Scan QR Code</Text>
         </TouchableOpacity>
 
-        {/* The "Notification Settings" Button */}
-        <TouchableOpacity style={styles.primaryButton} onPress={handleNotificationSettings}>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => setShowNotificationSettings(true)}>
           <Text style={styles.primaryButtonText}>Notification Settings</Text>
         </TouchableOpacity>
-
       </View>
 
-      {/* QR Scanner Modal */}
-      <Modal
-        visible={showScanner}
-        animationType="slide"
-        presentationStyle="fullScreen"
-      >
+      {/* --- QR Scanner Modal (Native Modal is fine here) --- */}
+      <Modal visible={showScanner} animationType="slide" presentationStyle="fullScreen">
         <QRScannerScreen
           onClose={() => setShowScanner(false)}
-          onSuccess={handleScanSuccess}
+          onSuccess={(eventName) => Alert.alert('Success', `Checked in to ${eventName}!`)}
         />
       </Modal>
 
-      {/* Notification Settings Modal */}
-      <Modal
-        visible={showNotificationSettings}
-        animationType="slide"
-        presentationStyle="fullScreen"
-      >
-        <NotificationSettingsScreen
-          onClose={() => setShowNotificationSettings(false)}
-        />
+      {/* --- Notification Settings Modal --- */}
+      <Modal visible={showNotificationSettings} animationType="slide" presentationStyle="fullScreen">
+        <NotificationSettingsScreen onClose={() => setShowNotificationSettings(false)} />
       </Modal>
+
+      {/* --- NEW: Overlay Menu (Must be last to sit on top) --- */}
+      {/* Note: We place this at the very bottom so it renders ON TOP of everything else */}
+      <ImageSourceModal 
+        visible={showImageOptions}
+        onClose={() => setShowImageOptions(false)}
+        onSelectCamera={() => handleImageSelection(PhotoHelper.takePhoto)}
+        onSelectLibrary={() => handleImageSelection(PhotoHelper.pickFromLibrary)}
+        onSelectFiles={() => handleImageSelection(PhotoHelper.pickFromFiles)}
+      />
 
     </View>
   );
@@ -119,7 +106,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SHPE_COLORS.white,
     alignItems: 'center',
-    paddingTop: 80, // Push content down from the top
+    paddingTop: 80,
   },
   headerContainer: {
     alignItems: 'center',
@@ -151,24 +138,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: SHPE_COLORS.darkBlue,
   },
-  editIconBadge: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: SHPE_COLORS.darkBlue,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: SHPE_COLORS.orange,
-  },
-  editIconText: {
-    fontSize: 20,
-    color: SHPE_COLORS.orange,
-    fontWeight: 'bold',
-  },
   nameText: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -182,7 +151,7 @@ const styles = StyleSheet.create({
   },
   actionSection: {
     width: '85%',
-    gap: 15, // Spacing between buttons
+    gap: 15,
   },
   primaryButton: {
     borderWidth: 2,
