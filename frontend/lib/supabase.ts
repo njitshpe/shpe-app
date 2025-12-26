@@ -21,7 +21,7 @@ export interface EventRow {
   location: string | null;
   location_name: string;
   cover_image_url: string | null;
-  host_name: string;
+  host_name: string | null;
   price_label: string | null;
   tags: string[];
   is_archived: boolean;
