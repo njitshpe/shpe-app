@@ -3,7 +3,7 @@ import { Notification } from 'expo-notifications';
 // Notification types that users can control
 export type NotificationType = 'event_reminders' | 'new_events' | 'announcements';
 
-// Notification preferences stored per user
+// Notification preferences stored per user (this idea needs to be reviewed)
 export interface NotificationPreferences {
   event_reminders: boolean;
   new_events: boolean;
@@ -28,7 +28,7 @@ export interface ScheduledNotification {
   type: NotificationType;
 }
 
-// Notification trigger for event reminders
+// Notification trigger for event reminders, need to fix
 export interface EventReminderTrigger {
   eventId: string;
   eventName: string;
@@ -43,8 +43,8 @@ export interface UserNotificationSettings {
   event_reminders_enabled: boolean;
   new_events_enabled: boolean;
   announcements_enabled: boolean;
-  notifications_enabled: boolean; // Master toggle
-  expo_push_token?: string; // For future push notifications
+  notifications_enabled: boolean; // Master toggle for all 
+  expo_push_token?: string; // For future push notification implementation
   created_at: string;
   updated_at: string;
 }

@@ -101,7 +101,6 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
         >
           <Text style={styles.outlineButtonText}>Notification Settings</Text>
         </TouchableOpacity>
-
       </View>
 
       {/* --- MODALS --- */}
