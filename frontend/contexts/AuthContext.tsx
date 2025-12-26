@@ -52,13 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      const redirectUri = 'https://auth.expo.io/@yrcv/shpe-app';
-      
+      const redirectUri = 'shpe-app://';
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUri,
-          skipBrowserRedirect: true,
+          skipBrowserRedirect: false,
         },
       });
 
@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result.type === 'success') {
         const url = result.url;
-        
+
         // Extract tokens from URL fragment
         const hashParams = url.split('#')[1];
         if (hashParams) {

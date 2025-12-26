@@ -2,7 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
-export function HomeScreen() {
+interface HomeScreenProps {
+  onNavigateToProfile: () => void;
+}
+
+export function HomeScreen({ onNavigateToProfile }: HomeScreenProps) {
   const { user, signOut } = useAuth();
 
   const handleSignOut = () => {
@@ -41,6 +45,10 @@ export function HomeScreen() {
           </Text>
         </View>
       </View>
+
+      <TouchableOpacity style={styles.profileButton} onPress={onNavigateToProfile}>
+        <Text style={styles.profileButtonText}>View Profile</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutText}>Sign Out</Text>
@@ -123,13 +131,25 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginBottom: 4,
   },
+  profileButton: {
+    backgroundColor: '#D35400',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  profileButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
   signOutButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
     padding: 16,
     borderRadius: 8,
-    marginTop: 20,
+    marginTop: 12,
   },
   signOutText: {
     color: '#666',
