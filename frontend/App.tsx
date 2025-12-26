@@ -37,9 +37,6 @@ function AppContent() {
     );
   }
 
-  return <ProfileScreen onNavigateBack={() => setAppScreen('home')} />;
-
-  /*
   // 2. Authenticated State (User is logged in)
   if (session) {
     if (appScreen === 'profile') {
@@ -47,7 +44,6 @@ function AppContent() {
     }
     return <HomeScreen onNavigateToProfile={() => setAppScreen('profile')} />;
   }
-    */
 
   // 3. Unauthenticated State (User needs to log in)
   if (authScreen === 'login') {
