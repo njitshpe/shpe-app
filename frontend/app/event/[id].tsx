@@ -4,287 +4,462 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Pressable,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import eventsData from '../../data/events.mock.json';
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  type: 'Career' | 'Social' | 'Workshop' | 'General';
-  points: number;
-}
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatTime, formatDateHeader } from '../../utils/date';
+import { useEvents } from '../../context/EventsContext';
+import { FloatingIconButton } from '../../components/ui/FloatingIconButton';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { events } = useEvents();
 
-  // Find the event from mock data
-  const event = eventsData.find((evt: Event) => evt.id === id);
+  // Find the event from context
+  const event = events.find((evt) => evt.id === id);
 
   if (!event) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Event not found</Text>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // Format date and time for display
-  const formatDate = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  const formatTime = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
-
-  // Get badge color based on event type
-  const getBadgeColor = (eventType: string) => {
-    switch (eventType) {
-      case 'Career':
-        return '#3B82F6';
-      case 'Social':
-        return '#10B981';
-      case 'Workshop':
-        return '#F59E0B';
-      case 'General':
-        return '#6B7280';
-      default:
-        return '#6B7280';
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <View style={[styles.badge, { backgroundColor: getBadgeColor(event.type) }]}>
-            <Text style={styles.badgeText}>{event.type}</Text>
+        {/* Hero Cover Image with Floating Controls */}
+        <View style={styles.heroContainer}>
+          {event.coverImageUrl && (
+            <Image source={{ uri: event.coverImageUrl }} style={styles.coverImage} />
+          )}
+
+          {/* Dark Gradient Scrim */}
+          <LinearGradient
+            colors={['rgba(11, 18, 32, 0)', 'rgba(11, 18, 32, 0.9)']}
+            style={styles.gradientScrim}
+          />
+
+          {/* Floating Top Controls */}
+          <View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
+            <FloatingIconButton
+              icon={<Ionicons name="arrow-back" size={20} color="#F9FAFB" />}
+              onPress={() => router.back()}
+            />
+
+            <FloatingIconButton
+              icon={<Ionicons name="share-outline" size={20} color="#F9FAFB" />}
+              onPress={() => console.log('Share')}
+            />
           </View>
+        </View>
+
+        {/* Event Content */}
+        <View style={styles.content}>
+          {/* Host Line */}
+          <Pressable style={styles.hostLine} onPress={() => console.log('View host')}>
+            <View style={styles.hostAvatar}>
+              <Text style={styles.hostAvatarText}>{event.hostName.charAt(0)}</Text>
+            </View>
+            <Text style={styles.hostLineText}>{event.hostName}</Text>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+          </Pressable>
+
+          {/* Title */}
           <Text style={styles.title}>{event.title}</Text>
-        </View>
 
-        {/* Event Details Section */}
-        <View style={styles.section}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>📅</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>{formatDate(event.startTime)}</Text>
+          {/* Tags */}
+          {event.tags.length > 0 && (
+            <View style={styles.tagsRow}>
+              {event.tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Date & Time */}
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>DATE & TIME</Text>
+            <Text style={styles.infoValue}>{formatDateHeader(event.startTimeISO)}</Text>
+            <Text style={styles.infoValue}>
+              {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
+            </Text>
+          </View>
+
+          {/* Price */}
+          {event.priceLabel && (
+            <View style={styles.infoBlock}>
+              <Text style={styles.infoLabel}>PRICE</Text>
+              <Text style={styles.priceValue}>{event.priceLabel}</Text>
+            </View>
+          )}
+
+          {/* Action Buttons Row */}
+          <View style={styles.actionButtons}>
+            <Pressable
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
+            >
+              <Text style={styles.primaryButtonText}>Register</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
+            >
+              <Text style={styles.secondaryButtonText}>Contact</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && styles.buttonPressed]}
+            >
+              <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255, 255, 255, 0.70)" />
+            </Pressable>
+          </View>
+
+          {/* Location Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Location</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location" size={18} color="rgba(255, 255, 255, 0.55)" style={styles.locationIcon} />
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationName}>{event.locationName}</Text>
+                {event.address && <Text style={styles.locationAddress}>{event.address}</Text>}
+              </View>
+            </View>
+
+            {/* Map Preview Card */}
+            <View style={styles.mapCard}>
+              <View style={styles.mapPlaceholder}>
+                <Ionicons name="map-outline" size={40} color="rgba(255, 255, 255, 0.35)" />
+              </View>
+              <Text style={styles.mapSubtext}>Map preview</Text>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>🕒</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Time</Text>
-              <Text style={styles.detailValue}>
-                {formatTime(event.startTime)} - {formatTime(event.endTime)}
-              </Text>
+          {/* Host Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Host</Text>
+            <View style={styles.hostRow}>
+              <View style={styles.hostAvatarLarge}>
+                <Text style={styles.hostAvatarLargeText}>{event.hostName.charAt(0)}</Text>
+              </View>
+              <View style={styles.hostInfo}>
+                <Text style={styles.hostNameLarge}>{event.hostName}</Text>
+                <Text style={styles.hostMeta}>Event organizer</Text>
+              </View>
+              <Pressable onPress={() => console.log('Contact host')}>
+                <Ionicons name="mail-outline" size={22} color="rgba(255, 255, 255, 0.60)" />
+              </Pressable>
             </View>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>📍</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Location</Text>
-              <Text style={styles.detailValue}>{event.location}</Text>
+          {/* About Event Section */}
+          {event.description && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About Event</Text>
+              <Text style={styles.description}>{event.description}</Text>
             </View>
-          </View>
+          )}
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailIcon}>⭐</Text>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Points</Text>
-              <Text style={styles.detailValue}>{event.points} points</Text>
+          {/* Capacity Warning */}
+          {event.capacityLabel && (
+            <View style={styles.capacityWarning}>
+              <Ionicons name="alert-circle-outline" size={18} color="#F59E0B" style={styles.warningIcon} />
+              <Text style={styles.capacityText}>{event.capacityLabel}</Text>
             </View>
-          </View>
-        </View>
-
-        {/* Description Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About this event</Text>
-          <Text style={styles.description}>{event.description}</Text>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>RSVP</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>Check In</Text>
-          </Pressable>
+          )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#0A0F1C',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
     paddingBottom: 32,
   },
-  header: {
-    marginBottom: 24,
+  heroContainer: {
+    position: 'relative',
+    height: 300,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 12,
+  coverImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  badgeText: {
+  gradientScrim: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+  },
+  topControls: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  content: {
+    padding: 20,
+  },
+  hostLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  hostAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  hostAvatarText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 10,
     fontWeight: '600',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-    lineHeight: 36,
-  },
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  detailIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  detailContent: {
+  hostLineText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.60)',
+    fontWeight: '500',
     flex: 1,
   },
-  detailLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: 'rgba(255, 255, 255, 0.96)',
+    marginBottom: 18,
+    lineHeight: 40,
+    letterSpacing: -0.6,
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 26,
+  },
+  tag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  tagText: {
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  infoBlock: {
+    marginBottom: 22,
+    paddingBottom: 22,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontWeight: '600',
+    marginBottom: 8,
+    letterSpacing: 0.8,
+  },
+  infoValue: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.90)',
     fontWeight: '500',
     marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
-  detailValue: {
-    fontSize: 16,
-    color: '#111827',
-    fontWeight: '500',
-  },
-  sectionTitle: {
-    fontSize: 18,
+  priceValue: {
+    fontSize: 20,
+    color: '#10B981',
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 12,
   },
-  description: {
-    fontSize: 16,
-    color: '#4B5563',
-    lineHeight: 24,
-  },
-  buttonContainer: {
+  actionButtons: {
+    flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
+    marginBottom: 36,
   },
   primaryButton: {
-    backgroundColor: '#3B82F6',
+    flex: 1,
+    backgroundColor: '#10B981',
     paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+  },
+  secondaryButton: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  iconButton: {
+    width: 56,
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#3B82F6',
+    letterSpacing: -0.2,
   },
   secondaryButtonText: {
-    color: '#3B82F6',
+    color: 'rgba(255, 255, 255, 0.70)',
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: -0.2,
   },
   buttonPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.98 }],
+    opacity: 0.65,
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  locationIcon: {
+    marginTop: 2,
+    marginRight: 10,
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationName: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.88)',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  locationAddress: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.55)',
+    lineHeight: 20,
+  },
+  mapCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  mapPlaceholder: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 10,
+    height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  mapSubtext: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.45)',
+    textAlign: 'center',
+  },
+  hostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  hostAvatarLarge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hostAvatarLargeText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  hostInfo: {
+    flex: 1,
+  },
+  hostNameLarge: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.90)',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  hostMeta: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.50)',
+  },
+  description: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.70)',
+    lineHeight: 24,
+  },
+  capacityWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.10)',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.25)',
+  },
+  warningIcon: {
+    marginRight: 8,
+  },
+  capacityText: {
+    color: '#F59E0B',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
   },
   errorContainer: {
     flex: 1,
@@ -294,14 +469,14 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 18,
-    color: '#6B7280',
+    color: 'rgba(255, 255, 255, 0.55)',
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#10B981',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   backButtonText: {
     color: '#FFFFFF',
