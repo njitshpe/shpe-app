@@ -1,103 +1,136 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, Modal } from 'react-native';
-import { QRScannerScreen } from './QRScannerScreen';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, SafeAreaView, Alert } from 'react-native';
+
+// SCREEN IMPORTS
+import { EditProfileScreen, UserProfileData } from './EditProfileScreen';
 import { NotificationSettingsScreen } from './NotificationSettingsScreen';
+import { QRScannerScreen } from './QRScannerScreen';
 
-// IMPORTS
-import { PhotoHelper } from '../lib/PhotoService';
-import { ImageSourceModal } from '../components/ImageSourceModal';
-
-// SHPE Brand Colors
+// Brand Colors
 const SHPE_COLORS = {
   darkBlue: '#002855',
   orange: '#FF5F05',
   white: '#FFFFFF',
   lightBlue: '#00A3E0',
-  gray: '#F4F4F4',
+  textGray: '#666666',
 };
 
-export function ProfileScreen() {
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+// --- NEW INTERFACE FOR NAVIGATION ---
+interface ProfileScreenProps {
+  onNavigateBack: () => void;
+}
+
+export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
+  // --- 1. MASTER STATE ---
+  const [userProfile, setUserProfile] = useState<UserProfileData>({
+    firstName: "Sofia",
+    lastName: "Molina",
+    major: "Computer Science",
+    profileImage: null,
+    resumeName: null,
+    interests: ["Web Dev", "AI/ML"],
+  });
+
+  // --- 2. MODAL CONTROLS ---
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [showImageOptions, setShowImageOptions] = useState(false);
-
-  // Hardcoded User Data
-  const firstName = "Sofia";
-  const lastName = "Molina";
-  const role = "Member";
-
-  // --- UPDATED HANDLER (No Timer Needed!) ---
-  const handleImageSelection = async (method: () => Promise<string | null>) => {
-    // 1. Close the overlay instantly
-    setShowImageOptions(false);
-
-    // 2. Run the picker immediately
-    // Since we aren't using a native Modal anymore, there is no conflict!
-    const uri = await method();
-    if (uri) {
-      setProfileImage(uri);
-    }
-  };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       
-      {/* --- Profile Header Section --- */}
+      {/* HEADER SECTION */}
       <View style={styles.headerContainer}>
-        <View style={styles.avatarWrapper}>
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={styles.avatar} />
+        
+        {/* --- BACK BUTTON --- */}
+        <TouchableOpacity style={styles.backButton} onPress={onNavigateBack}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+
+        <View style={styles.avatarContainer}>
+          {userProfile.profileImage ? (
+            <Image source={{ uri: userProfile.profileImage }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.initialsText}>{firstName[0]}{lastName[0]}</Text>
+              <Text style={styles.avatarInitials}>
+                {userProfile.firstName[0]}{userProfile.lastName[0]}
+              </Text>
             </View>
           )}
         </View>
 
-        <Text style={styles.nameText}>{firstName} {lastName}</Text>
-        <Text style={styles.roleText}>{role}</Text>
+        {/* Name Container (Centers text if it wraps) */}
+        <View style={styles.nameDataContainer}>
+          <Text style={styles.nameText}>
+            {userProfile.firstName} {userProfile.lastName}
+          </Text>
+        </View>
+
+        <Text style={styles.majorText}>{userProfile.major}</Text>
+        
+        {userProfile.resumeName && (
+          <View style={styles.resumeTag}>
+            <Text style={styles.resumeText}>📄 {userProfile.resumeName}</Text>
+          </View>
+        )}
       </View>
 
-      {/* --- Action Buttons --- */}
+      {/* ACTION BUTTONS */}
       <View style={styles.actionSection}>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setShowImageOptions(true)}>
-          <Text style={styles.primaryButtonText}>Change Profile Photo</Text>
+        
+        {/* 1. EDIT PROFILE */}
+        <TouchableOpacity 
+          style={styles.primaryButton} 
+          onPress={() => setShowEditProfile(true)}
+        >
+          <Text style={styles.primaryButtonText}>Edit Profile</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowScanner(true)}>
-          <Text style={styles.secondaryButtonText}>Scan QR Code</Text>
+        {/* 2. SCAN QR CODE */}
+        <TouchableOpacity 
+          style={styles.scannerButton} 
+          onPress={() => setShowScanner(true)}
+        >
+          <Text style={styles.scannerButtonText}>Scan Event QR Code</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setShowNotificationSettings(true)}>
-          <Text style={styles.primaryButtonText}>Notification Settings</Text>
+        {/* 3. NOTIFICATION SETTINGS */}
+        <TouchableOpacity 
+          style={styles.outlineButton} 
+          onPress={() => setShowNotifications(true)}
+        >
+          <Text style={styles.outlineButtonText}>Notification Settings</Text>
         </TouchableOpacity>
+
       </View>
 
-      {/* --- QR Scanner Modal (Native Modal is fine here) --- */}
-      <Modal visible={showScanner} animationType="slide" presentationStyle="fullScreen">
-        <QRScannerScreen
-          onClose={() => setShowScanner(false)}
-          onSuccess={(eventName) => Alert.alert('Success', `Checked in to ${eventName}!`)}
+      {/* --- MODALS --- */}
+
+      {/* 1. Edit Profile Modal */}
+      <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
+        <EditProfileScreen 
+          initialData={userProfile}
+          onClose={() => setShowEditProfile(false)}
+          onSave={(newData) => setUserProfile(newData)}
         />
       </Modal>
 
-      {/* --- Notification Settings Modal --- */}
-      <Modal visible={showNotificationSettings} animationType="slide" presentationStyle="fullScreen">
-        <NotificationSettingsScreen onClose={() => setShowNotificationSettings(false)} />
+      {/* 2. QR Scanner Modal */}
+      <Modal visible={showScanner} animationType="slide" presentationStyle="fullScreen">
+        <QRScannerScreen
+          onClose={() => setShowScanner(false)}
+          onSuccess={(eventName: string) => Alert.alert('Check-in Success', `Checked in to ${eventName}!`)}
+        />
       </Modal>
 
-      {/* --- NEW: Overlay Menu (Must be last to sit on top) --- */}
-      {/* Note: We place this at the very bottom so it renders ON TOP of everything else */}
-      <ImageSourceModal 
-        visible={showImageOptions}
-        onClose={() => setShowImageOptions(false)}
-        onSelectCamera={() => handleImageSelection(PhotoHelper.takePhoto)}
-        onSelectLibrary={() => handleImageSelection(PhotoHelper.pickFromLibrary)}
-        onSelectFiles={() => handleImageSelection(PhotoHelper.pickFromFiles)}
-      />
+      {/* 3. Notification Modal */}
+      <Modal visible={showNotifications} animationType="slide" presentationStyle="pageSheet">
+        <NotificationSettingsScreen 
+          onClose={() => setShowNotifications(false)} 
+        />
+      </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -106,79 +139,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SHPE_COLORS.white,
     alignItems: 'center',
-    paddingTop: 80,
   },
   headerContainer: {
+    marginTop: 10,
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 30,
+    width: '100%',
+    position: 'relative', // Necessary for absolute positioning of back button
   },
-  avatarWrapper: {
-    position: 'relative',
-    marginBottom: 20,
+  
+  // --- BACK BUTTON STYLES ---
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 0, 
+    zIndex: 10,
+    padding: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: SHPE_COLORS.darkBlue,
+    fontWeight: '600',
+  },
+  // -------------------------
+
+  avatarContainer: {
+    marginTop: 40, // Push avatar down so it doesn't overlap with back button
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
   avatar: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 4,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
     borderColor: SHPE_COLORS.orange,
   },
   avatarPlaceholder: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: SHPE_COLORS.lightBlue,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: SHPE_COLORS.orange,
   },
-  initialsText: {
-    fontSize: 50,
+  avatarInitials: {
+    fontSize: 40,
     fontWeight: 'bold',
-    color: SHPE_COLORS.darkBlue,
+    color: SHPE_COLORS.white,
   },
-  nameText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: SHPE_COLORS.darkBlue,
+  
+  // --- NAME CONTAINER STYLES ---
+  nameDataContainer: {
+    width: '80%',            
+    alignItems: 'center',    
     marginBottom: 5,
   },
-  roleText: {
-    fontSize: 18,
+  nameText: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: SHPE_COLORS.darkBlue,
+    textAlign: 'center',     
+  },
+  // -----------------------------
+
+  majorText: {
+    fontSize: 16,
+    color: SHPE_COLORS.textGray,
+  },
+  resumeTag: {
+    marginTop: 10,
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  resumeText: {
     color: SHPE_COLORS.lightBlue,
-    fontWeight: '500',
+    fontWeight: '600',
+    fontSize: 13,
   },
   actionSection: {
     width: '85%',
     gap: 15,
   },
   primaryButton: {
-    borderWidth: 2,
-    borderColor: SHPE_COLORS.lightBlue,
-    paddingVertical: 15,
+    backgroundColor: SHPE_COLORS.darkBlue,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: SHPE_COLORS.orange,
+    color: SHPE_COLORS.white,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  secondaryButton: {
+  scannerButton: {
     backgroundColor: SHPE_COLORS.orange,
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
-  secondaryButtonText: {
+  scannerButtonText: {
     color: SHPE_COLORS.white,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-  }
+  },
+  outlineButton: {
+    borderWidth: 2,
+    borderColor: SHPE_COLORS.darkBlue,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  outlineButtonText: {
+    color: SHPE_COLORS.darkBlue,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
