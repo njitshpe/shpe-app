@@ -7,7 +7,7 @@ export interface Event {
   locationName: string;
   address?: string;
   coverImageUrl?: string;
-  hostName: string;
+  hostName?: string | null;
   tags: string[];
   priceLabel?: string;
   capacityLabel?: string;

@@ -24,6 +24,10 @@ export default function EventDetailScreen() {
   // Find the event from context
   const event = events.find((evt) => evt.id === id);
 
+  // Defensive: handle null/undefined hostName
+  const hostName = (event?.hostName ?? '').trim();
+  const hostInitial = (hostName[0] ?? '?').toUpperCase();
+
   if (!event) {
     return (
       <View style={styles.container}>
@@ -75,9 +79,9 @@ export default function EventDetailScreen() {
           {/* Host Line */}
           <Pressable style={styles.hostLine} onPress={() => console.log('View host')}>
             <View style={styles.hostAvatar}>
-              <Text style={styles.hostAvatarText}>{event.hostName.charAt(0)}</Text>
+              <Text style={styles.hostAvatarText}>{hostInitial}</Text>
             </View>
-            <Text style={styles.hostLineText}>{event.hostName}</Text>
+            <Text style={styles.hostLineText}>{hostName || 'Unknown host'}</Text>
             <Ionicons name="chevron-forward" size={18} color="#6B7280" />
           </Pressable>
 
@@ -158,10 +162,10 @@ export default function EventDetailScreen() {
             <Text style={styles.sectionTitle}>Host</Text>
             <View style={styles.hostRow}>
               <View style={styles.hostAvatarLarge}>
-                <Text style={styles.hostAvatarLargeText}>{event.hostName.charAt(0)}</Text>
+                <Text style={styles.hostAvatarLargeText}>{hostInitial}</Text>
               </View>
               <View style={styles.hostInfo}>
-                <Text style={styles.hostNameLarge}>{event.hostName}</Text>
+                <Text style={styles.hostNameLarge}>{hostName || 'Unknown host'}</Text>
                 <Text style={styles.hostMeta}>Event organizer</Text>
               </View>
               <Pressable onPress={() => console.log('Contact host')}>

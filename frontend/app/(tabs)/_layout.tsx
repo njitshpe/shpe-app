@@ -2,14 +2,13 @@ import { Tabs } from 'expo-router';
 
 export default function TabsLayout() {
   return (
-    <Tabs>
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: 'Calendar',
-          tabBarIcon: () => null, // No icon for now
-        }}
-      />
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      {/* Let Expo Router auto-register tabs from file structure */}
+      {/* File: (tabs)/calendar/index.tsx → route: calendar */}
     </Tabs>
   );
 }

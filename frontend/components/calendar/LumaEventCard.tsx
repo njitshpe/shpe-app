@@ -19,6 +19,10 @@ export function LumaEventCard({
   onEdit,
   onDelete,
 }: LumaEventCardProps) {
+  // Defensive: handle null/undefined hostName
+  const hostName = (event.hostName ?? '').trim();
+  const hostInitial = (hostName[0] ?? '?').toUpperCase();
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
@@ -42,10 +46,10 @@ export function LumaEventCard({
           <View style={styles.hostRow}>
             <View style={styles.hostAvatar}>
               <Text style={styles.hostAvatarText}>
-                {event.hostName.charAt(0).toUpperCase()}
+                {hostInitial}
               </Text>
             </View>
-            <Text style={styles.hostName}>{event.hostName}</Text>
+            <Text style={styles.hostName}>{hostName || 'Unknown host'}</Text>
           </View>
 
           {/* Title */}
