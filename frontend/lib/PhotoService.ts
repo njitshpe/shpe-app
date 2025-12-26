@@ -15,8 +15,8 @@ export const PhotoHelper = {
         return null;
       }
 
-      // Note: This will crash on Simulator (Simulators have no camera)
-      // It will work on your real device via Expo Go
+      // Note: This will crash on Simulator (since they have no camera)
+      // It will work on Expo Go app however
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true, // Allows user to crop to a square
