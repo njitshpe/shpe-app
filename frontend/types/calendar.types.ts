@@ -6,15 +6,6 @@ export interface CalendarDate {
   isSelected: boolean;
 }
 
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  startTime: Date;
-  endTime: Date;
-  location?: string;
-  description?: string;
-}
-
 export interface CalendarTheme {
   background: string;
   selectedDateBackground: string;

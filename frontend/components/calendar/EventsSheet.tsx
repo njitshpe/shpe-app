@@ -1,164 +1,164 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Dimensions } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-import { CalendarEvent } from '../../types/calendar.types';
-import { calendarTheme } from '../../constants/calendarTheme';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { format, isSameDay, isSameMonth, isAfter, isBefore, startOfDay } from 'date-fns';
+import { Event } from '../../data/mockEvents';
+import { EventCard } from './EventCard';
+import { useRouter } from 'expo-router';
 
 interface EventsSheetProps {
-  events: CalendarEvent[];
-  visible: boolean;
+  events: Event[];
   selectedDate: Date;
 }
 
-const { height: screenHeight } = Dimensions.get('window');
-
 export const EventsSheet: React.FC<EventsSheetProps> = ({
   events,
-  visible,
   selectedDate,
 }) => {
-  const translateY = useSharedValue(visible ? 0 : screenHeight);
+  const router = useRouter();
+  const now = new Date();
 
-  useEffect(() => {
-    if (visible) {
-      // Slide animation: down slightly, then up
-      translateY.value = withSequence(
-        withTiming(100, { duration: 150 }),
-        withTiming(0, {
-          duration: 200,
-          easing: Easing.out(Easing.cubic),
-        })
+  // Filter events for selected date (only upcoming)
+  const selectedDateEvents = useMemo(() => {
+    return events.filter((event) => {
+      const eventStart = new Date(event.startTimeISO);
+      const eventStartDay = startOfDay(eventStart);
+      const selectedDay = startOfDay(selectedDate);
+
+      // Must be same day and not in the past
+      return (
+        isSameDay(eventStartDay, selectedDay) &&
+        (isAfter(eventStart, now) || isSameDay(eventStart, now))
       );
-    } else {
-      translateY.value = withTiming(screenHeight, { duration: 200 });
-    }
-  }, [selectedDate, visible]);
+    }).sort((a, b) => {
+      return new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime();
+    });
+  }, [events, selectedDate, now]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  // Filter events for the same month (upcoming only, sorted chronologically)
+  const monthEvents = useMemo(() => {
+    return events.filter((event) => {
+      const eventStart = new Date(event.startTimeISO);
 
-  const renderEvent = ({ item }: { item: CalendarEvent }) => (
-    <View style={styles.eventCard}>
-      <View style={styles.eventTimeContainer}>
-        <Text style={styles.eventTime}>
-          {item.startTime.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-          })}
-        </Text>
-      </View>
-      <View style={styles.eventDetails}>
-        <Text style={styles.eventTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        {item.location && (
-          <Text style={styles.eventLocation} numberOfLines={1}>
-            {item.location}
+      // Must be in same month and upcoming
+      return (
+        isSameMonth(eventStart, selectedDate) &&
+        (isAfter(eventStart, now) || isSameDay(startOfDay(eventStart), startOfDay(now)))
+      );
+    }).sort((a, b) => {
+      return new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime();
+    });
+  }, [events, selectedDate, now]);
+
+  const handleEventPress = (eventId: string) => {
+    router.push(`/event/${eventId}`);
+  };
+
+  const renderSectionHeader = (title: string) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderText}>{title}</Text>
+    </View>
+  );
+
+  const renderEvent = (event: Event) => (
+    <EventCard
+      key={event.id}
+      id={event.id}
+      title={event.title}
+      startTime={new Date(event.startTimeISO)}
+      location={event.locationName}
+      onPress={() => handleEventPress(event.id)}
+    />
+  );
+
+  // Show empty state if no events for selected date
+  if (selectedDateEvents.length === 0) {
+    const formattedDate = format(selectedDate, 'MMMM d, yyyy');
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>📅</Text>
+          <Text style={styles.emptyTitle}>No events for {formattedDate}</Text>
+          <Text style={styles.emptySubtext}>
+            Check back later or select another date
           </Text>
+        </View>
+
+        {/* Still show upcoming month events even if selected date has none */}
+        {monthEvents.length > 0 && (
+          <>
+            {renderSectionHeader(`Upcoming this ${format(selectedDate, 'MMMM')}`)}
+            {monthEvents.map(renderEvent)}
+          </>
         )}
       </View>
-    </View>
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyIcon}>📅</Text>
-      <Text style={styles.emptyText}>No events for this date</Text>
-      <Text style={styles.emptySubtext}>
-        Check back later or select another date
-      </Text>
-    </View>
-  );
+    );
+  }
 
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <View style={styles.container}>
       <FlatList
-        data={events}
-        renderItem={renderEvent}
+        data={selectedDateEvents}
+        renderItem={({ item }) => renderEvent(item)}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={renderEmptyState}
-        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={() =>
+          renderSectionHeader(`Events on ${format(selectedDate, 'MMMM d')}`)
+        }
+        ListFooterComponent={
+          monthEvents.length > selectedDateEvents.length ? (
+            <>
+              {renderSectionHeader(`More events this ${format(selectedDate, 'MMMM')}`)}
+              {monthEvents
+                .filter(e => !selectedDateEvents.find(se => se.id === e.id))
+                .map(renderEvent)}
+            </>
+          ) : null
+        }
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
       />
-    </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: calendarTheme.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 24,
+    backgroundColor: '#F9FAFB',
   },
   listContent: {
-    paddingHorizontal: 20,
+    padding: 20,
     paddingBottom: 40,
   },
-  eventCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+  sectionHeader: {
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    minHeight: 80,
+    marginTop: 8,
   },
-  eventTimeContainer: {
-    marginRight: 16,
-    justifyContent: 'center',
-    minWidth: 60,
-  },
-  eventTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  eventDetails: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  sectionHeaderText: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
-  },
-  eventLocation: {
-    fontSize: 14,
-    color: '#6B7280',
   },
   emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: 60,
+    paddingHorizontal: 40,
   },
   emptyIcon: {
     fontSize: 64,
     marginBottom: 16,
   },
-  emptyText: {
+  emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+    lineHeight: 20,
   },
 });

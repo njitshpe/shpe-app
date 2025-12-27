@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Event } from '../../data/mockEvents';
-import { EventCardNew } from './EventCardNew';
+import { EventCard } from './EventCard';
 
 interface PastEventsListProps {
   events: Event[];
@@ -43,7 +43,7 @@ export const PastEventsList: React.FC<PastEventsListProps> = ({ events }) => {
         const timeLabel = format(startTime, 'MMM d · h:mm a');
 
         return (
-          <EventCardNew
+          <EventCard
             key={event.id}
             id={event.id}
             title={event.title}

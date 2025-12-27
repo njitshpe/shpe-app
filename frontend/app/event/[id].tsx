@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,22 @@ import {
   Pressable,
   Image,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatTime, formatDateHeader } from '../../utils/date';
 import { useEvents } from '../../context/EventsContext';
 import { Ionicons } from '@expo/vector-icons';
+import MapPreview from '../../components/MapPreview';
+import AttendeesPreview from '../../components/events/AttendeesPreview';
+import EventActionBar, { ACTION_BAR_BASE_HEIGHT } from '../../components/events/EventActionBar';
+import RegistrationSuccessModal from '../../components/events/RegistrationSuccessModal';
+import EventMoreMenu from '../../components/events/EventMoreMenu';
+import { useEventRegistration } from '../../hooks/useEventRegistration';
+import { calendarService } from '../../services/calendarService';
+import { shareService } from '../../services/shareService';
+import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -25,9 +35,116 @@ export default function EventDetailScreen() {
   // Find the event from context
   const event = events.find((evt) => evt.id === id);
 
+  // Registration state
+  const { isRegistered, loading, register, cancel } = useEventRegistration(id || '');
+
+  // UI state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
   // Defensive: handle null/undefined hostName
   const hostName = (event?.hostName ?? '').trim();
   const hostInitial = (hostName[0] ?? '?').toUpperCase();
+
+  /**
+   * Handle Register button press
+   */
+  const handleRegister = async () => {
+    if (isRegistered) {
+      // Already registered - could show ticket or just do nothing
+      Alert.alert(
+        'Already Registered',
+        'You are already registered for this event.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await register();
+      setShowSuccessModal(true);
+    } catch (error) {
+      Alert.alert(
+        'Registration Failed',
+        'Unable to register for this event. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  /**
+   * Handle Check-In button press
+   */
+  const handleCheckIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: '/check-in',
+      params: { eventId: id },
+    });
+  };
+
+  /**
+   * Handle More menu button press
+   */
+  const handleMorePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowMoreMenu(true);
+  };
+
+  /**
+   * Handle Share button press
+   */
+  const handleShare = async () => {
+    if (!event) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await shareService.shareEvent({
+      title: event.title,
+      startTimeISO: event.startTimeISO,
+      endTimeISO: event.endTimeISO,
+      locationName: event.locationName,
+      address: event.address,
+      description: event.description,
+      // deepLink: `shpeapp://event/${event.id}`, // Add when deep linking is implemented
+    });
+  };
+
+  /**
+   * Handle Add to Calendar
+   */
+  const handleAddToCalendar = async () => {
+    if (!event) return;
+
+    await calendarService.addToCalendar({
+      title: event.title,
+      startDate: event.startTimeISO,
+      endDate: event.endTimeISO,
+      location: event.address || event.locationName,
+      notes: event.description,
+    });
+  };
+
+  /**
+   * Handle Cancel Registration
+   */
+  const handleCancelRegistration = async () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      await cancel();
+      Alert.alert(
+        'Registration Cancelled',
+        'Your registration has been cancelled.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      Alert.alert(
+        'Cancellation Failed',
+        'Unable to cancel registration. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
 
   if (!event) {
     return (
@@ -46,7 +163,10 @@ export default function EventDetailScreen() {
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: ACTION_BAR_BASE_HEIGHT + (insets.bottom || 16) + 16 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Cover Image - Square 1:1 with rounded bottom corners */}
@@ -61,7 +181,7 @@ export default function EventDetailScreen() {
               <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
             </Pressable>
 
-            <Pressable style={styles.shareButton} onPress={() => console.log('Share')}>
+            <Pressable style={styles.shareButton} onPress={handleShare}>
               <Ionicons name="share-outline" size={22} color="#1C1C1E" />
             </Pressable>
           </View>
@@ -73,55 +193,6 @@ export default function EventDetailScreen() {
           {/* Title - High-end Typography */}
           <Text style={styles.title}>{event.title}</Text>
 
-          {/* Tags */}
-          {event.tags.length > 0 && (
-            <View style={styles.tagsRow}>
-              {event.tags.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Action Pill Row */}
-          <View style={styles.actionPillRow}>
-            {/* Register Pill - Black Background */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.registerPill,
-                pressed && styles.pillPressed,
-              ]}
-              onPress={() => console.log('Register')}
-            >
-              <Ionicons name="add-circle-outline" size={20} color="#FDFBF7" />
-              <Text style={styles.registerPillText}>Register</Text>
-            </Pressable>
-
-            {/* Contact Pill - White Background */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.contactPill,
-                pressed && styles.pillPressed,
-              ]}
-              onPress={() => console.log('Contact')}
-            >
-              <Ionicons name="camera-outline" size={20} color="#1C1C1E" />
-              <Text style={styles.contactPillText}>Check-In</Text>
-            </Pressable>
-
-            {/* More Circle - White Background */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.moreCircle,
-                pressed && styles.pillPressed,
-              ]}
-              onPress={() => console.log('More')}
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color="#1C1C1E" />
-            </Pressable>
-          </View>
-
           {/* Date & Time */}
           <View style={styles.infoBlock}>
             <Text style={styles.infoLabel}>DATE & TIME</Text>
@@ -130,6 +201,14 @@ export default function EventDetailScreen() {
               {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
             </Text>
           </View>
+
+          {/* About Event Section */}
+          {event.description && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About Event</Text>
+              <Text style={styles.description}>{event.description}</Text>
+            </View>
+          )}
 
           {/* Location Section */}
           <View style={styles.section}>
@@ -143,17 +222,17 @@ export default function EventDetailScreen() {
             </View>
 
             {/* Map Preview Card */}
-            <View style={styles.mapCard}>
-              <View style={styles.mapPlaceholder}>
-                <Ionicons name="map-outline" size={40} color="#6e6e73" />
-              </View>
-              <Text style={styles.mapSubtext}>Map preview</Text>
-            </View>
+            <MapPreview
+              locationName={event.locationName}
+              address={event.address}
+              latitude={event.latitude}
+              longitude={event.longitude}
+            />
           </View>
 
-          {/* Partners Section */}
+          {/* Hosts Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Partners</Text>
+            <Text style={styles.sectionTitle}>Hosts</Text>
             <View style={styles.hostRow}>
               <View style={styles.hostAvatarLarge}>
                 <Text style={styles.hostAvatarLargeText}>{hostInitial}</Text>
@@ -168,13 +247,11 @@ export default function EventDetailScreen() {
             </View>
           </View>
 
-          {/* About Event Section */}
-          {event.description && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>About Event</Text>
-              <Text style={styles.description}>{event.description}</Text>
-            </View>
-          )}
+          {/* Attendees Preview Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Who's Going</Text>
+            <AttendeesPreview eventId={event.id} />
+          </View>
 
           {/* Capacity Warning */}
           {event.capacityLabel && (
@@ -183,9 +260,49 @@ export default function EventDetailScreen() {
               <Text style={styles.capacityText}>{event.capacityLabel}</Text>
             </View>
           )}
+          
+          {/* Tags */}
+          {event.tags.length > 0 && (
+            <View style={styles.tagsRow}>
+              {event.tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+
         </View>
       </ScrollView>
+
+
+      {/* Sticky Action Bar */}
+      <EventActionBar
+        onRegisterPress={handleRegister}
+        onCheckInPress={handleCheckIn}
+        onMorePress={handleMorePress}
+        isRegistered={isRegistered}
+        isCheckInAvailable={true}
+        isLoading={loading}
+      />
+
+      {/* Registration Success Modal */}
+      <RegistrationSuccessModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      {/* More Menu */}
+      <EventMoreMenu
+        visible={showMoreMenu}
+        onClose={() => setShowMoreMenu(false)}
+        isRegistered={isRegistered}
+        onAddToCalendar={handleAddToCalendar}
+        onCancelRegistration={handleCancelRegistration}
+      />
     </View>
+
   );
 }
 
@@ -199,7 +316,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    // paddingBottom is set dynamically in component
   },
 
   // HERO IMAGE - Square 1:1 with rounded bottom corners (Tab feel)
@@ -316,68 +433,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ACTION PILL ROW - Artistic Floating Buttons
-  actionPillRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 32,
-  },
-  registerPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  registerPillText: {
-    color: '#FDFBF7',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  contactPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FDFBF7',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: '#1C1C1E',
-  },
-  contactPillText: {
-    color: '#1C1C1E',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  moreCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FDFBF7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#1C1C1E',
-  },
-  pillPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.97 }],
-  },
-
   // INFO BLOCKS
   infoBlock: {
     marginBottom: 24,
@@ -439,32 +494,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#6e6e73',
     lineHeight: 22,
-  },
-  mapCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#E8E5E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  mapPlaceholder: {
-    backgroundColor: '#F5F3F0',
-    borderRadius: 12,
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  mapSubtext: {
-    fontSize: 13,
-    color: '#6e6e73',
-    textAlign: 'center',
-    fontWeight: '500',
   },
   // HOST SECTION
   hostRow: {

@@ -28,10 +28,6 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
   const router = useRouter();
   const today = startOfDay(new Date());
 
-  // DEBUG: Log fetched events
-  console.log('[EventsList] Fetched Events:', events?.length || 0, 'events');
-  console.log('[EventsList] First event:', events?.[0]);
-
   // Split events into sections: Today's Events + Upcoming Events
   const sections = useMemo((): EventSection[] => {
     const selectedDay = startOfDay(selectedDate);

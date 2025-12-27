@@ -1,207 +1,115 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FloatingIconButton } from '../ui/FloatingIconButton';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { format, isSameDay } from 'date-fns';
 
 interface CalendarHeaderProps {
-  coverImageUrl?: string;
-  logoUrl?: string;
-  title: string;
-  subtitle: string;
-  onSubscribe?: () => void;
-  onBack?: () => void;
+  selectedDate: Date;
+  onHeaderPress?: () => void;
+  isMonthPickerOpen?: boolean;
+  onTodayPress?: () => void; // Magnetic today action
 }
 
-export function CalendarHeader({
-  coverImageUrl,
-  title,
-  subtitle,
-  onSubscribe,
-  onBack,
-}: CalendarHeaderProps) {
-  const insets = useSafeAreaInsets();
+export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
+  selectedDate,
+  onHeaderPress,
+  isMonthPickerOpen = false,
+  onTodayPress,
+}) => {
+  const headerText = format(selectedDate, 'MMMM do');
+
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+
+  // Check if selected date is today
+  const isToday = isSameDay(selectedDate, new Date());
+
+  React.useEffect(() => {
+    Animated.timing(rotateAnim, {
+      toValue: isMonthPickerOpen ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isMonthPickerOpen, rotateAnim]);
+
+  const chevronRotation = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
 
   return (
     <View style={styles.container}>
-      {/* Hero Cover Image with Gradient Scrim */}
-      <View style={styles.coverContainer}>
-        {coverImageUrl ? (
-          <Image source={{ uri: coverImageUrl }} style={styles.coverImage} />
-        ) : (
-          <View style={[styles.coverImage, styles.placeholderCover]} />
-        )}
-
-        {/* Dark Gradient Scrim Overlay */}
-        <LinearGradient
-          colors={['rgba(11, 18, 32, 0)', 'rgba(11, 18, 32, 0.85)']}
-          style={styles.gradientScrim}
-        />
-
-        {/* Floating Top Controls */}
-        <View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
-          <FloatingIconButton
-            icon={<Ionicons name="arrow-back" size={20} color="#F9FAFB" />}
-            onPress={onBack}
-          />
-
-          <View style={styles.topRightControls}>
-            <FloatingIconButton
-              icon={<Ionicons name="search" size={20} color="#F9FAFB" />}
-              onPress={() => console.log('Search')}
-            />
-            <FloatingIconButton
-              icon={<Ionicons name="ellipsis-horizontal" size={20} color="#F9FAFB" />}
-              onPress={() => console.log('More')}
-            />
-          </View>
-        </View>
-
-        {/* Organizer Logo Avatar (overlapping) */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>SHPE</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Organizer Info Block */}
-      <View style={styles.infoContainer}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-
-        {/* Subscribe Button */}
+      <View style={styles.headerRow}>
         <Pressable
-          style={({ pressed }) => [
-            styles.subscribeButton,
-            pressed && styles.subscribeButtonPressed,
-          ]}
-          onPress={onSubscribe}
+          style={styles.headerButton}
+          onPress={onHeaderPress}
         >
-          <Text style={styles.subscribeText}>Subscribe</Text>
+          <Text style={styles.headerText}>{headerText}</Text>
+          <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
+            <Ionicons name="chevron-down" size={24} color="#000000" style={styles.chevron} />
+          </Animated.View>
         </Pressable>
 
-        {/* Social Icons Row */}
-        <View style={styles.socialIcons}>
-          <Pressable style={styles.socialIcon}>
-            <Ionicons name="globe-outline" size={18} color="#6B7280" />
+        {/* Magnetic Today Button */}
+        {onTodayPress && (
+          <Pressable
+            style={[styles.todayButton, isToday && styles.todayButtonInactive]}
+            onPress={onTodayPress}
+          >
+            <Ionicons
+              name="alarm-outline"
+              size={22}
+              color="#000000"
+              style={[styles.todayIcon, isToday && styles.todayIconInactive]}
+            />
           </Pressable>
-          <Pressable style={styles.socialIcon}>
-            <Ionicons name="logo-instagram" size={18} color="#6B7280" />
-          </Pressable>
-        </View>
+        )}
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
-  },
-  coverContainer: {
-    position: 'relative',
-    height: 220,
-    marginBottom: 44,
-  },
-  coverImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  placeholderCover: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  gradientScrim: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '70%',
-  },
-  topControls: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  topRightControls: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  logoContainer: {
-    position: 'absolute',
-    bottom: -36,
-    left: 20,
-  },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 14,
-    backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#0A0F1C',
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  infoContainer: {
     paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'rgba(255, 255, 255, 0.95)',
-    marginBottom: 10,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerText: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#000000',
     letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.55)',
-    marginBottom: 18,
-    lineHeight: 21,
+  chevron: {
+    marginLeft: 8,
+    opacity: 0.6,
   },
-  subscribeButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    marginBottom: 16,
-  },
-  subscribeButtonPressed: {
-    opacity: 0.65,
-  },
-  subscribeIcon: {
-    marginRight: 6,
-  },
-  subscribeText: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  socialIcons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  socialIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  todayButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  todayButtonInactive: {
+    backgroundColor: 'transparent',
+  },
+  todayIcon: {
+    opacity: 1,
+  },
+  todayIconInactive: {
+    opacity: 0.5,
   },
 });
