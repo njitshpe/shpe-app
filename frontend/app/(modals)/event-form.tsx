@@ -215,18 +215,6 @@ export default function EventFormScreen() {
           />
         </View>
 
-        {/* Price Label */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Price Label</Text>
-          <TextInput
-            style={styles.input}
-            value={priceLabel}
-            onChangeText={setPriceLabel}
-            placeholder="Free"
-            placeholderTextColor="#6B7280"
-          />
-        </View>
-
         {/* Capacity Label */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Capacity Label</Text>
