@@ -59,10 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  /**
-   * Sign in with email and password
-   * Validates input and provides user-friendly error messages
-   */
+  // Sign in with email and password
+  // Validates input and provides user-friendly error messages
   const signIn = async (email: string, password: string) => {
     try {
       // Validate email format
@@ -103,10 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Sign up with email and password
-   * Validates input and provides user-friendly error messages
-   */
+  // Sign up with email and password
+  // Validates input and provides user-friendly error messages
   const signUp = async (email: string, password: string, metadata?: Record<string, any>) => {
     try {
       // Validate email format
@@ -159,10 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Sign in with Google OAuth
-   * Handles OAuth flow with proper error handling
-   */
+  // Sign in with Google OAuth
+  // Handles OAuth flow with proper error handling
   const signInWithGoogle = async () => {
     try {
       const redirectUri = AUTH_CONFIG.REDIRECT_URI;

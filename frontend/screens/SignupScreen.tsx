@@ -64,6 +64,10 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
     }
 
     setLoading(true);
+
+    // Check if user already exists (Will implement in the future)
+    // Manual checks against user_profiles fail due to RLS policies (unauthenticated users can't read profiles).
+
     const result = await signUp(finalEmail, password, {
       user_type: userType,
       onboarding_completed: false,

@@ -14,7 +14,10 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
     SafeAreaView,
+    Image,
+    ActionSheetIOS,
 } from 'react-native';
+import { PhotoHelper } from '../../lib/PhotoService';
 import type { UserType } from '../../types/userProfile';
 
 interface OnboardingPage1Props {
@@ -52,9 +55,63 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
     const [affiliation, setAffiliation] = useState(initialData.affiliation || '');
     const [bio, setBio] = useState(initialData.bio || '');
 
+    const [profilePicture, setProfilePicture] = useState(initialData.profile_picture_url || null);
+
     // Dropdown state
     const [modalVisible, setModalVisible] = useState(false);
     const [dropdownType, setDropdownType] = useState<'major' | 'affiliation' | null>(null);
+
+    const handleImagePick = async () => {
+        const options = ['Take Photo', 'Choose from Library', 'Choose from Files', 'Cancel'];
+        const cancelButtonIndex = 3;
+
+        if (Platform.OS === 'ios') {
+            ActionSheetIOS.showActionSheetWithOptions(
+                {
+                    options,
+                    cancelButtonIndex,
+                },
+                async (buttonIndex) => {
+                    if (buttonIndex === 0) {
+                        const uri = await PhotoHelper.takePhoto();
+                        if (uri) setProfilePicture(uri);
+                    } else if (buttonIndex === 1) {
+                        const uri = await PhotoHelper.pickFromLibrary();
+                        if (uri) setProfilePicture(uri);
+                    } else if (buttonIndex === 2) {
+                        const uri = await PhotoHelper.pickFromFiles();
+                        if (uri) setProfilePicture(uri);
+                    }
+                }
+            );
+        } else {
+            Alert.alert(
+                'Change Profile Picture',
+                'Choose an option',
+                [
+                    {
+                        text: 'Take Photo', onPress: async () => {
+                            const uri = await PhotoHelper.takePhoto();
+                            if (uri) setProfilePicture(uri);
+                        }
+                    },
+                    {
+                        text: 'Choose from Library', onPress: async () => {
+                            const uri = await PhotoHelper.pickFromLibrary();
+                            if (uri) setProfilePicture(uri);
+                        }
+                    },
+                    {
+                        text: 'Choose from Files', onPress: async () => {
+                            const uri = await PhotoHelper.pickFromFiles();
+                            if (uri) setProfilePicture(uri);
+                        }
+                    },
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        }
+    };
 
     const handleNext = () => {
         // Validation
@@ -83,6 +140,7 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
             first_name: firstName.trim(),
             last_name: lastName.trim(),
             bio: bio.trim(),
+            profile_picture_url: profilePicture,
         };
 
         if (userType === 'student' || userType === 'alumni') {
@@ -135,6 +193,27 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
                 <ScrollView style={styles.container} contentContainerStyle={styles.content}>
                     <Text style={styles.title}>Let's get to know you</Text>
                     <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
+
+                    {/* Avatar Picker */}
+                    <View style={styles.avatarContainer}>
+                        <TouchableOpacity onPress={handleImagePick} style={styles.avatarWrapper}>
+                            {profilePicture ? (
+                                <Image source={{ uri: profilePicture }} style={styles.avatar} />
+                            ) : (
+                                <View style={styles.avatarPlaceholder}>
+                                    <Text style={styles.avatarInitials}>
+                                        {firstName && lastName ? `${firstName[0]}${lastName[0]}` : '📷'}
+                                    </Text>
+                                </View>
+                            )}
+                            <View style={styles.editIconBadge}>
+                                <Text style={styles.editIconText}>+</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleImagePick}>
+                            <Text style={styles.changePhotoText}>Add Profile Photo</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     {/* First Name */}
                     <View style={styles.inputGroup}>
@@ -378,5 +457,54 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#D35400',
         fontWeight: 'bold',
+    },
+    avatarContainer: {
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    avatarWrapper: {
+        position: 'relative',
+    },
+    avatar: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+    },
+    avatarPlaceholder: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#E0E0E0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarInitials: {
+        fontSize: 36,
+        color: '#666',
+        fontWeight: 'bold',
+    },
+    editIconBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: '#D35400',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+    },
+    editIconText: {
+        fontSize: 20,
+        color: '#FFF',
+        fontWeight: 'bold',
+    },
+    changePhotoText: {
+        marginTop: 8,
+        color: '#D35400',
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

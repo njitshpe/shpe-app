@@ -27,6 +27,8 @@ export interface BaseProfile {
     linkedin_url?: string;
     phone_number?: string;
     profile_picture_url?: string;
+    resume_url?: string;
+    resume_name?: string;
     created_at: string;
     updated_at: string;
 }

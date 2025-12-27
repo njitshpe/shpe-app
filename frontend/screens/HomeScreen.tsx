@@ -1,13 +1,15 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { QRScannerScreen } from './QRScannerScreen';
 
 interface HomeScreenProps {
   onNavigateToProfile: () => void;
 }
 
 export function HomeScreen({ onNavigateToProfile }: HomeScreenProps) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateUserMetadata, profile } = useAuth();
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -43,6 +45,33 @@ export function HomeScreen({ onNavigateToProfile }: HomeScreenProps) {
           <Text style={styles.debugText}>
             Created: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
           </Text>
+
+          <View style={styles.debugActions}>
+            <TouchableOpacity
+              style={styles.debugButton}
+              onPress={async () => {
+                try {
+                  await updateUserMetadata({ onboarding_completed: false });
+                  Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
+                } catch (e) {
+                  Alert.alert('Error', 'Failed to reset onboarding');
+                }
+              }}
+            >
+              <Text style={styles.debugButtonText}>Reset Onboarding</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.debugButton}
+              onPress={() => {
+                console.log('User:', JSON.stringify(user, null, 2));
+                console.log('Profile:', JSON.stringify(profile, null, 2));
+                Alert.alert('Logged', 'User data logged to console');
+              }}
+            >
+              <Text style={styles.debugButtonText}>Log User Data</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -50,9 +79,20 @@ export function HomeScreen({ onNavigateToProfile }: HomeScreenProps) {
         <Text style={styles.profileButtonText}>View Profile</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.scannerButton} onPress={() => setShowScanner(true)}>
+        <Text style={styles.scannerButtonText}>Scan Event QR Code</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>
+
+      <Modal visible={showScanner} animationType="slide" presentationStyle="fullScreen">
+        <QRScannerScreen
+          onClose={() => setShowScanner(false)}
+          onSuccess={(eventName: string) => Alert.alert('Check-in Success', `Checked in to ${eventName}!`)}
+        />
+      </Modal>
     </View>
   );
 }
@@ -131,6 +171,25 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginBottom: 4,
   },
+  debugActions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  debugButton: {
+    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  debugButtonText: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: '500',
+  },
   profileButton: {
     backgroundColor: '#D35400',
     padding: 16,
@@ -153,6 +212,18 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     color: '#666',
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  scannerButton: {
+    backgroundColor: '#002855',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  scannerButtonText: {
+    color: '#fff',
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 16,

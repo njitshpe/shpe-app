@@ -1,21 +1,14 @@
 import React, { useState, Suspense, lazy } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, SafeAreaView, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 // SCREEN IMPORTS
-import { EditProfileScreen, UserProfileData } from './EditProfileScreen';
+import { EditProfileScreen } from './EditProfileScreen';
+// Lazy load NotificationSettingsScreen (only loads when user clicks "Notification Settings")
 // Lazy load NotificationSettingsScreen (only loads when user clicks "Notification Settings")
 const NotificationSettingsScreen = lazy(() => import('./NotificationSettingsScreen').then(module => ({ default: module.NotificationSettingsScreen })));
-import { QRScannerScreen } from './QRScannerScreen';
 
-// Brand Colors
-const SHPE_COLORS = {
-  darkBlue: '#055491ff',
-  orange: '#D35400',
-  white: '#FFFFFF',
-  lightBlue: '#00A3E0',
-  textGray: '#666666',
-};
+import { SHPE_COLORS } from '../constants/colors';
 
 // --- NEW INTERFACE FOR NAVIGATION ---
 interface ProfileScreenProps {
@@ -23,28 +16,58 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
-  const { user } = useAuth();
+  const { user, profile, loadProfile } = useAuth();
 
-  // Extract first and last name from email (temporary until onboarding is complete)
-  const emailName = user?.email?.split('@')[0] || 'User';
-  const nameParts = emailName.split(/[._-]/);
-  const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || 'User';
-  const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || '';
+  // Load profile on mount if missing
+  React.useEffect(() => {
+    if (user?.id && !profile) {
+      loadProfile(user.id);
+    }
+  }, [user, profile]);
 
-  // --- 1. MASTER STATE ---
-  const [userProfile, setUserProfile] = useState<UserProfileData>({
-    firstName: firstName,
-    lastName: lastName,
-    major: "Not set", // Will be filled during onboarding
-    profileImage: null,
-    resumeName: null,
-    interests: [],
-  });
-
-  // --- 2. MODAL CONTROLS ---
+  // --- MODALS CONTROLS ---
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
+
+  // Helper to get display name
+  const getDisplayName = () => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    return user?.email?.split('@')[0] || 'User';
+  };
+
+  // Helper to get initials
+  const getInitials = () => {
+    if (profile?.first_name && profile?.last_name) {
+      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
+    }
+    return (user?.email?.slice(0, 2) || 'US').toUpperCase();
+  };
+
+  // Helper to get major/position
+  const getSubtitle = () => {
+    if (!profile) return "Complete your profile to get started";
+
+    if (profile.user_type === 'student') {
+      return profile.major || "Student";
+    } else if (profile.user_type === 'alumni') {
+      return profile.current_position
+        ? `${profile.current_position} at ${profile.current_company || 'Unknown'}`
+        : "Alumni";
+    } else {
+      return profile.affiliation || "Member";
+    }
+  };
+
+  const handleProfileUpdate = async (updatedProfile: any) => {
+    // In a real app, the EditProfileScreen would call the API
+    // and we would just reload the profile here.
+    // For now, we assume EditProfileScreen calls the service and we reload.
+    if (user?.id) {
+      await loadProfile(user.id);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -58,34 +81,57 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
         </TouchableOpacity>
 
         <View style={styles.avatarContainer}>
-          {userProfile.profileImage ? (
-            <Image source={{ uri: userProfile.profileImage }} style={styles.avatar} />
+          {profile?.profile_picture_url ? (
+            <Image source={{ uri: profile.profile_picture_url }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitials}>
-                {userProfile.firstName[0]}{userProfile.lastName[0]}
+                {getInitials()}
               </Text>
             </View>
           )}
         </View>
 
-        {/* Name Container (Centers text if it wraps) */}
+        {/* Name Container */}
         <View style={styles.nameDataContainer}>
           <Text style={styles.nameText}>
-            {userProfile.firstName} {userProfile.lastName}
+            {getDisplayName()}
           </Text>
           <Text style={styles.emailText}>{user?.email}</Text>
         </View>
 
         <Text style={styles.majorText}>
-          {userProfile.major === "Not set" ? "Complete your profile to get started" : userProfile.major}
+          {getSubtitle()}
         </Text>
 
-        {userProfile.resumeName && (
-          <View style={styles.resumeTag}>
-            <Text style={styles.resumeText}>📄 {userProfile.resumeName}</Text>
-          </View>
+        {profile?.bio && (
+          <Text style={styles.bioText} numberOfLines={3}>
+            {profile.bio}
+          </Text>
         )}
+
+        <View style={styles.linksContainer}>
+          {profile?.linkedin_url && (
+            <TouchableOpacity
+              style={styles.linkedinButton}
+              onPress={() => {
+                let url = profile.linkedin_url!;
+                if (!url.startsWith('http')) {
+                  url = 'https://' + url;
+                }
+                Linking.openURL(url).catch(err => Alert.alert('Error', 'Could not open LinkedIn'));
+              }}
+            >
+              <Text style={styles.linkedinText}>LinkedIn</Text>
+            </TouchableOpacity>
+          )}
+
+          {profile?.resume_name && (
+            <View style={styles.resumeTag}>
+              <Text style={styles.resumeText}>Resume</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* ACTION BUTTONS */}
@@ -99,15 +145,7 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
           <Text style={styles.primaryButtonText}>Edit Profile</Text>
         </TouchableOpacity>
 
-        {/* 2. SCAN QR CODE */}
-        <TouchableOpacity
-          style={styles.scannerButton}
-          onPress={() => setShowScanner(true)}
-        >
-          <Text style={styles.scannerButtonText}>Scan Event QR Code</Text>
-        </TouchableOpacity>
-
-        {/* 3. NOTIFICATION SETTINGS */}
+        {/* 2. NOTIFICATION SETTINGS */}
         <TouchableOpacity
           style={styles.outlineButton}
           onPress={() => setShowNotifications(true)}
@@ -120,22 +158,24 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
 
       {/* 1. Edit Profile Modal */}
       <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
-        <EditProfileScreen
-          initialData={userProfile}
-          onClose={() => setShowEditProfile(false)}
-          onSave={(newData) => setUserProfile(newData)}
-        />
+        {profile ? (
+          <EditProfileScreen
+            initialData={profile}
+            onClose={() => setShowEditProfile(false)}
+            onSave={handleProfileUpdate}
+          />
+        ) : (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
+            <Text style={{ marginTop: 10, color: SHPE_COLORS.textGray }}>Loading profile...</Text>
+            <TouchableOpacity onPress={() => setShowEditProfile(false)} style={{ marginTop: 20 }}>
+              <Text style={{ color: SHPE_COLORS.lightBlue }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Modal>
 
-      {/* 2. QR Scanner Modal */}
-      <Modal visible={showScanner} animationType="slide" presentationStyle="fullScreen">
-        <QRScannerScreen
-          onClose={() => setShowScanner(false)}
-          onSuccess={(eventName: string) => Alert.alert('Check-in Success', `Checked in to ${eventName}!`)}
-        />
-      </Modal>
-
-      {/* 3. Notification Modal + Added lazy loading */}
+      {/* 2. Notification Modal */}
       <Modal visible={showNotifications} animationType="slide" presentationStyle="pageSheet">
         <Suspense fallback={
           <View style={styles.loadingFallback}>
@@ -244,6 +284,33 @@ const styles = StyleSheet.create({
   },
   resumeText: {
     color: SHPE_COLORS.white,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  bioText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 20,
+    fontStyle: 'italic',
+  },
+  linksContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 15,
+    flexWrap: 'wrap',
+  },
+  linkedinButton: {
+    backgroundColor: '#0077B5', // LinkedIn Blue
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  linkedinText: {
+    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 13,
   },

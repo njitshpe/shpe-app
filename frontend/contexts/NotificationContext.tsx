@@ -63,9 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  /**
-   * Initialize notification system
-   */
+  // Initialize notification system
   const initializeNotifications = async () => {
     setIsLoading(true);
     try {
@@ -82,9 +80,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Load user preferences from Supabase
-   */
+  // Load user preferences from Supabase
   const loadUserPreferences = async () => {
     if (!user) return;
 
@@ -118,9 +114,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Create default preferences for new user
-   */
+  // Create default preferences for new user
   const createDefaultPreferences = async () => {
     if (!user) return;
 
@@ -141,9 +135,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Request notification permission
-   */
+  // Request notification permission
   const requestPermission = async (): Promise<boolean> => {
     const status = await notificationService.requestPermission();
     setPermissionStatus(status);
@@ -155,17 +147,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return status.granted;
   };
 
-  /**
-   * Refresh permission status
-   */
+  // Refresh permission status
   const refreshPermissionStatus = async () => {
     const status = await notificationService.checkPermission();
     setPermissionStatus(status);
   };
 
-  /**
-   * Update a specific notification preference
-   */
+  // Update a specific notification preference
   const updatePreference = async (
     type: keyof NotificationPreferences,
     enabled: boolean
@@ -222,9 +210,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Update all preferences at once (master toggle)
-   */
+  // Update all preferences at once (master toggle)
   const updateAllPreferences = async (enabled: boolean): Promise<void> => {
     if (!user) return;
 
@@ -264,17 +250,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  /**
-   * Handle notification received while app is in foreground
-   */
+  // Handle notification received while app is in foreground
   const handleNotificationReceived = (notification: Notifications.Notification) => {
     console.log('Notification received in foreground:', notification);
     // You can add custom logic here, like updating UI or incrementing badge
   };
 
-  /**
-   * Handle notification tap/response
-   */
+  // Handle notification tap/response
   const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
     console.log('User tapped notification:', response);
     const data = response.notification.request.content.data;
