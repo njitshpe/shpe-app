@@ -1,5 +1,6 @@
 import React, { useState, Suspense, lazy } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
 
 // SCREEN IMPORTS
 import { EditProfileScreen, UserProfileData } from './EditProfileScreen';
@@ -9,8 +10,8 @@ import { QRScannerScreen } from './QRScannerScreen';
 
 // Brand Colors
 const SHPE_COLORS = {
-  darkBlue: '#002855',
-  orange: '#FF5F05',
+  darkBlue: '#055491ff',
+  orange: '#D35400',
   white: '#FFFFFF',
   lightBlue: '#00A3E0',
   textGray: '#666666',
@@ -22,14 +23,22 @@ interface ProfileScreenProps {
 }
 
 export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
+  const { user } = useAuth();
+
+  // Extract first and last name from email (temporary until onboarding is complete)
+  const emailName = user?.email?.split('@')[0] || 'User';
+  const nameParts = emailName.split(/[._-]/);
+  const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || 'User';
+  const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || '';
+
   // --- 1. MASTER STATE ---
   const [userProfile, setUserProfile] = useState<UserProfileData>({
-    firstName: "Sofia",
-    lastName: "Molina",
-    major: "Computer Science",
+    firstName: firstName,
+    lastName: lastName,
+    major: "Not set", // Will be filled during onboarding
     profileImage: null,
     resumeName: null,
-    interests: ["Web Dev", "AI/ML"],
+    interests: [],
   });
 
   // --- 2. MODAL CONTROLS ---
@@ -65,9 +74,12 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
           <Text style={styles.nameText}>
             {userProfile.firstName} {userProfile.lastName}
           </Text>
+          <Text style={styles.emailText}>{user?.email}</Text>
         </View>
 
-        <Text style={styles.majorText}>{userProfile.major}</Text>
+        <Text style={styles.majorText}>
+          {userProfile.major === "Not set" ? "Complete your profile to get started" : userProfile.major}
+        </Text>
 
         {userProfile.resumeName && (
           <View style={styles.resumeTag}>
@@ -144,136 +156,151 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SHPE_COLORS.white,
-    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
   headerContainer: {
-    marginTop: 10,
+    backgroundColor: SHPE_COLORS.darkBlue,
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 30,
-    width: '100%',
-    position: 'relative', // Necessary for absolute positioning of back button
+    position: 'relative',
   },
 
   // BACK BUTTON STYLES
   backButton: {
     position: 'absolute',
     left: 20,
-    top: 0,
+    top: 60,
     zIndex: 10,
     padding: 10,
   },
   backButtonText: {
     fontSize: 16,
-    color: SHPE_COLORS.darkBlue,
+    color: SHPE_COLORS.white,
     fontWeight: '600',
   },
-  // -------------------------
 
   avatarContainer: {
-    marginTop: 40, // Push avatar down so it doesn't overlap with back button
+    marginTop: 20,
     marginBottom: 15,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: SHPE_COLORS.orange,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: SHPE_COLORS.white,
   },
   avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: SHPE_COLORS.lightBlue,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: SHPE_COLORS.orange,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: SHPE_COLORS.orange,
+    borderWidth: 4,
+    borderColor: SHPE_COLORS.white,
   },
   avatarInitials: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: 'bold',
     color: SHPE_COLORS.white,
   },
 
-  // --- NAME CONTAINER STYLES ---
   nameDataContainer: {
-    width: '80%',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   nameText: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: SHPE_COLORS.darkBlue,
+    color: SHPE_COLORS.white,
     textAlign: 'center',
   },
-  // -----------------------------
+  emailText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
 
   majorText: {
-    fontSize: 16,
-    color: SHPE_COLORS.textGray,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    fontWeight: '500',
   },
   resumeTag: {
     marginTop: 10,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 15,
   },
   resumeText: {
-    color: SHPE_COLORS.lightBlue,
+    color: SHPE_COLORS.white,
     fontWeight: '600',
     fontSize: 13,
   },
+
   actionSection: {
-    width: '85%',
-    gap: 15,
+    padding: 20,
+    gap: 12,
   },
+
   primaryButton: {
-    backgroundColor: SHPE_COLORS.darkBlue,
+    backgroundColor: SHPE_COLORS.orange,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primaryButtonText: {
     color: SHPE_COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
+
   scannerButton: {
-    backgroundColor: SHPE_COLORS.orange,
+    backgroundColor: SHPE_COLORS.darkBlue,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   scannerButtonText: {
     color: SHPE_COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
+
   outlineButton: {
-    borderWidth: 2,
-    borderColor: SHPE_COLORS.darkBlue,
-    paddingVertical: 15,
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 16,
+    borderRadius: 8,
     alignItems: 'center',
   },
   outlineButtonText: {
-    color: SHPE_COLORS.darkBlue,
+    color: '#666',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
+
   loadingFallback: {
     flex: 1,
     justifyContent: 'center',

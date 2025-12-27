@@ -18,6 +18,7 @@ import { LoginScreen } from './screens/LoginScreen';
 import { SignupScreen } from './screens/SignupScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
 
 // Debugging
 console.log('Redirect URI:', makeRedirectUri());
@@ -27,7 +28,7 @@ type AuthScreen = 'login' | 'signup';
 type AppScreen = 'home' | 'profile';
 
 function AppContent() {
-  const { session, isLoading } = useAuth();
+  const { session, user, profile, isLoading } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [appScreen, setAppScreen] = useState<AppScreen>('home');
   const [autofillCredentials, setAutofillCredentials] = useState<{ email: string; password: string } | null>(null);
@@ -43,6 +44,21 @@ function AppContent() {
 
   // 2. Authenticated State (User is logged in)
   if (session) {
+    // Check if onboarding is needed
+    // We check user_metadata first to avoid unnecessary DB reads
+    const onboardingCompleted = user?.user_metadata?.onboarding_completed;
+
+    if (!onboardingCompleted) {
+      const userType = user?.user_metadata?.user_type || 'other';
+      return (
+        <OnboardingScreen
+          userType={userType}
+          userId={user!.id}
+          email={user!.email!}
+        />
+      );
+    }
+
     if (appScreen === 'profile') {
       return <ProfileScreen onNavigateBack={() => setAppScreen('home')} />;
     }

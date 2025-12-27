@@ -33,7 +33,7 @@ export function HomeScreen({ onNavigateToProfile }: HomeScreenProps) {
           <Text style={styles.infoTitle}>🎉 Auth Working!</Text>
           <Text style={styles.infoText}>
             You've successfully authenticated with Supabase.
-            This is a placeholder home screen—build out your app features here.
+            This is a placeholder home screen for devs.
           </Text>
         </View>
 
