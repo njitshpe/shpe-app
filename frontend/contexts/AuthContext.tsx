@@ -4,6 +4,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import type { AppError } from '../types/errors';
 import { mapSupabaseError, validators, createError } from '../types/errors';
+import type { UserProfile } from '../types/userProfile';
+import { profileService } from '../lib/profileService';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -23,9 +25,12 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
+  profile: UserProfile | null;
+  loadProfile: (userId: string) => Promise<void>;
+  updateUserMetadata: (metadata: Record<string, any>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +38,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -101,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Sign up with email and password
    * Validates input and provides user-friendly error messages
    */
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, metadata?: Record<string, any>) => {
     try {
       // Validate email format
       if (!validators.isValidEmail(email)) {
@@ -121,7 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Attempt sign up
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata, // Store user type and other metadata
+        },
+      });
 
       if (error) {
         return { error: mapSupabaseError(error) };
@@ -219,8 +231,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const loadProfile = async (userId: string) => {
+    const result = await profileService.getProfile(userId);
+    if (result.success && result.data) {
+      setProfile(result.data);
+    } else {
+      setProfile(null);
+    }
+    setIsLoading(false);
+  };
+
+  const updateUserMetadata = async (metadata: Record<string, any>) => {
+    const { data, error } = await supabase.auth.updateUser({
+      data: metadata,
+    });
+
+    if (error) {
+      console.error('Error updating user metadata:', error);
+      throw error;
+    }
+
+    if (data.user) {
+      setUser(data.user);
+    }
+  };
+
+  const value = {
+    session,
+    user,
+    isLoading,
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signOut,
+    profile,
+    loadProfile,
+    updateUserMetadata,
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signIn, signUp, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
