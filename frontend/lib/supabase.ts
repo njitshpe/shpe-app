@@ -2,11 +2,15 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+// Ensure Supabase credentials are configured in .env.local
+// This error is useful now for onboarding devs
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Check your .env.local file.');
+  throw new Error(
+    'Supabase credentials missing. Copy .env.example to .env.local and add your credentials.'
+  );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

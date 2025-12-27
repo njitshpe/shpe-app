@@ -10,6 +10,9 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 
+// Component Imports
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 // Screen Imports
 import { LoginScreen } from './screens/LoginScreen';
 import { SignupScreen } from './screens/SignupScreen';
@@ -55,12 +58,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <StatusBar style="auto" />
-        <AppContent />
-      </NotificationProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <NotificationProvider>
+          <StatusBar style="auto" />
+          <AppContent />
+        </NotificationProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

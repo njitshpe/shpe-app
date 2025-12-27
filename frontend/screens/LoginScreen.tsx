@@ -30,15 +30,23 @@ export function LoginScreen({ onNavigateToSignup }: LoginScreenProps) {
 
     setLoading(true);
     const { error } = await signIn(email, password);
-    if (error) Alert.alert('Error', error.message);
     setLoading(false);
+
+    if (error) {
+      // Display user-friendly error message
+      Alert.alert('Sign In Failed', error.message);
+    }
   };
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     const { error } = await signInWithGoogle();
-    if (error) Alert.alert('Error', error.message);
     setLoading(false);
+
+    if (error) {
+      // Display user-friendly error message
+      Alert.alert('Sign In Failed', error.message);
+    }
   };
 
   return (

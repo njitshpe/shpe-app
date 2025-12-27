@@ -1,11 +1,13 @@
 import { supabase } from './supabase';
-import type { Event, EventAttendance, CheckInResponse } from '../types/events';
+import type { Event, EventAttendance } from '../types/events';
+import type { ServiceResponse } from '../types/errors';
+import { handleSupabaseError, createError } from '../types/errors';
 
 class EventsService {
   /**
    * Get event details by event_id (the simple ID from QR code)
    */
-  async getEventByEventId(eventId: string): Promise<Event | null> {
+  async getEventByEventId(eventId: string): Promise<ServiceResponse<Event>> {
     try {
       const { data, error } = await supabase
         .from('events')
@@ -14,22 +16,22 @@ class EventsService {
         .eq('is_active', true)
         .single();
 
-      if (error) {
-        console.error('Error fetching event:', error);
-        return null;
-      }
-
-      return data;
+      return handleSupabaseError(data, error);
     } catch (error) {
-      console.error('Error in getEventByEventId:', error);
-      return null;
+      return {
+        success: false,
+        error: createError(
+          'Failed to fetch event',
+          'DATABASE_ERROR',
+          undefined,
+          error instanceof Error ? error.message : String(error)
+        ),
+      };
     }
   }
 
-  /**
-   * Check if user has already checked into an event
-   */
-  async hasCheckedIn(eventUuid: string, userId: string): Promise<boolean> {
+  // Check if user has already checked into an event
+  async hasCheckedIn(eventUuid: string, userId: string): Promise<ServiceResponse<boolean>> {
     try {
       const { data, error } = await supabase
         .from('event_attendance')
@@ -38,21 +40,34 @@ class EventsService {
         .eq('user_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') {  // PGRST116 = no rows returned
-        console.error('Error checking attendance:', error);
-        return false;
+      // PGRST116 = no rows returned (not an error, just not found)
+      if (error && error.code !== 'PGRST116') {
+        return {
+          success: false,
+          error: createError(
+            'Failed to check attendance status',
+            'DATABASE_ERROR',
+            undefined,
+            typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : 'Unknown error'
+          ),
+        };
       }
 
-      return !!data;
+      return { success: true, data: !!data };
     } catch (error) {
-      console.error('Error in hasCheckedIn:', error);
-      return false;
+      return {
+        success: false,
+        error: createError(
+          'Failed to check attendance status',
+          'DATABASE_ERROR',
+          undefined,
+          error instanceof Error ? error.message : String(error)
+        ),
+      };
     }
   }
 
-  /**
-   * Validate if check-in is currently allowed for an event
-   */
+  // Validate if check-in is currently allowed for an event
   validateCheckInTime(event: Event): { valid: boolean; reason?: string } {
     const now = new Date();
 
@@ -98,36 +113,43 @@ class EventsService {
     return { valid: true };
   }
 
-  /**
-   * Check user into an event
-   */
+  // Check user into an event
   async checkInToEvent(
     eventId: string,
     userId: string,
     latitude?: number,
     longitude?: number
-  ): Promise<CheckInResponse> {
+  ): Promise<ServiceResponse<{ attendance: EventAttendance; event: Event }>> {
     try {
       // 1. Get event details
-      const event = await this.getEventByEventId(eventId);
+      const eventResponse = await this.getEventByEventId(eventId);
 
-      if (!event) {
+      if (!eventResponse.success) {
         return {
           success: false,
-          error: 'Event not found',
-          errorCode: 'EVENT_NOT_FOUND',
+          error: eventResponse.error,
         };
       }
 
-      // 2. Check if already checked in
-      const alreadyCheckedIn = await this.hasCheckedIn(event.id, userId);
+      const event = eventResponse.data!;
 
-      if (alreadyCheckedIn) {
+      // 2. Check if already checked in
+      const checkedInResponse = await this.hasCheckedIn(event.id, userId);
+
+      if (!checkedInResponse.success) {
         return {
           success: false,
-          error: 'You have already checked in to this event',
-          errorCode: 'ALREADY_CHECKED_IN',
-          event,
+          error: checkedInResponse.error,
+        };
+      }
+
+      if (checkedInResponse.data) {
+        return {
+          success: false,
+          error: createError(
+            'You have already checked in to this event',
+            'ALREADY_CHECKED_IN'
+          ),
         };
       }
 
@@ -136,9 +158,10 @@ class EventsService {
       if (!timeValidation.valid) {
         return {
           success: false,
-          error: timeValidation.reason || 'Check-in not allowed at this time',
-          errorCode: 'CHECK_IN_CLOSED',
-          event,
+          error: createError(
+            timeValidation.reason || 'Check-in not allowed at this time',
+            'CHECK_IN_CLOSED'
+          ),
         };
       }
 
@@ -152,9 +175,10 @@ class EventsService {
         if (count !== null && count >= event.max_attendees) {
           return {
             success: false,
-            error: 'Event is at maximum capacity',
-            errorCode: 'EVENT_FULL',
-            event,
+            error: createError(
+              'Event is at maximum capacity',
+              'EVENT_FULL'
+            ),
           };
         }
       }
@@ -173,33 +197,36 @@ class EventsService {
         .single();
 
       if (insertError) {
-        console.error('Error creating attendance:', insertError);
         return {
           success: false,
-          error: 'Failed to check in. Please try again.',
-          errorCode: 'UNAUTHORIZED',
+          error: createError(
+            'Failed to check in. Please try again.',
+            'DATABASE_ERROR',
+            undefined,
+            insertError.message
+          ),
         };
       }
 
       return {
         success: true,
-        attendance,
-        event,
+        data: { attendance, event },
       };
     } catch (error) {
-      console.error('Error in checkInToEvent:', error);
       return {
         success: false,
-        error: 'An unexpected error occurred',
-        errorCode: 'UNAUTHORIZED',
+        error: createError(
+          'An unexpected error occurred',
+          'UNKNOWN_ERROR',
+          undefined,
+          error instanceof Error ? error.message : String(error)
+        ),
       };
     }
   }
 
-  /**
-   * Get user's attendance history
-   */
-  async getUserAttendance(userId: string): Promise<EventAttendance[]> {
+  // Get user's attendance history
+  async getUserAttendance(userId: string): Promise<ServiceResponse<EventAttendance[]>> {
     try {
       const { data, error } = await supabase
         .from('event_attendance')
@@ -207,15 +234,17 @@ class EventsService {
         .eq('user_id', userId)
         .order('checked_in_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching attendance:', error);
-        return [];
-      }
-
-      return data || [];
+      return handleSupabaseError(data, error);
     } catch (error) {
-      console.error('Error in getUserAttendance:', error);
-      return [];
+      return {
+        success: false,
+        error: createError(
+          'Failed to fetch attendance history',
+          'DATABASE_ERROR',
+          undefined,
+          error instanceof Error ? error.message : String(error)
+        ),
+      };
     }
   }
 }
