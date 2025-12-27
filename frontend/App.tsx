@@ -30,6 +30,7 @@ function AppContent() {
   const { session, isLoading } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [appScreen, setAppScreen] = useState<AppScreen>('home');
+  const [autofillCredentials, setAutofillCredentials] = useState<{ email: string; password: string } | null>(null);
 
   // 1. Loading State
   if (isLoading) {
@@ -50,10 +51,25 @@ function AppContent() {
 
   // 3. Unauthenticated State (User needs to log in)
   if (authScreen === 'login') {
-    return <LoginScreen onNavigateToSignup={() => setAuthScreen('signup')} />;
+    return (
+      <LoginScreen
+        onNavigateToSignup={() => setAuthScreen('signup')}
+        autofillEmail={autofillCredentials?.email}
+        autofillPassword={autofillCredentials?.password}
+      />
+    );
   }
 
-  return <SignupScreen onNavigateToLogin={() => setAuthScreen('login')} />;
+  return (
+    <SignupScreen
+      onNavigateToLogin={(email?: string, password?: string) => {
+        if (email && password) {
+          setAutofillCredentials({ email, password });
+        }
+        setAuthScreen('login');
+      }}
+    />
+  );
 }
 
 export default function App() {

@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AuthInput } from '../components/AuthInput';
 
 interface SignupScreenProps {
-  onNavigateToLogin: () => void;
+  onNavigateToLogin: (email?: string, password?: string) => void;
 }
 
 export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
@@ -40,15 +40,22 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
     }
 
     setLoading(true);
-    const { error } = await signUp(email, password);
+    const result = await signUp(email, password);
 
-    if (error) {
-      Alert.alert('Error', error.message);
+    if (result.error) {
+      Alert.alert('Error', result.error.message);
+    } else if (result.needsEmailConfirmation) {
+      Alert.alert(
+        'Verify Your Email',
+        `We've sent a verification link to ${email}. Please check your email and click the link to verify your account. Once verified, you can sign in.`,
+        [{ text: 'OK', onPress: () => onNavigateToLogin(email, password) }]
+      );
     } else {
+      // User is automatically signed in (email confirmation disabled)
       Alert.alert(
         'Success',
-        'Account created! You can now sign in.',
-        [{ text: 'OK', onPress: onNavigateToLogin }]
+        'Account created successfully!',
+        [{ text: 'OK' }]
       );
     }
     setLoading(false);
@@ -129,7 +136,7 @@ export function SignupScreen({ onNavigateToLogin }: SignupScreenProps) {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
-            <TouchableOpacity onPress={onNavigateToLogin}>
+            <TouchableOpacity onPress={() => onNavigateToLogin()}>
               <Text style={styles.link}>Sign In</Text>
             </TouchableOpacity>
           </View>

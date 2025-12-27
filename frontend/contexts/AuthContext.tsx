@@ -23,7 +23,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: AppError | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
 }
@@ -121,13 +121,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Attempt sign up
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
         return { error: mapSupabaseError(error) };
       }
 
-      return { error: null };
+      // Check if email confirmation is required
+      const needsEmailConfirmation = !!(data.user && !data.session);
+
+      return {
+        error: null,
+        needsEmailConfirmation
+      };
     } catch (error: any) {
       console.error('Sign up error:', error);
       return {
