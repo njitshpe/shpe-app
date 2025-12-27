@@ -2,16 +2,29 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
+import type { AppError } from '../types/errors';
+import { mapSupabaseError, validators, createError } from '../types/errors';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Authentication configuration constants
+const AUTH_CONFIG = {
+  REDIRECT_URI: 'shpe-app://',
+  OAUTH_PROVIDER: 'google' as const,
+  URL_FRAGMENT_SEPARATOR: '#',
+  URL_PARAMS: {
+    ACCESS_TOKEN: 'access_token',
+    REFRESH_TOKEN: 'refresh_token',
+  },
+} as const;
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: AppError | null }>;
+  signInWithGoogle: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -40,29 +53,113 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  /**
+   * Sign in with email and password
+   * Validates input and provides user-friendly error messages
+   */
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? new Error(error.message) : null };
+    try {
+      // Validate email format
+      if (!validators.isValidEmail(email)) {
+        return {
+          error: createError(
+            'Please enter a valid email address.',
+            'INVALID_EMAIL',
+            'email'
+          ),
+        };
+      }
+
+      // Validate password
+      const passwordValidation = validators.isValidPassword(password);
+      if (!passwordValidation.valid) {
+        return { error: passwordValidation.error! };
+      }
+
+      // Attempt sign in
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      return {
+        error: createError(
+          'Unable to sign in. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
+    }
   };
 
+  /**
+   * Sign up with email and password
+   * Validates input and provides user-friendly error messages
+   */
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error ? new Error(error.message) : null };
+    try {
+      // Validate email format
+      if (!validators.isValidEmail(email)) {
+        return {
+          error: createError(
+            'Please enter a valid email address.',
+            'INVALID_EMAIL',
+            'email'
+          ),
+        };
+      }
+
+      // Validate password
+      const passwordValidation = validators.isValidPassword(password);
+      if (!passwordValidation.valid) {
+        return { error: passwordValidation.error! };
+      }
+
+      // Attempt sign up
+      const { error } = await supabase.auth.signUp({ email, password });
+
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      return {
+        error: createError(
+          'Unable to create account. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
+    }
   };
 
+  /**
+   * Sign in with Google OAuth
+   * Handles OAuth flow with proper error handling
+   */
   const signInWithGoogle = async () => {
     try {
-      const redirectUri = 'shpe-app://';
+      const redirectUri = AUTH_CONFIG.REDIRECT_URI;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: AUTH_CONFIG.OAUTH_PROVIDER,
         options: {
           redirectTo: redirectUri,
           skipBrowserRedirect: false,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
 
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
@@ -73,25 +170,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const url = result.url;
 
         // Extract tokens from URL fragment
-        const hashParams = url.split('#')[1];
+        const hashParams = url.split(AUTH_CONFIG.URL_FRAGMENT_SEPARATOR)[1];
         if (hashParams) {
           const params = new URLSearchParams(hashParams);
-          const accessToken = params.get('access_token');
-          const refreshToken = params.get('refresh_token');
+          const accessToken = params.get(AUTH_CONFIG.URL_PARAMS.ACCESS_TOKEN);
+          const refreshToken = params.get(AUTH_CONFIG.URL_PARAMS.REFRESH_TOKEN);
 
           if (accessToken && refreshToken) {
             const { error: sessionError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-            if (sessionError) throw sessionError;
+            if (sessionError) {
+              return { error: mapSupabaseError(sessionError) };
+            }
           }
         }
+      } else if (result.type === 'cancel') {
+        return {
+          error: createError(
+            'Google sign-in was cancelled.',
+            'UNKNOWN_ERROR'
+          ),
+        };
       }
 
       return { error: null };
-    } catch (error) {
-      return { error: error as Error };
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      return {
+        error: createError(
+          'Unable to sign in with Google. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
     }
   };
 

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, SafeAreaView, Alert } from 'react-native';
+import React, { useState, Suspense, lazy } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 
 // SCREEN IMPORTS
 import { EditProfileScreen, UserProfileData } from './EditProfileScreen';
-import { NotificationSettingsScreen } from './NotificationSettingsScreen';
+// Lazy load NotificationSettingsScreen (only loads when user clicks "Notification Settings")
+const NotificationSettingsScreen = lazy(() => import('./NotificationSettingsScreen').then(module => ({ default: module.NotificationSettingsScreen })));
 import { QRScannerScreen } from './QRScannerScreen';
 
 // Brand Colors
@@ -38,10 +39,10 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
 
   return (
     <SafeAreaView style={styles.container}>
-      
+
       {/* HEADER SECTION */}
       <View style={styles.headerContainer}>
-        
+
         {/* --- BACK BUTTON --- */}
         <TouchableOpacity style={styles.backButton} onPress={onNavigateBack}>
           <Text style={styles.backButtonText}>← Back</Text>
@@ -67,7 +68,7 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
         </View>
 
         <Text style={styles.majorText}>{userProfile.major}</Text>
-        
+
         {userProfile.resumeName && (
           <View style={styles.resumeTag}>
             <Text style={styles.resumeText}>📄 {userProfile.resumeName}</Text>
@@ -77,26 +78,26 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
 
       {/* ACTION BUTTONS */}
       <View style={styles.actionSection}>
-        
+
         {/* 1. EDIT PROFILE */}
-        <TouchableOpacity 
-          style={styles.primaryButton} 
+        <TouchableOpacity
+          style={styles.primaryButton}
           onPress={() => setShowEditProfile(true)}
         >
           <Text style={styles.primaryButtonText}>Edit Profile</Text>
         </TouchableOpacity>
 
         {/* 2. SCAN QR CODE */}
-        <TouchableOpacity 
-          style={styles.scannerButton} 
+        <TouchableOpacity
+          style={styles.scannerButton}
           onPress={() => setShowScanner(true)}
         >
           <Text style={styles.scannerButtonText}>Scan Event QR Code</Text>
         </TouchableOpacity>
 
         {/* 3. NOTIFICATION SETTINGS */}
-        <TouchableOpacity 
-          style={styles.outlineButton} 
+        <TouchableOpacity
+          style={styles.outlineButton}
           onPress={() => setShowNotifications(true)}
         >
           <Text style={styles.outlineButtonText}>Notification Settings</Text>
@@ -107,7 +108,7 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
 
       {/* 1. Edit Profile Modal */}
       <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
-        <EditProfileScreen 
+        <EditProfileScreen
           initialData={userProfile}
           onClose={() => setShowEditProfile(false)}
           onSave={(newData) => setUserProfile(newData)}
@@ -122,11 +123,18 @@ export function ProfileScreen({ onNavigateBack }: ProfileScreenProps) {
         />
       </Modal>
 
-      {/* 3. Notification Modal */}
+      {/* 3. Notification Modal + Added lazy loading */}
       <Modal visible={showNotifications} animationType="slide" presentationStyle="pageSheet">
-        <NotificationSettingsScreen 
-          onClose={() => setShowNotifications(false)} 
-        />
+        <Suspense fallback={
+          <View style={styles.loadingFallback}>
+            <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
+            <Text style={styles.loadingText}>Loading Notification Settings...</Text>
+          </View>
+        }>
+          <NotificationSettingsScreen
+            onClose={() => setShowNotifications(false)}
+          />
+        </Suspense>
       </Modal>
 
     </SafeAreaView>
@@ -146,12 +154,12 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative', // Necessary for absolute positioning of back button
   },
-  
-  // --- BACK BUTTON STYLES ---
+
+  // BACK BUTTON STYLES
   backButton: {
     position: 'absolute',
     left: 20,
-    top: 0, 
+    top: 0,
     zIndex: 10,
     padding: 10,
   },
@@ -192,18 +200,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: SHPE_COLORS.white,
   },
-  
+
   // --- NAME CONTAINER STYLES ---
   nameDataContainer: {
-    width: '80%',            
-    alignItems: 'center',    
+    width: '80%',
+    alignItems: 'center',
     marginBottom: 5,
   },
   nameText: {
     fontSize: 26,
     fontWeight: 'bold',
     color: SHPE_COLORS.darkBlue,
-    textAlign: 'center',     
+    textAlign: 'center',
   },
   // -----------------------------
 
@@ -265,5 +273,17 @@ const styles = StyleSheet.create({
     color: SHPE_COLORS.darkBlue,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingFallback: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: SHPE_COLORS.white,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: SHPE_COLORS.darkBlue,
+    fontWeight: '600',
   },
 });

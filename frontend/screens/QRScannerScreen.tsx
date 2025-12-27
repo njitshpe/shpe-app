@@ -35,6 +35,7 @@ export function QRScannerScreen({ onClose, onSuccess }: QRScannerScreenProps) {
   const [torchOn, setTorchOn] = useState(false);
   const lastScannedRef = useRef<string>('');
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isScanningRef = useRef<boolean>(false); // Lock to prevent race conditions
 
   useEffect(() => {
     requestCameraPermission();
@@ -57,18 +58,124 @@ export function QRScannerScreen({ onClose, onSuccess }: QRScannerScreenProps) {
     }
   };
 
-  const handleBarCodeScanned = async ({ type, data }: BarcodeScanningResult) => {
+  // Validates if the scanned QR code should be processed
+  // returns true if valid and should proceed, false otherwise
+  const validateScan = (data: string): boolean => {
     // Prevent duplicate scans
     if (scanned || processing || data === lastScannedRef.current) {
-      return;
+      return false;
     }
 
     // Validate event ID format
     if (!cameraService.validateEventId(data)) {
-      Alert.alert('Invalid QR Code', 'This does not appear to be a valid event QR code.');
+      // Set lock to prevent repeated invalid scans
+      isScanningRef.current = true;
+      lastScannedRef.current = data;
+
+      Alert.alert('Invalid QR Code', 'This does not appear to be a valid event QR code.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Reset after user dismisses alert
+            isScanningRef.current = false;
+            setTimeout(() => {
+              lastScannedRef.current = '';
+            }, 2000);
+          },
+        },
+      ]);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Handles successful check-in
+  const handleCheckInSuccess = (eventName: string) => {
+    Alert.alert(
+      'Check-In Successful!',
+      `You have been checked in to ${eventName}`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            onSuccess?.(eventName);
+            onClose();
+          },
+        },
+      ]
+    );
+  };
+
+  // Handles check-in failure
+  const handleCheckInFailure = (errorMessage?: string) => {
+    Alert.alert(
+      'Check-In Failed',
+      errorMessage || 'Unable to check in to this event.',
+      [
+        {
+          text: 'Try Again',
+          onPress: resetScanner,
+        },
+        {
+          text: 'Cancel',
+          onPress: onClose,
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  // Handles unexpected errors during check-in
+  const handleCheckInError = (error: unknown) => {
+    console.error('Error during check-in:', error);
+    Alert.alert(
+      'Error',
+      'An unexpected error occurred. Please try again.',
+      [
+        {
+          text: 'Try Again',
+          onPress: resetScanner,
+        },
+        {
+          text: 'Cancel',
+          onPress: onClose,
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  // Processes the event check-in
+  const processCheckIn = async (eventId: string) => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to check in to events.');
+      resetScanner();
       return;
     }
 
+    const result = await eventsService.checkInToEvent(eventId, user.id);
+
+    if (result.success && result.data) {
+      handleCheckInSuccess(result.data.event.name);
+    } else {
+      handleCheckInFailure(result.error?.message);
+    }
+  };
+
+  // Main barcode scan handler, orchestrates the check-in flow
+  const handleBarCodeScanned = async ({ type, data }: BarcodeScanningResult) => {
+    // Immediate lock check, prevents race conditions from rapid camera firing
+    if (isScanningRef.current) {
+      return;
+    }
+
+    if (!validateScan(data)) {
+      return;
+    }
+
+    // Set lock immediately before any async operations
+    isScanningRef.current = true;
     setScanned(true);
     setProcessing(true);
     lastScannedRef.current = data;
@@ -79,73 +186,21 @@ export function QRScannerScreen({ onClose, onSuccess }: QRScannerScreenProps) {
     const eventId = cameraService.normalizeEventId(data);
 
     try {
-      if (!user) {
-        Alert.alert('Error', 'You must be logged in to check in to events.');
-        resetScanner();
-        return;
-      }
-
-      const result = await eventsService.checkInToEvent(eventId, user.id);
-
-      if (result.success && result.event) {
-        Alert.alert(
-          'Check-In Successful!',
-          `You have been checked in to ${result.event.name}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                onSuccess?.(result.event!.name);
-                onClose();
-              },
-            },
-          ]
-        );
-      } else {
-        // Show error
-        Alert.alert(
-          'Check-In Failed',
-          result.error || 'Unable to check in to this event.',
-          [
-            {
-              text: 'Try Again',
-              onPress: resetScanner,
-            },
-            {
-              text: 'Cancel',
-              onPress: onClose,
-              style: 'cancel',
-            },
-          ]
-        );
-      }
+      await processCheckIn(eventId);
     } catch (error) {
-      console.error('Error during check-in:', error);
-      Alert.alert(
-        'Error',
-        'An unexpected error occurred. Please try again.',
-        [
-          {
-            text: 'Try Again',
-            onPress: resetScanner,
-          },
-          {
-            text: 'Cancel',
-            onPress: onClose,
-            style: 'cancel',
-          },
-        ]
-      );
+      handleCheckInError(error);
     } finally {
       setProcessing(false);
+      // Note: Don't reset isScanningRef here - let resetScanner handle it
     }
   };
 
   const resetScanner = () => {
     setScanned(false);
-    lastScannedRef.current = '';
+    isScanningRef.current = false; // Reset the scanning lock
 
     // Add cooldown to prevent immediate re-scan
+    // Keep lastScannedRef set during cooldown, then clear it
     scanTimeoutRef.current = setTimeout(() => {
       lastScannedRef.current = '';
     }, 2000);
