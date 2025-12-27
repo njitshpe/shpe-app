@@ -20,6 +20,8 @@ export interface EventRow {
   end_time: string;
   location: string | null;
   location_name: string;
+  latitude: number | null;
+  longitude: number | null;
   cover_image_url: string | null;
   host_name: string | null;
   price_label: string | null;

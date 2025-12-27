@@ -38,6 +38,9 @@ export const DATE_ITEM_SPACING = 12;
 export const HEADER_HEIGHT = 100;
 export const DATE_SELECTOR_HEIGHT = 100;
 
+// Default theme (for components that use static theme in styles)
+export const calendarTheme = dayModeTheme;
+
 // Helper function to determine theme based on time
 export const getThemeForTime = (date: Date = new Date()): CalendarTheme => {
   const hour = date.getHours();

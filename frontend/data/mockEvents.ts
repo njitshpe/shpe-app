@@ -6,6 +6,8 @@ export interface Event {
   endTimeISO: string;
   locationName: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   coverImageUrl?: string;
   hostName?: string | null;
   tags: string[];
@@ -23,6 +25,8 @@ export const mockEvents: Event[] = [
     endTimeISO: '2026-01-28T20:00:00Z',
     locationName: 'GITC 1100',
     address: 'GITC Building, Room 1100, NJIT Campus',
+    latitude: 40.74425,
+    longitude: -74.17991,
     coverImageUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800',
     hostName: 'SHPE NJIT',
     tags: ['General Meeting', 'Networking', 'All Majors'],

@@ -95,6 +95,8 @@ function mapEventRowToEvent(row: EventRow): Event {
     endTimeISO: row.end_time,
     locationName: row.location_name,
     address: row.location ?? undefined,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
     hostName: row.host_name,
     tags: row.tags ?? [],
@@ -133,8 +135,6 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
-    console.log('[EventsContext] Starting to fetch events from Supabase...');
-
     try {
       const { data, error } = await supabase
         .from('events')
@@ -148,11 +148,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      console.log('[EventsContext] Raw Supabase data:', data?.length || 0, 'events');
       const mappedEvents = (data ?? []).map(mapEventRowToEvent);
-      console.log('[EventsContext] Mapped events:', mappedEvents.length, 'events');
-      console.log('[EventsContext] First mapped event:', mappedEvents[0]);
-
       dispatch({ type: 'SET_EVENTS', payload: mappedEvents });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load events';

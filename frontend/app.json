@@ -14,13 +14,29 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "instagram",
+          "fb",
+          "linkedin",
+          "discord"
+        ],
+        "NSCameraUsageDescription": "This app needs camera access to scan QR codes for event check-in.",
+        "NSCalendarsUsageDescription": "This app needs calendar access to add events to your calendar.",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "This app needs permission to add events to your calendar."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "CAMERA",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR"
+      ],
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },

@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, Platform, ViewStyle } from 'react-native';
+import { View, StyleSheet, Platform, StyleProp, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 
 interface FloatingPillProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   intensity?: number;
 }
 

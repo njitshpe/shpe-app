@@ -1,206 +1,89 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
-import { Event } from '../../data/mockEvents';
-import { formatTime } from '../../utils/date';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { format } from 'date-fns';
 
 interface EventCardProps {
-  event: Event;
+  id: string;
+  title: string;
+  startTime: Date;
+  location?: string;
   onPress: () => void;
-  isAdminMode?: boolean;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  timeLabel?: string;
 }
 
-export function EventCard({ event, onPress, isAdminMode, onEdit, onDelete }: EventCardProps) {
+export const EventCard: React.FC<EventCardProps> = ({
+  title,
+  startTime,
+  location,
+  onPress,
+  timeLabel,
+}) => {
+  const timeString = timeLabel ?? format(startTime, 'h:mm a');
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.container,
+        pressed && styles.containerPressed,
+      ]}
       onPress={onPress}
     >
-      <View style={styles.content}>
-        {/* Left: Event Info */}
-        <View style={styles.leftContent}>
-          <Text style={styles.time}>{formatTime(event.startTimeISO)}</Text>
-          <Text style={styles.title} numberOfLines={2}>
-            {event.title}
-          </Text>
-          <Text style={styles.host}>{event.hostName}</Text>
-          <Text style={styles.location} numberOfLines={1}>
-            📍 {event.locationName}
-          </Text>
-
-          {/* Tags and Badges */}
-          <View style={styles.tagsContainer}>
-            {event.tags.slice(0, 3).map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-            {event.priceLabel && (
-              <View style={[styles.tag, styles.priceTag]}>
-                <Text style={styles.priceText}>{event.priceLabel}</Text>
-              </View>
-            )}
-            {event.capacityLabel && (
-              <View style={[styles.tag, styles.capacityTag]}>
-                <Text style={styles.capacityText}>{event.capacityLabel}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Right: Cover Image */}
-        <View style={styles.rightContent}>
-          {event.coverImageUrl ? (
-            <Image source={{ uri: event.coverImageUrl }} style={styles.coverImage} />
-          ) : (
-            <View style={[styles.coverImage, styles.placeholderImage]} />
-          )}
-        </View>
+      <View style={styles.timeContainer}>
+        <Text style={styles.timeText}>{timeString}</Text>
       </View>
-
-      {/* Admin Controls */}
-      {isAdminMode && (
-        <View style={styles.adminControls}>
-          <Pressable
-            style={({ pressed }) => [styles.adminButton, pressed && styles.adminButtonPressed]}
-            onPress={(e) => {
-              e.stopPropagation();
-              onEdit?.();
-            }}
-          >
-            <Text style={styles.adminButtonText}>✏️ Edit</Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.adminButton,
-              styles.deleteButton,
-              pressed && styles.adminButtonPressed,
-            ]}
-            onPress={(e) => {
-              e.stopPropagation();
-              onDelete?.();
-            }}
-          >
-            <Text style={[styles.adminButtonText, styles.deleteButtonText]}>🗑️ Delete</Text>
-          </Pressable>
-        </View>
-      )}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.titleText} numberOfLines={2}>
+          {title}
+        </Text>
+        {location && (
+          <Text style={styles.locationText} numberOfLines={1}>
+            {location}
+          </Text>
+        )}
+      </View>
     </Pressable>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#1F2937',
+  container: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginHorizontal: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#374151',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  cardPressed: {
+  containerPressed: {
     opacity: 0.7,
   },
-  content: {
-    flexDirection: 'row',
-    gap: 16,
+  timeContainer: {
+    marginRight: 16,
+    paddingTop: 2,
+    minWidth: 70,
   },
-  leftContent: {
+  timeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  detailsContainer: {
     flex: 1,
   },
-  rightContent: {
-    width: 100,
-  },
-  time: {
-    fontSize: 14,
-    color: '#10B981',
+  titleText: {
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#F9FAFB',
-    marginBottom: 6,
-    lineHeight: 24,
-  },
-  host: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    color: '#111827',
     marginBottom: 4,
+    lineHeight: 22,
   },
-  location: {
+  locationText: {
     fontSize: 14,
     color: '#9CA3AF',
-    marginBottom: 12,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#374151',
-  },
-  tagText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  priceTag: {
-    backgroundColor: '#10B98120',
-  },
-  priceText: {
-    color: '#10B981',
-    fontWeight: '600',
-  },
-  capacityTag: {
-    backgroundColor: '#F59E0B20',
-  },
-  capacityText: {
-    color: '#F59E0B',
-    fontWeight: '600',
-  },
-  coverImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: '#374151',
-  },
-  placeholderImage: {
-    backgroundColor: '#4B5563',
-  },
-  adminControls: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#374151',
-  },
-  adminButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: '#374151',
-  },
-  adminButtonPressed: {
-    opacity: 0.7,
-  },
-  adminButtonText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#7F1D1D',
-  },
-  deleteButtonText: {
-    color: '#FCA5A5',
+    lineHeight: 20,
   },
 });

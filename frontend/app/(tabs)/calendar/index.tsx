@@ -10,8 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEvents } from '../../../context/EventsContext';
 import { useAdaptiveTheme } from '../../../hooks/calendar/useAdaptiveTheme';
-import { CalendarHeaderNew } from '../../../components/calendar/CalendarHeaderNew';
-import { WeekStripEnhanced } from '../../../components/calendar/WeekStripEnhanced';
+import { CalendarHeader } from '../../../components/calendar/CalendarHeader';
+import { WeekStrip } from '../../../components/calendar/WeekStrip';
 import { MonthPicker } from '../../../components/calendar/MonthPicker';
 import { EventsList } from '../../../components/calendar/EventsList';
 
@@ -85,7 +85,7 @@ export default function CalendarScreen() {
         >
           {/* Header */}
           <View ref={headerRef} onLayout={handleHeaderLayout}>
-            <CalendarHeaderNew
+            <CalendarHeader
               selectedDate={selectedDate}
               onHeaderPress={handleHeaderPress}
               isMonthPickerOpen={isMonthPickerOpen}
@@ -94,7 +94,7 @@ export default function CalendarScreen() {
           </View>
 
           {/* Week Strip */}
-          <WeekStripEnhanced
+          <WeekStrip
             selectedDate={selectedDate}
             onDateSelect={handleDateSelect}
             events={events}
@@ -172,6 +172,3 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-  const handleHeaderLayout = (event: LayoutChangeEvent) => {
-    setHeaderHeight(event.nativeEvent.layout.height);
-  };
