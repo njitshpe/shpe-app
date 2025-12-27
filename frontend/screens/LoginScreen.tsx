@@ -14,11 +14,13 @@ import { AuthInput } from '../components/AuthInput';
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
+  autofillEmail?: string;
+  autofillPassword?: string;
 }
 
-export function LoginScreen({ onNavigateToSignup }: LoginScreenProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export function LoginScreen({ onNavigateToSignup, autofillEmail, autofillPassword }: LoginScreenProps) {
+  const [email, setEmail] = useState(autofillEmail || '');
+  const [password, setPassword] = useState(autofillPassword || '');
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
 
