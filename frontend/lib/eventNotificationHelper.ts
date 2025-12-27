@@ -6,10 +6,7 @@ import type { Event } from '../types/events';
 const LAST_CHECK_KEY = '@last_event_check';
 
 class EventNotificationHelper {
-  /**
-   * Check for new events created since last check
-   * and send notifications for them
-   */
+  // Check for new events created since last check and send notifications for them
   async checkAndNotifyNewEvents(): Promise<{ count: number; events: Event[] }> {
     try {
       // Get last check timestamp
@@ -52,10 +49,8 @@ class EventNotificationHelper {
     }
   }
 
-  /**
-   * Get an event from database by event_id and send notification
-   * Useful for testing with specific events
-   */
+  // Get an event from database by event_id and send notification
+  // Useful for testing with specific events
   async notifyForEvent(eventId: string): Promise<boolean> {
     try {
       const { data: event, error } = await supabase
@@ -82,9 +77,7 @@ class EventNotificationHelper {
     }
   }
 
-  /**
-   * Schedule reminder for a specific event
-   */
+  // Schedule reminder for a specific event
   async scheduleReminderForEvent(
     eventId: string,
     minutesBefore: number = 30
@@ -115,9 +108,7 @@ class EventNotificationHelper {
     }
   }
 
-  /**
-   * Reset last check time (for testing)
-   */
+  // Reset last check time (for testing)
   async resetLastCheck(): Promise<void> {
     await AsyncStorage.removeItem(LAST_CHECK_KEY);
   }

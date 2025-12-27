@@ -17,6 +17,8 @@ import { INTEREST_OPTIONS } from '../../types/userProfile';
 import type { UserType, InterestType } from '../../types/userProfile';
 import { profileService } from '../../lib/profileService';
 import { useAuth } from '../../contexts/AuthContext';
+import { ResumeUploader } from '../ResumeUploader';
+import { useResume } from '../../lib/useResume';
 
 interface OnboardingPage3Props {
     userType: UserType;
@@ -33,11 +35,24 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
     const [phone, setPhone] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Resume state
+    const { pickResume } = useResume();
+    const [resumeName, setResumeName] = useState<string | null>(null);
+    const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+
     const toggleInterest = (value: InterestType) => {
         if (interests.includes(value)) {
             setInterests(interests.filter((i) => i !== value));
         } else {
             setInterests([...interests, value]);
+        }
+    };
+
+    const handleResumePick = async () => {
+        const result = await pickResume();
+        if (result) {
+            setResumeName(result.name);
+            setResumeUrl(result.uri);
         }
     };
 
@@ -56,6 +71,8 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
             interests,
             linkedin_url: linkedin.trim() || null,
             phone_number: phone.trim() || null,
+            resume_name: resumeName,
+            resume_url: resumeUrl,
             // UCID is already handled in signup for students, but we can store it if needed
             // For now, we rely on the email being ucid@njit.edu
             ucid: userType === 'student' ? email.split('@')[0] : null,
@@ -141,6 +158,19 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
                             placeholder="(555) 555-5555"
                             placeholderTextColor="#999"
                             keyboardType="phone-pad"
+                        />
+                    </View>
+
+                    {/* Resume Upload */}
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Resume (Optional)</Text>
+                        <ResumeUploader
+                            resumeName={resumeName}
+                            onUpload={handleResumePick}
+                            onRemove={() => {
+                                setResumeName(null);
+                                setResumeUrl(null);
+                            }}
                         />
                     </View>
 

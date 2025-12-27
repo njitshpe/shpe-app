@@ -3,10 +3,8 @@ import { Alert, Linking } from 'react-native';
 import type { CameraPermissionStatus } from '../types/camera';
 
 class CameraService {
-  /**
-   * Request camera permissions from the user
-   * Handles permission states and provides helpful error messages
-   */
+  // Request camera permissions from the user
+  // Handles permission states and provides helpful error messages
   async requestPermission(): Promise<CameraPermissionStatus> {
     try {
       const { status, canAskAgain } = await Camera.requestCameraPermissionsAsync();
@@ -26,9 +24,7 @@ class CameraService {
     }
   }
 
-  /**
-   * Check current camera permission status without requesting
-   */
+  // Check current camera permission status without requesting
   async checkPermission(): Promise<CameraPermissionStatus> {
     try {
       const { status, canAskAgain } = await Camera.getCameraPermissionsAsync();
@@ -48,9 +44,7 @@ class CameraService {
     }
   }
 
-  /**
-   * Handle permission denial by showing appropriate message
-   */
+  // Handle permission denial by showing appropriate message
   handlePermissionDenied(canAskAgain: boolean): void {
     if (!canAskAgain) {
       Alert.alert(
@@ -70,19 +64,15 @@ class CameraService {
     }
   }
 
-  /**
-   * Validate that scanned data matches expected format
-   * For simple event IDs: expects format like 'event-123' or just 'event123'
-   */
+  // Validate that scanned data matches expected format
+  // For simple event IDs: expects format like 'event-123' or just 'event123'
   validateEventId(data: string): boolean {
     // Allow alphanumeric with optional 'event-' prefix
     const pattern = /^(event-)?[a-zA-Z0-9-_]+$/;
     return pattern.test(data) && data.length > 0 && data.length < 100;
   }
 
-  /**
-   * Normalize event ID (keep as-is since database stores the full event_id)
-   */
+  // Normalize event ID (keep as-is since database stores the full event_id)
   normalizeEventId(rawData: string): string {
     return rawData.trim();
   }

@@ -12,15 +12,7 @@ import { CameraView, BarcodeScanningResult } from 'expo-camera';
 import { cameraService } from '../lib/cameraService';
 import { eventsService } from '../lib/eventsService';
 import { useAuth } from '../contexts/AuthContext';
-
-// SHPE Brand Colors
-const SHPE_COLORS = {
-  darkBlue: '#002855',
-  orange: '#FF5F05',
-  white: '#FFFFFF',
-  lightBlue: '#00A3E0',
-  gray: '#F4F4F4',
-};
+import { SHPE_COLORS } from '../constants/colors';
 
 interface QRScannerScreenProps {
   onClose: () => void;

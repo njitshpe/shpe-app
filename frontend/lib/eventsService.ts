@@ -3,10 +3,11 @@ import type { Event, EventAttendance } from '../types/events';
 import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
+// EventsService class provides methods for interacting with events in the database.
+// It handles all database operations related to events and attendance.
+
 class EventsService {
-  /**
-   * Get event details by event_id (the simple ID from QR code)
-   */
+  // Get event details by event_id (the simple ID from QR code)
   async getEventByEventId(eventId: string): Promise<ServiceResponse<Event>> {
     try {
       const { data, error } = await supabase

@@ -4,9 +4,7 @@ import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
 class ProfileService {
-    /**
-     * Get user profile by user ID
-     */
+    // Get user profile by user ID
     async getProfile(userId: string): Promise<ServiceResponse<UserProfile>> {
         try {
             const { data, error } = await supabase
@@ -29,9 +27,7 @@ class ProfileService {
         }
     }
 
-    /**
-     * Create a new user profile
-     */
+    // Create a new user profile
     async createProfile(
         userId: string,
         profileData: Partial<UserProfile>
@@ -61,9 +57,7 @@ class ProfileService {
         }
     }
 
-    /**
-     * Update an existing user profile
-     */
+    // Update an existing user profile
     async updateProfile(
         userId: string,
         updates: Partial<UserProfile>

@@ -3,13 +3,13 @@
 
 // Eror response structure
 export interface AppError {
-  /** User-friendly error message appropriate for display */
+  // User-friendly error message appropriate for display
   message: string;
-  /** Machine-readable error code for programmatic handling */
+  // Machine-readable error code for programmatic handling
   code: ErrorCode;
-  /** Optional field that caused the error (for form validation) */
+  // Optional field that caused the error (for form validation)
   field?: string;
-  /** Optional additional details (for logging/debugging) */
+  // Optional additional details (for logging/debugging)
   details?: string;
 }
 
@@ -138,21 +138,15 @@ export function mapSupabaseError(error: unknown): AppError {
   }
 }
 
-/**
- * Validation helper functions
- */
+// Validation helper functions
 export const validators = {
-  /**
-   * Validate email format
-   */
+  // Validate email format
   isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   },
 
-  /**
-   * Validate password strength
-   */
+  // Validate password strength
   isValidPassword(password: string): { valid: boolean; error?: AppError } {
     if (!password || password.length < 6) {
       return {
@@ -167,9 +161,7 @@ export const validators = {
     return { valid: true };
   },
 
-  /**
-   * Validate required field
-   */
+  // Validate required field
   isRequired(value: string, fieldName: string): AppError | null {
     if (!value || value.trim().length === 0) {
       return createError(
@@ -180,6 +172,23 @@ export const validators = {
     }
     return null;
   },
+
+  // Validate phone number (10 digits)
+  isValidPhoneNumber(phone: string): boolean {
+    // Allow (XXX) XXX-XXXX or XXXXXXXXXX
+    const cleaned = phone.replace(/\D/g, '');
+    return cleaned.length === 10;
+  },
+
+  // Validate URL
+  isValidUrl(url: string): boolean {
+    try {
+      // Basic check for common URL patterns
+      return /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(url);
+    } catch {
+      return false;
+    }
+  },
 };
 
 // Network utilities
@@ -189,7 +198,7 @@ export function isOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 
-/**
+/*
  * Helper function to handle Supabase query responses
  * Converts Supabase response format into standardized ServiceResponse
  * @param data: the data returned from Supabase query
