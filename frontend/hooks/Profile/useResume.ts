@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import { Alert } from 'react-native';
-import { createError } from '../types/errors';
-import type { AppError } from '../types/errors';
+import { createError } from '../../types/errors';
+import type { AppError } from '../../types/errors';
 
 export function useResume() {
   const [resumeName, setResumeName] = useState<string | null>(null);

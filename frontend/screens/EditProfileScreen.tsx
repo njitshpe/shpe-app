@@ -4,7 +4,7 @@ import { SHPE_COLORS } from '../constants/colors';
 import { ProfileForm } from '../components/ProfileForm';
 import { ResumeUploader } from '../components/ResumeUploader';
 import { InterestPicker } from '../components/InterestPicker';
-import { useResume } from '../lib/useResume';
+import { useResume } from '../hooks/Profile/useResume';
 import type { UserProfile } from '../types/userProfile';
 import { profileService } from '../lib/profileService';
 import type { ServiceResponse } from '../types/errors';
