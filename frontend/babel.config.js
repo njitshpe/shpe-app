@@ -10,7 +10,9 @@ module.exports = function (api) {
         "whitelist": null,
         "safe": false,
         "allowUndefined": true
-      }]
-    ]
+      }],
+      // Reanimated plugin must be listed last.
+      'react-native-reanimated/plugin',
+    ],
   };
 };

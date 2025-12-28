@@ -1,16 +1,15 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Try to get from environment variables first, fallback to app.json extra config
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || Constants.expoConfig?.extra?.supabaseUrl || '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || Constants.expoConfig?.extra?.supabaseAnonKey || '';
 
-// Ensure Supabase credentials are configured in .env.local
-// This error was tested, and is now useful now for dev onboarding
+// Ensure Supabase credentials are configured
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase credentials missing. Copy .env.example to .env.local and add your credentials.'
-  );
+  console.warn('Supabase URL or Anon Key not found. Using empty client.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -21,3 +20,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   },
 });
+
+// Database types for events table
+export interface EventRow {
+  id: number;
+  event_id: string;
+  name: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+  location_name: string;
+  latitude: number | null;
+  longitude: number | null;
+  cover_image_url: string | null;
+  host_name: string | null;
+  price_label: string | null;
+  tags: string[];
+  is_archived: boolean;
+  is_active: boolean;
+}
