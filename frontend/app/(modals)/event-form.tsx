@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useEvents } from '../../context/EventsContext';
+import { useEvents } from '../../contexts/EventsContext';
 import { Event } from '../../data/mockEvents';
 
 export default function EventFormScreen() {

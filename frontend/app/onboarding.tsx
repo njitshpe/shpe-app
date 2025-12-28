@@ -6,16 +6,15 @@ import { OnboardingPage3 } from '../components/onboarding/OnboardingPage3';
 import type { UserType } from '../types/userProfile';
 import { useAuth } from '../contexts/AuthContext';
 
-interface OnboardingScreenProps {
-    userType: UserType;
-    userId: string;
-    email: string;
-}
-
-export function OnboardingScreen({ userType, userId, email }: OnboardingScreenProps) {
+export default function OnboardingScreen() {
+    const { user, signOut } = useAuth();
     const [currentPage, setCurrentPage] = useState(1);
     const [formData, setFormData] = useState<any>({});
-    const { signOut } = useAuth();
+
+    // Get user info from auth context
+    const userType = (user?.user_metadata?.user_type as UserType) || 'student';
+    const userId = user?.id || '';
+    const email = user?.email || '';
 
     const handleNext = (pageData: any) => {
         setFormData({ ...formData, ...pageData });
