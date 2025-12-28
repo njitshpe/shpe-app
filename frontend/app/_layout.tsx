@@ -1,117 +1,68 @@
-import React, { useState } from 'react';
-import { View, ActivityIndicator, Button, SafeAreaView } from 'react-native';
-import { Stack } from 'expo-router';
+import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { Slot, useSegments, useRouter } from 'expo-router';
 
-// 1. IMPORT PROVIDERS
+// Providers
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
-import { EventsProvider } from '../context/EventsContext'; 
+import { EventsProvider } from '../contexts/EventsContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
-// 2. IMPORT SUPABASE (For the temporary logout button)
-import { supabase } from '../lib/supabase';
-
-// 3. IMPORT SCREENS
-import { LoginScreen } from '../screens/LoginScreen';
-import { SignupScreen } from '../screens/SignupScreen';
-import { OnboardingScreen } from '../screens/OnboardingScreen';
-
-// ----------------------------------------------------------------------
-// COMPONENT: The Navigation Logic
-// ----------------------------------------------------------------------
-function RootLayoutNav() {
+/**
+ * Auth Guard Component
+ * Handles redirects based on authentication state
+ */
+function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, isLoading, user } = useAuth();
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const segments = useSegments();
+  const router = useRouter();
 
-  // A. Loading State
+  React.useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === 'onboarding';
+    const onboardingCompleted = user?.user_metadata?.onboarding_completed;
+
+    if (!session && !inAuthGroup) {
+      // Not logged in, redirect to login
+      router.replace('/login');
+    } else if (session && !onboardingCompleted && !inOnboarding) {
+      // Logged in but onboarding not complete
+      router.replace('/onboarding');
+    } else if (session && onboardingCompleted && (inAuthGroup || inOnboarding)) {
+      // Logged in and onboarded, but in auth/onboarding routes
+      router.replace('/home');
+    }
+  }, [session, isLoading, segments, user]);
+
+  // Loading State
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#D35400" />
       </View>
     );
   }
 
-  // B. Not Logged In? -> Show Login or Signup
-  if (!session) {
-    if (authMode === 'login') {
-      return <LoginScreen onNavigateToSignup={() => setAuthMode('signup')} />;
-    } else {
-      return <SignupScreen onNavigateToLogin={() => setAuthMode('login')} />;
-    }
-  }
-
-  // C. Logged In? -> Check Onboarding Status
-  // We check the metadata attached to the user account
-  const onboardingCompleted = user?.user_metadata?.onboarding_completed;
-
-  if (!onboardingCompleted) {
-     return (
-        <OnboardingScreen 
-           // We use || "" to prevent crashes if these are temporarily null
-           userType={user?.user_metadata?.user_type || 'student'}
-           userId={user?.id || ""}
-           email={user?.email || ""}
-        />
-     );
-  }
-
-  // D. Onboarding Done? -> Show the Main App (Calendar/Tabs)
-  return (
-    <EventsProvider>
-      {/* --- TEMPORARY DEBUG BUTTON: DELETE THIS VIEW AFTER FIXING --- */}
-      <SafeAreaView style={{ backgroundColor: 'red' }}>
-        <Button 
-          title="⚠️ DEBUG: FORCE LOGOUT (Reset Ghost User)" 
-          color="white"
-          onPress={async () => {
-             console.log("Force logging out...");
-             await supabase.auth.signOut();
-          }} 
-        />
-      </SafeAreaView>
-      {/* ------------------------------------------------------------- */}
-
-      <Stack>
-        {/* 'index' redirects to your (tabs) */}
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        
-        {/* Main Tabs (Calendar lives here) */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        
-        {/* Event Details Page */}
-        <Stack.Screen
-          name="event/[id]"
-          options={{
-            headerShown: false,
-            presentation: 'card',
-          }}
-        />
-        
-        {/* Event Form Modal */}
-        <Stack.Screen
-          name="(modals)/event-form"
-          options={{
-            presentation: 'modal',
-            title: 'Event Form',
-            headerStyle: { backgroundColor: '#111827' },
-            headerTintColor: '#F9FAFB',
-          }}
-        />
-      </Stack>
-    </EventsProvider>
-  );
+  return <>{children}</>;
 }
 
-// ----------------------------------------------------------------------
-// ROOT WRAPPER
-// ----------------------------------------------------------------------
+/**
+ * Root Layout
+ * Wraps the app with all necessary providers
+ * EventsProvider is at the top level so it's always available
+ */
 export default function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <NotificationProvider>
-          <RootLayoutNav />
+          <EventsProvider>
+            <AuthGuard>
+              <Slot />
+            </AuthGuard>
+          </EventsProvider>
         </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>

@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, Image, ActionSheetIOS, Platform } from 'react-native';
-import { SHPE_COLORS } from '../constants/colors';
-import { ProfileForm } from '../components/ProfileForm';
-import { ResumeUploader } from '../components/ResumeUploader';
-import { InterestPicker } from '../components/InterestPicker';
-import { useResume } from '../hooks/Profile/useResume';
-import type { UserProfile } from '../types/userProfile';
-import { profileService } from '../lib/profileService';
-import type { ServiceResponse } from '../types/errors';
-import { validators } from '../types/errors';
-import { PhotoHelper } from '../lib/PhotoService';
+import { SHPE_COLORS } from '../../constants/colors';
+import { ProfileForm } from '../ProfileForm';
+import { ResumeUploader } from '../ResumeUploader';
+import { InterestPicker } from '../InterestPicker';
+import { useResume } from '../../hooks/profile/useResume';
+import type { UserProfile } from '../../types/userProfile';
+import { profileService } from '../../lib/profileService';
+import type { ServiceResponse } from '../../types/errors';
+import { validators } from '../../types/errors';
+import { PhotoHelper } from '../../lib/PhotoService';
 
 interface EditProfileScreenProps {
   onClose: () => void;

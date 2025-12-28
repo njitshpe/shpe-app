@@ -11,17 +11,17 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatTime, formatDateHeader } from '../../utils/date';
-import { useEvents } from '../../context/EventsContext';
+import { formatTime, formatDateHeader } from '../../../utils/date';
+import { useEvents } from '../../../contexts/EventsContext';
 import { Ionicons } from '@expo/vector-icons';
-import MapPreview from '../../components/MapPreview';
-import AttendeesPreview from '../../components/events/AttendeesPreview';
-import EventActionBar, { ACTION_BAR_BASE_HEIGHT } from '../../components/events/EventActionBar';
-import RegistrationSuccessModal from '../../components/events/RegistrationSuccessModal';
-import EventMoreMenu from '../../components/events/EventMoreMenu';
-import { useEventRegistration } from '../../hooks/useEventRegistration';
-import { calendarService } from '../../services/calendarService';
-import { shareService } from '../../services/shareService';
+import MapPreview from '../../../components/MapPreview';
+import AttendeesPreview from '../../../components/events/AttendeesPreview';
+import EventActionBar, { ACTION_BAR_BASE_HEIGHT } from '../../../components/events/EventActionBar';
+import RegistrationSuccessModal from '../../../components/events/RegistrationSuccessModal';
+import EventMoreMenu from '../../../components/events/EventMoreMenu';
+import { useEventRegistration } from '../../../hooks/useEventRegistration';
+import { calendarService } from '../../../services/calendarService';
+import { shareService } from '../../../services/shareService';
 import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -106,7 +106,7 @@ export default function EventDetailScreen() {
       locationName: event.locationName,
       address: event.address,
       description: event.description,
-      // deepLink: `shpeapp://event/${event.id}`, // Add when deep linking is implemented
+      // deepLink: `shpe-app://event/${event.id}`, // Add when deep linking is implemented
     });
   };
 
@@ -260,7 +260,7 @@ export default function EventDetailScreen() {
               <Text style={styles.capacityText}>{event.capacityLabel}</Text>
             </View>
           )}
-          
+
           {/* Tags */}
           {event.tags.length > 0 && (
             <View style={styles.tagsRow}>

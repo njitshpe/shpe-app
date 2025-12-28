@@ -9,8 +9,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useNotifications } from '../contexts/NotificationContext';
-import { SHPE_COLORS } from '../constants/colors';
+import { useNotifications } from '../../contexts/NotificationContext';
+import { SHPE_COLORS } from '../../constants/colors';
 
 interface NotificationSettingsScreenProps {
   onClose: () => void;
@@ -80,7 +80,7 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
       return;
     }
 
-    const { notificationService } = await import('../lib/notificationService');
+    const { notificationService } = await import('../../lib/notificationService');
     await notificationService.sendImmediateNotification(
       'Test Notification',
       'This is a test notification from SHPE App!'
@@ -99,7 +99,7 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
       return;
     }
 
-    const { notificationService } = await import('../lib/notificationService');
+    const { notificationService } = await import('../../lib/notificationService');
 
     // Schedule a notification for 10 seconds from now
     const eventTime = new Date(Date.now() + 10000); // 10 seconds from now
@@ -127,7 +127,7 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
       return;
     }
 
-    const { notificationService } = await import('../lib/notificationService');
+    const { notificationService } = await import('../../lib/notificationService');
 
     const eventTime = new Date(Date.now() + 24 * 60 * 60 * 1000); // Tomorrow
     await notificationService.sendNewEventNotification(
@@ -148,7 +148,7 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
       return;
     }
 
-    const { notificationService } = await import('../lib/notificationService');
+    const { notificationService } = await import('../../lib/notificationService');
 
     await notificationService.sendAnnouncementNotification(
       'Important SHPE Update',
@@ -170,7 +170,7 @@ export function NotificationSettingsScreen({ onClose }: NotificationSettingsScre
 
     setUpdating(true);
     try {
-      const { eventNotificationHelper } = await import('../lib/eventNotificationHelper');
+      const { eventNotificationHelper } = await import('../../lib/eventNotificationHelper');
       const result = await eventNotificationHelper.checkAndNotifyNewEvents();
 
       if (result.count > 0) {
