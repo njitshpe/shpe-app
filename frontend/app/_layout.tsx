@@ -1,25 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, ActivityIndicator, Button, SafeAreaView } from 'react-native';
 import { Stack } from 'expo-router';
 
-// 1. IMPORT YOUR PROVIDERS
+// 1. IMPORT PROVIDERS
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
-import { EventsProvider } from '../context/EventsContext'; // The new calendar context
+import { EventsProvider } from '../context/EventsContext'; 
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
-// 2. IMPORT YOUR SCREENS
+// 2. IMPORT SUPABASE (For the temporary logout button)
+import { supabase } from '../lib/supabase';
+
+// 3. IMPORT SCREENS
 import { LoginScreen } from '../screens/LoginScreen';
 import { SignupScreen } from '../screens/SignupScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 // ----------------------------------------------------------------------
-// COMPONENT 1: The "Guard"
-// This decides: Show Login Screen OR Show the App (Calendar/Tabs)
+// COMPONENT: The Navigation Logic
 // ----------------------------------------------------------------------
 function RootLayoutNav() {
   const { session, isLoading, user } = useAuth();
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
 
   // A. Loading State
   if (isLoading) {
@@ -30,47 +32,54 @@ function RootLayoutNav() {
     );
   }
 
-  // B. Not Logged In? -> Show Login/Signup Flow
+  // B. Not Logged In? -> Show Login or Signup
   if (!session) {
     if (authMode === 'login') {
-      return (
-        <LoginScreen
-          onNavigateToSignup={() => setAuthMode('signup')}
-        />
-      );
+      return <LoginScreen onNavigateToSignup={() => setAuthMode('signup')} />;
     } else {
-      return (
-        <SignupScreen
-          onNavigateToLogin={() => setAuthMode('login')}
-        />
-      );
+      return <SignupScreen onNavigateToLogin={() => setAuthMode('login')} />;
     }
   }
 
-  // C. Logged In? -> Check Onboarding
+  // C. Logged In? -> Check Onboarding Status
+  // We check the metadata attached to the user account
   const onboardingCompleted = user?.user_metadata?.onboarding_completed;
+
   if (!onboardingCompleted) {
      return (
         <OnboardingScreen 
+           // We use || "" to prevent crashes if these are temporarily null
            userType={user?.user_metadata?.user_type || 'student'}
-           // Add || "" to provide a fallback just in case
            userId={user?.id || ""}
            email={user?.email || ""}
         />
      );
   }
 
-  // D. Everything Good? -> RENDER THE APP (The "Stack")
+  // D. Onboarding Done? -> Show the Main App (Calendar/Tabs)
   return (
     <EventsProvider>
+      {/* --- TEMPORARY DEBUG BUTTON: DELETE THIS VIEW AFTER FIXING --- */}
+      <SafeAreaView style={{ backgroundColor: 'red' }}>
+        <Button 
+          title="⚠️ DEBUG: FORCE LOGOUT (Reset Ghost User)" 
+          color="white"
+          onPress={async () => {
+             console.log("Force logging out...");
+             await supabase.auth.signOut();
+          }} 
+        />
+      </SafeAreaView>
+      {/* ------------------------------------------------------------- */}
+
       <Stack>
-        {/* 'index' usually redirects to the calendar */}
+        {/* 'index' redirects to your (tabs) */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
         
-        {/* Your main tabs (where the calendar lives) */}
+        {/* Main Tabs (Calendar lives here) */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
-        {/* Specific Event Pages */}
+        {/* Event Details Page */}
         <Stack.Screen
           name="event/[id]"
           options={{
@@ -78,6 +87,8 @@ function RootLayoutNav() {
             presentation: 'card',
           }}
         />
+        
+        {/* Event Form Modal */}
         <Stack.Screen
           name="(modals)/event-form"
           options={{
@@ -93,15 +104,13 @@ function RootLayoutNav() {
 }
 
 // ----------------------------------------------------------------------
-// COMPONENT 2: The Root Wrapper
-// Wraps the entire app in Providers
+// ROOT WRAPPER
 // ----------------------------------------------------------------------
 export default function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <NotificationProvider>
-          {/* We call the Nav component INSIDE the providers */}
           <RootLayoutNav />
         </NotificationProvider>
       </AuthProvider>
