@@ -1,0 +1,72 @@
+[
+  {
+    "id": "evt-001",
+    "title": "General Meeting - Spring Semester Kickoff",
+    "description": "Join us for our first general meeting of the spring semester! We'll discuss upcoming events, introduce new members, and share exciting opportunities for professional development. Pizza and refreshments will be provided.",
+    "startTime": "2025-01-28T18:00:00Z",
+    "endTime": "2025-01-28T20:00:00Z",
+    "location": "GITC 1100",
+    "type": "General",
+    "points": 10
+  },
+  {
+    "id": "evt-002",
+    "title": "Resume Workshop with Industry Professionals",
+    "description": "Get your resume reviewed by industry professionals from top tech companies. Learn best practices for technical resumes, how to highlight your skills effectively, and receive personalized feedback. Bring multiple copies of your resume!",
+    "startTime": "2025-02-05T17:00:00Z",
+    "endTime": "2025-02-05T19:00:00Z",
+    "location": "GITC 3700",
+    "type": "Workshop",
+    "points": 15
+  },
+  {
+    "id": "evt-003",
+    "title": "Career Fair Prep Session",
+    "description": "Prepare for the upcoming NJIT Career Fair! We'll cover elevator pitches, professional attire guidelines, networking tips, and how to make a lasting impression with recruiters. Mock interviews will be available.",
+    "startTime": "2025-02-12T16:00:00Z",
+    "endTime": "2025-02-12T18:30:00Z",
+    "location": "Campus Center Ballroom A",
+    "type": "Career",
+    "points": 15
+  },
+  {
+    "id": "evt-004",
+    "title": "SHPE Social Night - Bowling",
+    "description": "Take a break from studying and join us for a fun bowling night! This is a great opportunity to meet fellow SHPE members in a relaxed setting. Food and drinks included. Transportation will be provided from campus.",
+    "startTime": "2025-02-19T19:00:00Z",
+    "endTime": "2025-02-19T22:00:00Z",
+    "location": "Bowl-Rite Lanes, Newark",
+    "type": "Social",
+    "points": 10
+  },
+  {
+    "id": "evt-005",
+    "title": "Technical Interview Workshop - LeetCode Live",
+    "description": "Master technical interviews with our hands-on LeetCode workshop. We'll solve problems together, discuss optimal approaches, and share strategies used by successful candidates at FAANG companies. Bring your laptop!",
+    "startTime": "2025-02-26T18:00:00Z",
+    "endTime": "2025-02-26T20:30:00Z",
+    "location": "GITC 3700",
+    "type": "Workshop",
+    "points": 15
+  },
+  {
+    "id": "evt-006",
+    "title": "Alumni Networking Panel",
+    "description": "Network with SHPE NJIT alumni working at top tech companies and startups. Hear their career journeys, ask questions, and build connections that can help you land internships and full-time positions. Professional attire recommended.",
+    "startTime": "2025-03-05T17:30:00Z",
+    "endTime": "2025-03-05T19:30:00Z",
+    "location": "GITC Atrium",
+    "type": "Career",
+    "points": 20
+  },
+  {
+    "id": "evt-007",
+    "title": "End of Semester Celebration",
+    "description": "Celebrate a successful semester with your SHPE family! Join us for food, games, awards ceremony, and announcements about summer opportunities. This is our biggest social event of the semester - you don't want to miss it!",
+    "startTime": "2025-04-15T18:00:00Z",
+    "endTime": "2025-04-15T21:00:00Z",
+    "location": "Campus Center Ballroom B",
+    "type": "Social",
+    "points": 10
+  }
+]
