@@ -2,6 +2,7 @@
   "expo": {
     "name": "shpe-app",
     "slug": "shpe-app",
+    "scheme": "shpe-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +14,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +25,29 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#FF5F05",
+      "androidMode": "default",
+      "androidCollapsedTitle": "SHPE Events"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "photosPermission": "The app needs to access your photos to let you change your profile picture.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
+        }
+      ]
+    ]
   }
 }
