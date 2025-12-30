@@ -79,37 +79,39 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Debug Card - Remove in production */}
-                <View style={styles.debugCard}>
-                    <Text style={styles.debugTitle}>Debug Tools</Text>
-                    <Text style={styles.debugText}>User ID: {user?.id}</Text>
+                {__DEV__ && (
+                    <View style={styles.debugCard}>
+                        <Text style={styles.debugTitle}>Debug Tools</Text>
+                        <Text style={styles.debugText}>User ID: {user?.id}</Text>
 
-                    <View style={styles.debugActions}>
-                        <TouchableOpacity
-                            style={styles.debugButton}
-                            onPress={async () => {
-                                try {
-                                    await updateUserMetadata({ onboarding_completed: false });
-                                    Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
-                                } catch (e) {
-                                    Alert.alert('Error', 'Failed to reset onboarding');
-                                }
-                            }}
-                        >
-                            <Text style={styles.debugButtonText}>Reset Onboarding</Text>
-                        </TouchableOpacity>
+                        <View style={styles.debugActions}>
+                            <TouchableOpacity
+                                style={styles.debugButton}
+                                onPress={async () => {
+                                    try {
+                                        await updateUserMetadata({ onboarding_completed: false });
+                                        Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
+                                    } catch (e) {
+                                        Alert.alert('Error', 'Failed to reset onboarding');
+                                    }
+                                }}
+                            >
+                                <Text style={styles.debugButtonText}>Reset Onboarding</Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={styles.debugButton}
-                            onPress={() => {
-                                console.log('User:', JSON.stringify(user, null, 2));
-                                console.log('Profile:', JSON.stringify(profile, null, 2));
-                                Alert.alert('Logged', 'User data logged to console');
-                            }}
-                        >
-                            <Text style={styles.debugButtonText}>Log User Data</Text>
-                        </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.debugButton}
+                                onPress={() => {
+                                    console.log('User:', JSON.stringify(user, null, 2));
+                                    console.log('Profile:', JSON.stringify(profile, null, 2));
+                                    Alert.alert('Logged', 'User data logged to console');
+                                }}
+                            >
+                                <Text style={styles.debugButtonText}>Log User Data</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                )}
             </View>
 
             {/* Sign Out Button */}
