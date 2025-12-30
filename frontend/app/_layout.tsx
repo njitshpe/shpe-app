@@ -6,7 +6,7 @@ import { Slot, useSegments, useRouter } from 'expo-router';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { EventsProvider } from '../contexts/EventsContext';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ErrorBoundary } from '../components/shared';
 
 /**
  * Auth Guard Component

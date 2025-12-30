@@ -2,13 +2,8 @@ import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import type { UserProfile } from '../types/userProfile';
 import { validators } from '../types/errors';
-
-const SHPE_COLORS = {
-  darkBlue: '#002855',
-  textGray: '#666666',
-  border: '#E0E0E0',
-  error: '#D32F2F'
-};
+import { formatPhoneNumber } from '../../utils/phoneNumber';
+import { SHPE_COLORS } from '../../constants/colors';
 
 interface ProfileFormProps {
   profile: UserProfile;
@@ -16,29 +11,6 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ profile, onChange }: ProfileFormProps) {
-
-  const formatPhoneNumber = (value: string) => {
-    // Strip all non-numeric characters
-    const cleaned = ('' + value).replace(/\D/g, '');
-
-    // Format as (XXX) XXX-XXXX
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) {
-      return '(' + match[1] + ') ' + match[2] + '-' + match[3];
-    }
-
-    // Partial formatting as user types
-    if (cleaned.length > 6) {
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-    } else if (cleaned.length > 3) {
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    } else if (cleaned.length > 0) {
-      return `(${cleaned}`;
-    }
-
-    return value;
-  };
-
   const renderInput = (
     label: string,
     field: keyof UserProfile | 'major' | 'expected_graduation_year' | 'graduation_year' | 'current_company' | 'current_position' | 'affiliation' | 'school_name' | 'reason_for_joining' | 'ucid',

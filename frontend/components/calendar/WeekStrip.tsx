@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { format, startOfWeek, addDays, addWeeks, isSameDay, startOfDay } from 'date-fns';
 import { Event } from '../../data/mockEvents';
-import { neonColors } from '../../constants/calendarTheme';
+import { NEON_COLORS } from '../../constants/calendar-theme';
 
 interface WeekStripProps {
   selectedDate: Date;
@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: neonColors.green,
-    shadowColor: neonColors.green,
+    backgroundColor: NEON_COLORS.green,
+    shadowColor: NEON_COLORS.green,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 4,

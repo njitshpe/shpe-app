@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/AuthInput';
+import { AuthInput } from '../../components/auth';
 import type { UserType } from '../../types/userProfile';
 
 export default function SignupScreen() {

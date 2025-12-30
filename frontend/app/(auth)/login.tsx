@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/AuthInput';
+import { AuthInput } from '../../components/auth';
 
 export default function LoginScreen() {
     const router = useRouter();

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useEventAttendeesPreview } from '../../hooks/useEventAttendees';
+import { useEventAttendeesPreview } from '../../hooks/events/useEventAttendees';
 
 interface AttendeesPreviewProps {
   eventId: string;

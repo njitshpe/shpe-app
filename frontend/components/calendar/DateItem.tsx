@@ -9,10 +9,10 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { CalendarDate } from '../../types/calendar';
 import {
-  calendarTheme,
+  CALENDAR_THEME,
   DATE_ITEM_WIDTH,
   DATE_ITEM_HEIGHT,
-} from '../../constants/calendarTheme';
+} from '../../constants/calendar-theme';
 
 interface DateItemProps {
   date: CalendarDate;
@@ -106,21 +106,21 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   selectedContent: {
-    backgroundColor: calendarTheme.selectedDateBackground,
+    backgroundColor: CALENDAR_THEME.selectedDateBackground,
   },
   dayOfWeek: {
     fontSize: 12,
     fontWeight: '500',
-    color: calendarTheme.unselectedDateText,
+    color: CALENDAR_THEME.unselectedDateText,
     marginBottom: 4,
   },
   dayNumber: {
     fontSize: 24,
     fontWeight: '600',
-    color: calendarTheme.headerText,
+    color: CALENDAR_THEME.headerText,
   },
   selectedText: {
-    color: calendarTheme.selectedDateText,
+    color: CALENDAR_THEME.selectedDateText,
   },
   todayIndicator: {
     position: 'absolute',
@@ -128,6 +128,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: calendarTheme.headerText,
+    backgroundColor: CALENDAR_THEME.headerText,
   },
 });
