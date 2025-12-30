@@ -11,6 +11,7 @@ export const SHPE_COLORS = {
     gray: '#F4F4F4',
     darkGray: '#666666',
     textGray: '#666666', // Alias for compatibility
+    border: '#E0E0E0',
 
     // Semantic Colors
     success: '#4CAF50',
