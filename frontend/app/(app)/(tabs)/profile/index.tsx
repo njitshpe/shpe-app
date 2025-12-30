@@ -1,18 +1,13 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, Linking, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { EditProfileScreen } from '../../../../components/profile/EditProfileScreen';
 import { SHPE_COLORS } from '../../../../constants/colors';
-
-// Lazy load NotificationSettingsScreen
-const NotificationSettingsScreen = lazy(() =>
-    import('../../../../components/profile/NotificationSettingsScreen').then(module => ({ default: module.NotificationSettingsScreen }))
-);
+import { Link } from 'expo-router'; // <--- Added for navigation
+import { Ionicons } from '@expo/vector-icons'; // <--- Added for the icon
 
 export default function ProfileScreen() {
-    const router = useRouter();
     const { user, profile, loadProfile } = useAuth();
 
     // Load profile on mount if missing
@@ -24,7 +19,6 @@ export default function ProfileScreen() {
 
     // Modal controls
     const [showEditProfile, setShowEditProfile] = useState(false);
-    const [showNotifications, setShowNotifications] = useState(false);
 
     // Helper to get display name
     const getDisplayName = () => {
@@ -68,6 +62,15 @@ export default function ProfileScreen() {
             <ScrollView style={styles.scrollView}>
                 {/* Header Section */}
                 <View style={styles.headerContainer}>
+                    
+                    {/* --- NEW GEAR ICON --- */}
+                    <Link href="/settings" asChild>
+                        <TouchableOpacity style={styles.settingsButton}>
+                            <Ionicons name="settings-outline" size={24} color={SHPE_COLORS.white} />
+                        </TouchableOpacity>
+                    </Link>
+                    {/* --------------------- */}
+
                     <View style={styles.avatarContainer}>
                         {profile?.profile_picture_url ? (
                             <Image source={{ uri: profile.profile_picture_url }} style={styles.avatar} />
@@ -129,17 +132,10 @@ export default function ProfileScreen() {
                     >
                         <Text style={styles.primaryButtonText}>Edit Profile</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.outlineButton}
-                        onPress={() => setShowNotifications(true)}
-                    >
-                        <Text style={styles.outlineButtonText}>Notification Settings</Text>
-                    </TouchableOpacity>
                 </View>
             </ScrollView>
 
-            {/* Modals */}
+            {/* Edit Profile Modal */}
             <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
                 {profile ? (
                     <EditProfileScreen
@@ -156,19 +152,6 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
                 )}
-            </Modal>
-
-            <Modal visible={showNotifications} animationType="slide" presentationStyle="pageSheet">
-                <Suspense fallback={
-                    <View style={styles.loadingFallback}>
-                        <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
-                        <Text style={styles.loadingText}>Loading Notification Settings...</Text>
-                    </View>
-                }>
-                    <NotificationSettingsScreen
-                        onClose={() => setShowNotifications(false)}
-                    />
-                </Suspense>
             </Modal>
         </SafeAreaView>
     );
@@ -188,7 +171,17 @@ const styles = StyleSheet.create({
         paddingBottom: 30,
         paddingHorizontal: 20,
         alignItems: 'center',
+        position: 'relative', // Necessary for absolute positioning of gear icon
     },
+    // --- NEW STYLE FOR GEAR ICON ---
+    settingsButton: {
+        position: 'absolute',
+        top: 20,   
+        right: 20, 
+        zIndex: 10,
+        padding: 5, 
+    },
+    // -------------------------------
     avatarContainer: {
         marginBottom: 15,
         shadowColor: "#000",
@@ -280,7 +273,6 @@ const styles = StyleSheet.create({
     },
     actionSection: {
         padding: 20,
-        gap: 12,
     },
     primaryButton: {
         backgroundColor: SHPE_COLORS.orange,
@@ -296,31 +288,6 @@ const styles = StyleSheet.create({
     primaryButtonText: {
         color: SHPE_COLORS.white,
         fontSize: 16,
-        fontWeight: '600',
-    },
-    outlineButton: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        paddingVertical: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    outlineButtonText: {
-        color: '#666',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    loadingFallback: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: SHPE_COLORS.white,
-    },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-        color: SHPE_COLORS.darkBlue,
         fontWeight: '600',
     },
 });
