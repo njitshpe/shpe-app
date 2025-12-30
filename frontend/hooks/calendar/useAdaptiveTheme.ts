@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CalendarTheme } from '../../types/calendar.types';
+import { CalendarTheme } from '../../types/calendar';
 import { getThemeForTime } from '../../constants/calendarTheme';
 
 /**

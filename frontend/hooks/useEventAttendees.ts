@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Attendee, EventAttendeesData } from '../types/attendee.types';
+import { Attendee, EventAttendeesData } from '../types/attendee';
 // import { supabase } from '../lib/supabase'; // Uncomment when ready to use Supabase
 
 /**
