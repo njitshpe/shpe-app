@@ -61,10 +61,6 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
         }
       ]
-    ],
-    "extra": {
-      "supabaseUrl": "https://jsayqpclkkoqglulvzbu.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzYXlxcGNsa2tvcWdsdWx2emJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjU0ODcsImV4cCI6MjA4MjIwMTQ4N30.kX0uOlcXtXYHxsH83HfAzE00BVG6VnmVwKDMan-x6BI"
-    }
+    ]
   }
 }
