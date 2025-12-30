@@ -11,20 +11,19 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatTime, formatDateHeader } from '../../../utils/date';
-import { useEvents } from '../../../contexts/EventsContext';
+import { formatTime, formatDateHeader } from '@/utils';
+import { useEvents } from '@/contexts/EventsContext';
 import { Ionicons } from '@expo/vector-icons';
-import { MapPreview } from '../../../components/shared';
+import { MapPreview } from '@/components/shared';
 import {
   AttendeesPreview,
   EventActionBar,
   ACTION_BAR_BASE_HEIGHT,
   RegistrationSuccessModal,
   EventMoreMenu,
-} from '../../../components/events';
-import { useEventRegistration } from '../../../hooks/events/useEventRegistration';
-import { deviceCalendarService } from '../../../services/deviceCalendar.service';
-import { shareService } from '../../../services/share.service';
+} from '@/components/events';
+import { useEventRegistration } from '@/hooks/events';
+import { deviceCalendarService, shareService } from '@/services';
 import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

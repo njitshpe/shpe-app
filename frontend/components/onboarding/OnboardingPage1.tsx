@@ -17,8 +17,8 @@ import {
     Image,
     ActionSheetIOS,
 } from 'react-native';
-import { PhotoHelper } from '../../services/photo.service';
-import type { UserType } from '../../types/userProfile';
+import { PhotoHelper } from '@/services';
+import type { UserType } from '@/types/userProfile';
 
 interface OnboardingPage1Props {
     userType: UserType;

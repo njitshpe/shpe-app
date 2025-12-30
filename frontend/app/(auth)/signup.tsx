@@ -10,9 +10,9 @@ import {
     ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/auth';
-import type { UserType } from '../../types/userProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthInput } from '@/components/auth';
+import type { UserType } from '@/types/userProfile';
 
 export default function SignupScreen() {
     const router = useRouter();

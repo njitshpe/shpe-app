@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { SHPE_COLORS } from '../constants/colors';
+import { SHPE_COLORS } from '@/constants';
 
 interface ResumeUploaderProps {
   resumeName: string | null;

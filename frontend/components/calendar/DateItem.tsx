@@ -7,12 +7,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { CalendarDate } from '../../types/calendar';
+import { CalendarDate } from '@/types/calendar';
 import {
   CALENDAR_THEME,
   DATE_ITEM_WIDTH,
   DATE_ITEM_HEIGHT,
-} from '../../constants/calendar-theme';
+} from '@/constants';
 
 interface DateItemProps {
   date: CalendarDate;

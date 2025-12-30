@@ -13,12 +13,12 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
 } from 'react-native';
-import { INTEREST_OPTIONS } from '../../types/userProfile';
-import type { UserType, InterestType } from '../../types/userProfile';
-import { profileService } from '../../lib/profileService';
-import { useAuth } from '../../contexts/AuthContext';
-import { ResumeUploader } from '../media';
-import { useResume } from '../../hooks/profile/useResume';
+import { INTEREST_OPTIONS } from '@/types/userProfile';
+import type { UserType, InterestType } from '@/types/userProfile';
+import { profileService } from '@/lib/profileService';
+import { useAuth } from '@/contexts/AuthContext';
+import { ResumeUploader } from '@/components/media';
+import { useResume } from '@/hooks/profile';
 
 interface OnboardingPage3Props {
     userType: UserType;

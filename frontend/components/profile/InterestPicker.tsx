@@ -1,13 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { INTEREST_OPTIONS, InterestType } from '../types/userProfile';
-
-const SHPE_COLORS = {
-  darkBlue: '#002855',
-  orange: '#FF5F05',
-  white: '#FFFFFF',
-  gray: '#F4F4F4'
-};
+import { INTEREST_OPTIONS, InterestType } from '@/types/userProfile';
+import { SHPE_COLORS } from '@/constants';
 
 interface InterestPickerProps {
   selectedInterests: InterestType[];

@@ -13,9 +13,9 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useEventAttendees } from '../../../../hooks/events/useEventAttendees';
-import { useEvents } from '../../../../contexts/EventsContext';
-import { Attendee } from '../../../../types/attendee';
+import { useEventAttendees } from '@/hooks/events';
+import { useEvents } from '@/contexts/EventsContext';
+import { Attendee } from '@/types/attendee';
 
 export default function EventAttendeesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

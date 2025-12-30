@@ -14,9 +14,9 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
 // --- IMPORTS FROM YOUR LIB FOLDER ---
-import { notificationService } from '../../lib/notificationService';
-import { eventNotificationHelper } from '../../lib/eventNotificationHelper';
-import { supabase } from '../../lib/supabase';
+import { notificationService } from '@/lib/notificationService';
+import { eventNotificationHelper } from '@/lib/eventNotificationHelper';
+import { supabase } from '@/lib/supabase';
 
 const COLORS = {
   primary: '#D35400', 

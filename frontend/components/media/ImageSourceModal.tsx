@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Dimensions } from 'react-native';
-import { SHPE_COLORS } from '../../constants/colors';
+import { SHPE_COLORS } from '@/constants';
 
 interface ImageSourceModalProps {
   visible: boolean;

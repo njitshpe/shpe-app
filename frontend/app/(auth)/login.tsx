@@ -10,8 +10,8 @@ import {
     ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/auth';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthInput } from '@/components/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
