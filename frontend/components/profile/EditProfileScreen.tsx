@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, Image, ActionSheetIOS, Platform } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Image } from 'react-native';
 import { SHPE_COLORS } from '../../constants/colors';
 import { ProfileForm } from '../ProfileForm';
 import { ResumeUploader } from '../ResumeUploader';
 import { InterestPicker } from '../InterestPicker';
-import { useResume } from '../../hooks/Profile/useResume';
+import { useResume } from '../../hooks/profile/useResume';
+import { useEditProfile } from '../../hooks/profile/useEditProfile';
+import { useProfilePhoto } from '../../hooks/media/useProfilePhoto';
 import type { UserProfile } from '../../types/userProfile';
-import { profileService } from '../../lib/profileService';
-import type { ServiceResponse } from '../../types/errors';
-import { validators } from '../../types/errors';
-import { PhotoHelper } from '../../lib/PhotoService';
 
 interface EditProfileScreenProps {
   onClose: () => void;
@@ -18,114 +16,29 @@ interface EditProfileScreenProps {
 }
 
 export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileScreenProps) {
-  const [formData, setFormData] = useState<UserProfile>(initialData);
-  const [loading, setLoading] = useState(false);
   const { pickResume } = useResume();
-
-  const validate = (): boolean => {
-    if (formData.phone_number && !validators.isValidPhoneNumber(formData.phone_number)) {
-      Alert.alert('Invalid Phone Number', 'Please enter a valid 10-digit phone number');
-      return false;
-    }
-
-    if (formData.linkedin_url && !validators.isValidUrl(formData.linkedin_url)) {
-      Alert.alert('Invalid LinkedIn URL', 'Please enter a valid LinkedIn profile URL');
-      return false;
-    }
-    return true;
-  };
+  const { formData, loading, updateField, toggleInterest, updateResume, saveProfile } = useEditProfile(initialData);
+  const { pickPhoto } = useProfilePhoto();
 
   const handleSave = async () => {
-    if (!validate()) return;
-
-    setLoading(true);
-
-    // Call the service to update the profile
-    const response: ServiceResponse<UserProfile> = await profileService.updateProfile(formData.id, formData);
-
-    setLoading(false);
-
+    const response = await saveProfile();
     if (response.success && response.data) {
       onSave(response.data);
-      Alert.alert('Success', 'Profile updated successfully!');
       onClose();
-    } else {
-      Alert.alert('Error', response.error?.details || response.error?.message || 'Failed to update profile');
     }
-  };
-
-  const updateField = (field: keyof UserProfile, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleResumePick = async () => {
     const result = await pickResume();
     if (result) {
-      updateField('resume_name', result.name);
-      updateField('resume_url', result.uri);
-    }
-  };
-
-  const toggleInterest = (interest: any) => {
-    const current = formData.interests;
-    if (current.includes(interest)) {
-      updateField('interests', current.filter(i => i !== interest));
-    } else {
-      updateField('interests', [...current, interest]);
+      updateResume(result.name, result.uri);
     }
   };
 
   const handleImagePick = async () => {
-    const options = ['Take Photo', 'Choose from Library', 'Choose from Files', 'Cancel'];
-    const cancelButtonIndex = 3;
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex,
-        },
-        async (buttonIndex) => {
-          if (buttonIndex === 0) {
-            const uri = await PhotoHelper.takePhoto();
-            if (uri) updateField('profile_picture_url', uri);
-          } else if (buttonIndex === 1) {
-            const uri = await PhotoHelper.pickFromLibrary();
-            if (uri) updateField('profile_picture_url', uri);
-          } else if (buttonIndex === 2) {
-            const uri = await PhotoHelper.pickFromFiles();
-            if (uri) updateField('profile_picture_url', uri);
-          }
-        }
-      );
-    } else {
-      // Android / Web fallback
-      Alert.alert(
-        'Change Profile Picture',
-        'Choose an option',
-        [
-          {
-            text: 'Take Photo', onPress: async () => {
-              const uri = await PhotoHelper.takePhoto();
-              if (uri) updateField('profile_picture_url', uri);
-            }
-          },
-          {
-            text: 'Choose from Library', onPress: async () => {
-              const uri = await PhotoHelper.pickFromLibrary();
-              if (uri) updateField('profile_picture_url', uri);
-            }
-          },
-          {
-            text: 'Choose from Files', onPress: async () => {
-              const uri = await PhotoHelper.pickFromFiles();
-              if (uri) updateField('profile_picture_url', uri);
-            }
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    }
+    pickPhoto((uri) => {
+      updateField('profile_picture_url', uri);
+    });
   };
 
   return (
@@ -183,10 +96,7 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
         <ResumeUploader
           resumeName={formData.resume_name || null}
           onUpload={handleResumePick}
-          onRemove={() => {
-            updateField('resume_name', null);
-            updateField('resume_url', null);
-          }}
+          onRemove={() => updateResume(null, null)}
         />
 
       </ScrollView>

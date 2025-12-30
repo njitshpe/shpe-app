@@ -20,8 +20,8 @@ import EventActionBar, { ACTION_BAR_BASE_HEIGHT } from '../../../components/even
 import RegistrationSuccessModal from '../../../components/events/RegistrationSuccessModal';
 import EventMoreMenu from '../../../components/events/EventMoreMenu';
 import { useEventRegistration } from '../../../hooks/useEventRegistration';
-import { calendarService } from '../../../services/calendarService';
-import { shareService } from '../../../services/shareService';
+import { deviceCalendarService } from '../../../services/deviceCalendar.service';
+import { shareService } from '../../../services/share.service';
 import * as Haptics from 'expo-haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -116,7 +116,7 @@ export default function EventDetailScreen() {
   const handleAddToCalendar = async () => {
     if (!event) return;
 
-    await calendarService.addToCalendar({
+    await deviceCalendarService.addToCalendar({
       title: event.title,
       startDate: event.startTimeISO,
       endDate: event.endTimeISO,

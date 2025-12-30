@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
-import { cameraService } from '../../lib/cameraService';
+import { cameraService } from '../../services/camera.service';
 import { eventsService } from '../../lib/eventsService';
 import { useAuth } from '../../contexts/AuthContext';
 import { SHPE_COLORS } from '../../constants/colors';
