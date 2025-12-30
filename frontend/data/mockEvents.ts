@@ -1,22 +1,9 @@
-export interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  startTimeISO: string;
-  endTimeISO: string;
-  locationName: string;
-  address?: string;
-  latitude?: number;
-  longitude?: number;
-  coverImageUrl?: string;
-  hostName?: string | null;
-  tags: string[];
-  priceLabel?: string;
-  capacityLabel?: string;
-  status: 'upcoming' | 'past';
-}
+import { EventUI } from '../types/events';
 
-export const mockEvents: Event[] = [
+// Re-export EventUI as Event for backward compatibility
+export type Event = EventUI;
+
+export const mockEvents: EventUI[] = [
   {
     id: 'evt-001',
     title: 'Spring Semester Kickoff & Networking',

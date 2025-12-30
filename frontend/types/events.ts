@@ -1,7 +1,7 @@
-// Event model matching database schema
-export interface Event {
+// Database schema (snake_case, matches Supabase)
+export interface EventDB {
   id: string;
-  event_id: string;  // The simple ID associated with events in supabase, stored in QR codes
+  event_id: string;  // The simple ID associated with events in Supabase, stored in QR codes
   name: string;
   description?: string;
   location?: string;
@@ -15,6 +15,29 @@ export interface Event {
   updated_at: string;
   is_active: boolean;
 }
+
+// UI schema (camelCase, optimized for React Native components)
+export interface EventUI {
+  id: string;
+  title: string;
+  description?: string;
+  startTimeISO: string;
+  endTimeISO: string;
+  locationName: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  coverImageUrl?: string;
+  hostName?: string | null;
+  tags: string[];
+  priceLabel?: string;
+  capacityLabel?: string;
+  status: 'upcoming' | 'past';
+}
+
+// Temporary backward compatibility alias - prefer EventUI in new code
+// TODO: Remove once all imports are migrated to EventUI/EventDB
+export type Event = EventUI;
 
 // Attendance record
 export interface EventAttendance {
@@ -31,7 +54,7 @@ export interface EventAttendance {
 export interface CheckInResponse {
   success: boolean;
   attendance?: EventAttendance;
-  event?: Event;
+  event?: EventDB;  // Check-in uses DB schema
   error?: string;
   errorCode?: 'EVENT_NOT_FOUND' | 'ALREADY_CHECKED_IN' | 'CHECK_IN_CLOSED' | 'EVENT_FULL' | 'UNAUTHORIZED';
 }

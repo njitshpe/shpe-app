@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { CalendarDate } from '../../types/calendar.types';
+import { CalendarDate } from '../../types/calendar';
 import {
   calendarTheme,
   DATE_ITEM_WIDTH,

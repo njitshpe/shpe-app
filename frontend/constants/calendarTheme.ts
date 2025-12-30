@@ -1,4 +1,4 @@
-import { CalendarTheme } from '../types/calendar.types';
+import { CalendarTheme } from '../types/calendar';
 
 // Day Mode: High-contrast white/grey for productivity
 export const dayModeTheme: CalendarTheme = {

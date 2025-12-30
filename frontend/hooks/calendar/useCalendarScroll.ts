@@ -1,6 +1,6 @@
 import { useRef, useCallback } from 'react';
 import { ScrollView } from 'react-native';
-import { CalendarDate } from '../../types/calendar.types';
+import { CalendarDate } from '../../types/calendar';
 import { DATE_ITEM_WIDTH, DATE_ITEM_SPACING } from '../../constants/calendarTheme';
 
 interface UseCalendarScrollReturn {
