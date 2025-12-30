@@ -1,18 +1,22 @@
-# /lib/ - Supabase Client & Core Services
+# /lib/ - Supabase Client & Data Services
 
-**Purpose**: Supabase initialization and authentication helpers
+**Purpose**: Supabase initialization and data access layer
 
 **Contents**:
 ```
 lib/
-├── supabase.ts                # Supabase client initialization
-└── auth.ts                    # OAuth helpers (Google, LinkedIn)
+├── supabase.ts                  # Supabase client (reads from .env)
+├── eventsService.ts             # Event CRUD operations
+├── profileService.ts            # Profile CRUD operations
+├── eventNotificationHelper.ts   # Event notification helpers
+└── notificationService.ts       # Notification management
 ```
 
 **Responsibilities**:
-- Initialize Supabase client
-- Configure OAuth providers
-- Auth state management setup
+- Initialize Supabase client from environment variables
+- Data access layer (CRUD operations)
+- Service functions for business domains
+- NO raw SQL in components/hooks
 
 **Usage Example**:
 ```typescript
@@ -34,16 +38,17 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 ```
 
-**auth.ts Responsibilities**:
-- OAuth provider configuration
-- Sign in/sign out helpers
-- Session management utilities
-- Auth state listeners
+**Environment Configuration**:
+- Supabase credentials loaded from `frontend/.env`
+- `EXPO_PUBLIC_SUPABASE_URL` - Project URL
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` - Anonymous key
+- Never hardcode credentials in source
 
 **Import Pattern**:
 ```typescript
 // In hooks/components
 import { supabase } from '@/lib/supabase'
+import { eventsService } from '@/lib/eventsService'
 
 // Read data (protected by RLS)
 const { data } = await supabase.from('events').select('*')

@@ -14,7 +14,6 @@ services/
 ├── camera.service.ts          # QR code scanning
 ├── photo.service.ts           # Image picker & compression (PhotoHelper)
 ├── deviceCalendar.service.ts  # Calendar integration
-├── notification.service.ts    # Push notifications
 ├── registration.service.ts    # Event registration
 └── share.service.ts           # Native sharing
 ```
@@ -56,11 +55,9 @@ export async function scanQRCode(): Promise<string> {
 - Add events to device calendar
 - Handle calendar operations
 
-## notification.service.ts
-- Request notification permissions
-- Register push token
-- Schedule local notifications
-- Handle notification tap events
+## registration.service.ts
+- Event registration logic
+- RSVP management
 
 ## share.service.ts
 - Native share functionality
