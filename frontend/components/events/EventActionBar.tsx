@@ -9,6 +9,7 @@ interface EventActionBarProps {
   onMorePress: () => void;
   isRegistered?: boolean;
   isCheckInAvailable?: boolean;
+  isRegisterAvailable?: boolean;
   isLoading?: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function EventActionBar({
   onMorePress,
   isRegistered = false,
   isCheckInAvailable = true,
+  isRegisterAvailable = true,
   isLoading = false,
 }: EventActionBarProps) {
   const insets = useSafeAreaInsets();
@@ -53,10 +55,10 @@ export default function EventActionBar({
           style={({ pressed }) => [
             styles.registerPill,
             pressed && styles.pillPressed,
-            isLoading && styles.pillDisabled,
+            (!isRegisterAvailable || isLoading) && styles.pillDisabled,
           ]}
           onPress={onRegisterPress}
-          disabled={isLoading}
+          disabled={!isRegisterAvailable || isLoading}
         >
           <Ionicons
             name={isRegistered ? 'checkmark-circle' : 'add-circle-outline'}

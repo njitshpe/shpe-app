@@ -48,10 +48,22 @@ export default function EventDetailScreen() {
   const hostName = (event?.hostName ?? '').trim();
   const hostInitial = (hostName[0] ?? '?').toUpperCase();
 
+  // Check if event has passed (based on end time)
+  const hasEventPassed = event ? new Date(event.endTimeISO) < new Date() : false;
+
   /**
    * Handle Register button press
    */
   const handleRegister = async () => {
+    if (hasEventPassed) {
+      Alert.alert(
+        'Event Has Ended',
+        'This event has already ended. Registration is no longer available.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (isRegistered) {
       // Already registered - could show ticket or just do nothing
       Alert.alert(
@@ -79,6 +91,15 @@ export default function EventDetailScreen() {
    * Handle Check-In button press
    */
   const handleCheckIn = () => {
+    if (hasEventPassed) {
+      Alert.alert(
+        'Event Has Ended',
+        'This event has already ended. Check-in is no longer available.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: '/check-in',
@@ -285,8 +306,9 @@ export default function EventDetailScreen() {
         onCheckInPress={handleCheckIn}
         onMorePress={handleMorePress}
         isRegistered={isRegistered}
-        isCheckInAvailable={true}
+        isCheckInAvailable={!hasEventPassed}
         isLoading={loading}
+        isRegisterAvailable={!hasEventPassed}
       />
 
       {/* Registration Success Modal */}
