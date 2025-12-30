@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ImageBackground, Dimensions } from '
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, startOfDay } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/data/mockEvents';
 
 interface WeeklyEventGridProps {
   events: Event[]; // All events for the week

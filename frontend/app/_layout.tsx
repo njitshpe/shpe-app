@@ -3,10 +3,10 @@ import { View, ActivityIndicator } from 'react-native';
 import { Slot, useSegments, useRouter } from 'expo-router';
 
 // Providers
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { NotificationProvider } from '../contexts/NotificationContext';
-import { EventsProvider } from '../contexts/EventsContext';
-import { ErrorBoundary } from '../components/shared';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { EventsProvider } from '@/contexts/EventsContext';
+import { ErrorBoundary } from '@/components/shared';
 
 /**
  * Auth Guard Component

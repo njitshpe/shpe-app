@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { OnboardingPage1 } from '../components/onboarding/OnboardingPage1';
-import { OnboardingPage2 } from '../components/onboarding/OnboardingPage2';
-import { OnboardingPage3 } from '../components/onboarding/OnboardingPage3';
-import type { UserType } from '../types/userProfile';
-import { useAuth } from '../contexts/AuthContext';
+import { OnboardingPage1, OnboardingPage2, OnboardingPage3 } from '@/components/onboarding';
+import type { UserType } from '@/types/userProfile';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function OnboardingScreen() {
     const { user, signOut } = useAuth();

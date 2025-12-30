@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, Linking, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../../../contexts/AuthContext';
-import { EditProfileScreen } from '../../../../components/profile';
-import { SHPE_COLORS } from '../../../../constants/colors';
+import { useAuth } from '@/contexts/AuthContext';
+import { EditProfileScreen } from '@/components/profile';
+import { SHPE_COLORS } from '@/constants';
 import { Link } from 'expo-router'; // <--- Added for navigation
 import { Ionicons } from '@expo/vector-icons'; // <--- Added for the icon
 

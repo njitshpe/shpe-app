@@ -14,7 +14,7 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
 } from 'react-native';
-import type { UserType } from '../../types/userProfile';
+import type { UserType } from '@/types/userProfile';
 
 interface OnboardingPage2Props {
     userType: UserType;

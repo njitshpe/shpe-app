@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import type { UserProfile } from '../types/userProfile';
-import { validators } from '../types/errors';
-import { formatPhoneNumber } from '../../utils/phoneNumber';
-import { SHPE_COLORS } from '../../constants/colors';
+import type { UserProfile } from '@/types/userProfile';
+import { validators } from '@/types/errors';
+import { formatPhoneNumber } from '@/utils';
+import { SHPE_COLORS } from '@/constants';
 
 interface ProfileFormProps {
   profile: UserProfile;

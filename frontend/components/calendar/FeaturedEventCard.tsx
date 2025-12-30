@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/data/mockEvents';
 
 interface FeaturedEventCardProps {
   event: Event;

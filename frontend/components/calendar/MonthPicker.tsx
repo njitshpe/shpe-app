@@ -23,7 +23,7 @@ import {
   addDays,
   startOfDay,
 } from 'date-fns';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/data/mockEvents';
 
 interface MonthPickerProps {
   selectedDate: Date;

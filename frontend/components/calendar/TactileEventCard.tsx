@@ -4,8 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { format, isAfter, isBefore } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Event } from '../../data/mockEvents';
-import { NEON_COLORS } from '../../constants/calendar-theme';
+import { Event } from '@/data/mockEvents';
+import { NEON_COLORS } from '@/constants';
 
 interface TactileEventCardProps {
   event: Event;

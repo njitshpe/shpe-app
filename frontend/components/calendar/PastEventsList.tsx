@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/data/mockEvents';
 import { EventCard } from './EventCard';
 
 interface PastEventsListProps {

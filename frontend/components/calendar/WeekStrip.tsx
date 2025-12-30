@@ -11,8 +11,8 @@ import {
   LayoutChangeEvent,
 } from 'react-native';
 import { format, startOfWeek, addDays, addWeeks, isSameDay, startOfDay } from 'date-fns';
-import { Event } from '../../data/mockEvents';
-import { NEON_COLORS } from '../../constants/calendar-theme';
+import { Event } from '@/data/mockEvents';
+import { NEON_COLORS } from '@/constants';
 
 interface WeekStripProps {
   selectedDate: Date;

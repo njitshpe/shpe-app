@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { format, isSameDay, isSameMonth, isAfter, isBefore, startOfDay } from 'date-fns';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/data/mockEvents';
 import { EventCard } from './EventCard';
 import { useRouter } from 'expo-router';
 
