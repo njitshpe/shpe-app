@@ -2,102 +2,108 @@
 
 **Purpose**: Centralized type definitions for the entire app
 
-**Planned Types**:
+**Current Types**:
 ```
 types/
-├── database.types.ts          # Supabase generated types
-├── user.types.ts              # User, Profile, Role
-├── event.types.ts             # Event, RSVP, CheckIn
-├── points.types.ts            # PointsTransaction, Ranking
-├── feed.types.ts              # FeedItem, Highlight
-└── api.types.ts               # Edge Function request/response
+├── attendee.ts         # Event attendee types
+├── auth.ts             # Authentication types
+├── calendar.ts         # Calendar & date types
+├── camera.ts           # Camera/QR scanner types
+├── errors.ts           # Error handling & ServiceResponse
+├── events.ts           # EventDB, EventUI, Event types
+├── notifications.ts    # Notification types
+└── userProfile.ts      # User profile types
 ```
 
 **Type Organization**:
 
-## database.types.ts
-- Auto-generated from Supabase schema
-- Generated via: `supabase gen types typescript`
-- DO NOT manually edit this file
-
-## user.types.ts
+## events.ts (Critical - Dual Schema)
 ```typescript
-export interface User {
+// Database schema (snake_case, matches Supabase)
+export interface EventDB {
   id: string
-  email: string
-  role: UserRole
-  profile: UserProfile
-}
-
-export enum UserRole {
-  UNDERGRAD_NJIT = 'undergrad_njit',
-  UNDERGRAD_OTHER = 'undergrad_other',
-  ALUMNI_NJIT = 'alumni_njit',
-  ALUMNI_OTHER = 'alumni_other',
-  ADMIN = 'admin'
-}
-
-export interface UserProfile {
-  full_name: string
-  avatar_url?: string
-  resume_url?: string
-  linkedin_url?: string
-  points: number
-}
-```
-
-## event.types.ts
-```typescript
-export interface Event {
-  id: string
-  title: string
-  description: string
+  event_id: string
+  name: string
   start_time: string
   end_time: string
   location: string
-  qr_code: string
-  is_check_in_open: boolean
+  // ... more DB fields
 }
 
-export interface RSVP {
-  user_id: string
-  event_id: string
-  created_at: string
-}
-
-export interface CheckIn {
+// UI schema (camelCase, optimized for React Native)
+export interface EventUI {
   id: string
-  user_id: string
-  event_id: string
-  checked_in_at: string
-  points_awarded: number
+  title: string
+  startTimeISO: string
+  endTimeISO: string
+  locationName: string
+  tags: string[]
+  status: 'upcoming' | 'past'
+  // ... more UI fields
+}
+
+// Backward compatibility alias
+export type Event = EventUI;
+```
+
+## userProfile.ts
+```typescript
+export interface UserProfile {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  user_type: 'student' | 'alumni' | 'other'
+  bio?: string
+  profile_picture_url?: string
+  resume_url?: string
+  // ... more fields
 }
 ```
 
-## points.types.ts
+## errors.ts
 ```typescript
-export interface PointsTransaction {
-  id: string
-  user_id: string
-  event_id?: string
-  amount: number
-  reason: PointsReason
-  created_at: string
+export interface ServiceResponse<T> {
+  success: boolean
+  data?: T
+  error?: { message: string }
 }
 
-export enum PointsReason {
-  ATTENDANCE = 'attendance',
-  FEEDBACK = 'feedback',
-  PHOTO_UPLOAD = 'photo_upload',
-  PHOTO_WITH_ALUMNI = 'photo_with_alumni',
-  PHOTO_WITH_PROFESSIONAL = 'photo_with_professional',
-  PHOTO_WITH_MEMBER_OF_MONTH = 'photo_with_member_of_month'
+export type ValidationError = {
+  field: string
+  title: string
+  message: string
+}
+```
+
+## calendar.ts
+```typescript
+export interface CalendarDate {
+  date: Date
+  dayOfWeek: string
+  dayNumber: number
+  isToday: boolean
+}
+
+export interface CalendarTheme {
+  background: string
+  selectedDateBackground: string
+  selectedDateText: string
+  // ... more theme fields
 }
 ```
 
 **Best Practices**:
 - Keep types DRY (Don't Repeat Yourself)
-- Use database.types.ts as source of truth
+- Use descriptive interface names
 - Export types, interfaces, and enums
 - Use strict TypeScript settings
-- Sync types with database schema regularly
+- Document complex types with comments
+- Use EventDB for database queries, EventUI for React components
+
+**Import Pattern**:
+```typescript
+import { EventDB, EventUI } from '@/types/events';
+import { UserProfile } from '@/types/userProfile';
+import { ServiceResponse, ValidationError } from '@/types/errors';
+```
