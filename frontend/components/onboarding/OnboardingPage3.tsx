@@ -18,7 +18,7 @@ import type { UserType, InterestType } from '../../types/userProfile';
 import { profileService } from '../../lib/profileService';
 import { useAuth } from '../../contexts/AuthContext';
 import { ResumeUploader } from '../ResumeUploader';
-import { useResume } from '../../hooks/profile/useResume';
+import { useResume } from '../../hooks/Profile/useResume';
 
 interface OnboardingPage3Props {
     userType: UserType;

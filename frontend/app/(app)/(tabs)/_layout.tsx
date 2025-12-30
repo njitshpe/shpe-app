@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Platform } from 'react-native'; // <--- Added this import
 
 export default function TabsLayout() {
     return (
@@ -12,9 +13,13 @@ export default function TabsLayout() {
                     backgroundColor: '#fff',
                     borderTopColor: '#E5E7EB',
                     borderTopWidth: 1,
-                    paddingTop: 8,
-                    paddingBottom: 8,
-                    height: 60,
+                    
+                    // --- THE FIX ---
+                    // iOS needs more height + padding to clear the Home Bar
+                    height: Platform.OS === 'ios' ? 85 : 60, 
+                    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+                    paddingTop: 10,
+                    // ----------------
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
