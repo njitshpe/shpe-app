@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { registrationService } from '../services/registrationService';
+import { registrationService } from '../services/registration.service';
 
 export interface UseEventRegistrationResult {
   isRegistered: boolean;
