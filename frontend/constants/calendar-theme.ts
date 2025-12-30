@@ -1,7 +1,7 @@
 import { CalendarTheme } from '../types/calendar';
 
 // Day Mode: High-contrast white/grey for productivity
-export const dayModeTheme: CalendarTheme = {
+export const DAY_MODE_THEME: CalendarTheme = {
   background: '#F5F5F5',
   selectedDateBackground: '#1A1A1A',
   selectedDateText: '#FFFFFF',
@@ -12,7 +12,7 @@ export const dayModeTheme: CalendarTheme = {
 };
 
 // Studio Mode: Warmer, earthy tones for creative/evening hours
-export const studioModeTheme: CalendarTheme = {
+export const STUDIO_MODE_THEME: CalendarTheme = {
   background: '#FAF8F4', // Warm off-white
   selectedDateBackground: '#2C2416', // Warm dark brown
   selectedDateText: '#FAF8F4',
@@ -23,7 +23,7 @@ export const studioModeTheme: CalendarTheme = {
 };
 
 // Neon accent colors for event indicators
-export const neonColors = {
+export const NEON_COLORS = {
   green: '#10B981', // Primary neon green
   blue: '#3B82F6',
   purple: '#8B5CF6',
@@ -39,14 +39,14 @@ export const HEADER_HEIGHT = 100;
 export const DATE_SELECTOR_HEIGHT = 100;
 
 // Default theme (for components that use static theme in styles)
-export const calendarTheme = dayModeTheme;
+export const CALENDAR_THEME = DAY_MODE_THEME;
 
 // Helper function to determine theme based on time
 export const getThemeForTime = (date: Date = new Date()): CalendarTheme => {
   const hour = date.getHours();
   // Switch to Studio Mode after 6:00 PM (18:00) or before 6:00 AM
   if (hour >= 18 || hour < 6) {
-    return studioModeTheme;
+    return STUDIO_MODE_THEME;
   }
-  return dayModeTheme;
+  return DAY_MODE_THEME;
 };

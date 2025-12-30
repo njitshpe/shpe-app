@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Image } from 'react-native';
 import { SHPE_COLORS } from '../../constants/colors';
-import { ProfileForm } from '../ProfileForm';
-import { ResumeUploader } from '../ResumeUploader';
-import { InterestPicker } from '../InterestPicker';
+import { ProfileForm } from './ProfileForm';
+import { InterestPicker } from './InterestPicker';
+import { ResumeUploader } from '../media';
 import { useResume } from '../../hooks/profile/useResume';
 import { useEditProfile } from '../../hooks/profile/useEditProfile';
 import { useProfilePhoto } from '../../hooks/media/useProfilePhoto';

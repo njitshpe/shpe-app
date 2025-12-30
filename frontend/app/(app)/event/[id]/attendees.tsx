@@ -13,7 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useEventAttendees } from '../../../../hooks/useEventAttendees';
+import { useEventAttendees } from '../../../../hooks/events/useEventAttendees';
 import { useEvents } from '../../../../contexts/EventsContext';
 import { Attendee } from '../../../../types/attendee';
 

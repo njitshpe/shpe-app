@@ -1,11 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Dimensions } from 'react-native';
-
-const COLORS = {
-  darkBlue: '#002855',
-  white: '#FFFFFF',
-  overlay: 'rgba(0,0,0,0.5)',
-};
+import { SHPE_COLORS } from '../../constants/colors';
 
 interface ImageSourceModalProps {
   visible: boolean;
@@ -75,11 +70,11 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLORS.white,
+    backgroundColor: SHPE_COLORS.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -88,7 +83,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.darkBlue,
+    color: SHPE_COLORS.darkBlue,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -98,7 +93,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 18,
-    color: COLORS.darkBlue,
+    color: SHPE_COLORS.darkBlue,
   },
   separator: {
     height: 1,

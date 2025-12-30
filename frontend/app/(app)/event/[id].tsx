@@ -14,12 +14,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatTime, formatDateHeader } from '../../../utils/date';
 import { useEvents } from '../../../contexts/EventsContext';
 import { Ionicons } from '@expo/vector-icons';
-import MapPreview from '../../../components/MapPreview';
-import AttendeesPreview from '../../../components/events/AttendeesPreview';
-import EventActionBar, { ACTION_BAR_BASE_HEIGHT } from '../../../components/events/EventActionBar';
-import RegistrationSuccessModal from '../../../components/events/RegistrationSuccessModal';
-import EventMoreMenu from '../../../components/events/EventMoreMenu';
-import { useEventRegistration } from '../../../hooks/useEventRegistration';
+import { MapPreview } from '../../../components/shared';
+import {
+  AttendeesPreview,
+  EventActionBar,
+  ACTION_BAR_BASE_HEIGHT,
+  RegistrationSuccessModal,
+  EventMoreMenu,
+} from '../../../components/events';
+import { useEventRegistration } from '../../../hooks/events/useEventRegistration';
 import { deviceCalendarService } from '../../../services/deviceCalendar.service';
 import { shareService } from '../../../services/share.service';
 import * as Haptics from 'expo-haptics';

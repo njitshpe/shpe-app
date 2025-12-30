@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CalendarTheme } from '../../types/calendar';
-import { getThemeForTime } from '../../constants/calendarTheme';
+import { getThemeForTime } from '../../constants/calendar-theme';
 
 /**
  * Hook that provides adaptive theming based on time of day

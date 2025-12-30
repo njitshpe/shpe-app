@@ -5,7 +5,7 @@ import { format, isAfter, isBefore } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Event } from '../../data/mockEvents';
-import { neonColors } from '../../constants/calendarTheme';
+import { NEON_COLORS } from '../../constants/calendar-theme';
 
 interface TactileEventCardProps {
   event: Event;
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: neonColors.red,
+    backgroundColor: NEON_COLORS.red,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,

@@ -17,7 +17,7 @@ import { INTEREST_OPTIONS } from '../../types/userProfile';
 import type { UserType, InterestType } from '../../types/userProfile';
 import { profileService } from '../../lib/profileService';
 import { useAuth } from '../../contexts/AuthContext';
-import { ResumeUploader } from '../ResumeUploader';
+import { ResumeUploader } from '../media';
 import { useResume } from '../../hooks/profile/useResume';
 
 interface OnboardingPage3Props {
