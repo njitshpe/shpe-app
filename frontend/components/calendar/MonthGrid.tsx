@@ -22,6 +22,7 @@ import {
   addMonths,
 } from 'date-fns';
 import { Event } from '@/types/events';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface MonthGridProps {
   selectedDate: Date;
@@ -45,6 +46,7 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
   visible,
   onMonthChange,
 }) => {
+  const { theme, isDark } = useTheme();
   const animatedHeight = React.useRef(new Animated.Value(0)).current;
   const [currentMonth, setCurrentMonth] = React.useState(selectedDate);
 
@@ -134,23 +136,64 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
     outputRange: [0, 400],
   });
 
+  const dynamicStyles = {
+    container: {
+      backgroundColor: theme.card,
+      borderBottomColor: theme.border,
+    },
+    header: {
+      borderBottomColor: theme.border,
+    },
+    monthTitle: {
+      color: theme.text,
+    },
+    closeButtonText: {
+      color: theme.primary,
+    },
+    weekDaysRow: {
+      borderBottomColor: theme.border,
+    },
+    weekDayText: {
+      color: theme.subtext,
+    },
+    dayText: {
+      color: theme.text,
+    },
+    dayTextFaded: {
+      color: theme.subtext,
+      opacity: 0.5,
+    },
+    dayCellSelected: {
+      backgroundColor: theme.text, // Invert for selection
+    },
+    dayTextSelected: {
+      color: theme.background, // Invert for selection
+    },
+    eventDot: {
+      backgroundColor: theme.primary,
+    },
+    eventDotSelected: {
+      backgroundColor: theme.background,
+    },
+  };
+
   return (
     <Animated.View
-      style={[styles.container, { height: interpolatedHeight }]}
+      style={[styles.container, dynamicStyles.container, { height: interpolatedHeight }]}
       {...panResponder.panHandlers}
     >
-      <View style={styles.header}>
-        <Text style={styles.monthTitle}>{format(currentMonth, 'MMMM yyyy')}</Text>
+      <View style={[styles.header, dynamicStyles.header]}>
+        <Text style={[styles.monthTitle, dynamicStyles.monthTitle]}>{format(currentMonth, 'MMMM yyyy')}</Text>
         <Pressable onPress={onClose} style={styles.closeButton}>
-          <Text style={styles.closeButtonText}>Done</Text>
+          <Text style={[styles.closeButtonText, dynamicStyles.closeButtonText]}>Done</Text>
         </Pressable>
       </View>
 
       {/* Day of week headers */}
-      <View style={styles.weekDaysRow}>
+      <View style={[styles.weekDaysRow, dynamicStyles.weekDaysRow]}>
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
           <View key={day} style={styles.weekDayCell}>
-            <Text style={styles.weekDayText}>{day}</Text>
+            <Text style={[styles.weekDayText, dynamicStyles.weekDayText]}>{day}</Text>
           </View>
         ))}
       </View>
@@ -168,7 +211,7 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
               key={index}
               style={[
                 styles.dayCell,
-                isSelected && styles.dayCellSelected,
+                isSelected && dynamicStyles.dayCellSelected,
               ]}
               onPress={() => handleDayPress(date)}
             >
@@ -176,8 +219,9 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
                 <Text
                   style={[
                     styles.dayText,
-                    !isCurrentMonth && styles.dayTextFaded,
-                    isSelected && styles.dayTextSelected,
+                    dynamicStyles.dayText,
+                    !isCurrentMonth && dynamicStyles.dayTextFaded,
+                    isSelected && dynamicStyles.dayTextSelected,
                   ]}
                 >
                   {dayNumber}
@@ -186,7 +230,8 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
                   <View
                     style={[
                       styles.eventDot,
-                      isSelected && styles.eventDotSelected,
+                      dynamicStyles.eventDot,
+                      isSelected && dynamicStyles.eventDotSelected,
                     ]}
                   />
                 )}
@@ -201,9 +246,9 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    // backgroundColor removed
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    // borderBottomColor removed
     overflow: 'hidden',
     zIndex: 1000, // Higher z-index to capture gestures
     elevation: 10, // Android elevation
@@ -215,12 +260,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    // borderBottomColor removed
   },
   monthTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    // color removed
   },
   closeButton: {
     paddingHorizontal: 12,
@@ -229,14 +274,14 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3B82F6',
+    // color removed
   },
   weekDaysRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    // borderBottomColor removed
   },
   weekDayCell: {
     width: DAY_CELL_SIZE,
@@ -245,7 +290,7 @@ const styles = StyleSheet.create({
   weekDayText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    // color removed
   },
   gridContainer: {
     flexDirection: 'row',
@@ -259,10 +304,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayCellSelected: {
-    backgroundColor: '#111827',
-    borderRadius: DAY_CELL_SIZE / 2,
-  },
   dayCellContent: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -270,23 +311,13 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
-  },
-  dayTextFaded: {
-    color: '#D1D5DB',
-  },
-  dayTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    // color removed
   },
   eventDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#3B82F6',
+    // backgroundColor removed
     marginTop: 2,
-  },
-  eventDotSelected: {
-    backgroundColor: '#FFFFFF',
   },
 });

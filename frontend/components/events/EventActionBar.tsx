@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface EventActionBarProps {
   onRegisterPress: () => void;
@@ -25,11 +26,24 @@ export default function EventActionBar({
   isLoading = false,
 }: EventActionBarProps) {
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
+
+  const dynamicStyles = {
+    container: { backgroundColor: theme.background, borderTopColor: theme.border },
+    registerPill: { backgroundColor: theme.text }, // Inverted for contrast
+    registerPillText: { color: theme.background }, // Inverted text
+    contactPill: { backgroundColor: theme.background, borderColor: theme.text },
+    contactPillText: { color: theme.text },
+    moreCircle: { backgroundColor: theme.background, borderColor: theme.text },
+    iconColorInverted: theme.background,
+    iconColor: theme.text,
+  };
 
   return (
     <View
       style={[
         styles.container,
+        dynamicStyles.container,
         {
           paddingBottom: insets.bottom || 16,
           // iOS uses shadow, Android uses elevation
@@ -43,17 +57,18 @@ export default function EventActionBar({
             android: {
               elevation: 8,
               borderTopWidth: 1,
-              borderTopColor: '#E8E5E0',
+              // borderTopColor handled in dynamicStyles
             },
           }),
         },
       ]}
     >
       <View style={styles.actionRow}>
-        {/* Register Pill - Black Background */}
+        {/* Register Pill - Inverted Background */}
         <Pressable
           style={({ pressed }) => [
             styles.registerPill,
+            dynamicStyles.registerPill,
             pressed && styles.pillPressed,
             (!isRegisterAvailable || isLoading) && styles.pillDisabled,
           ]}
@@ -63,38 +78,40 @@ export default function EventActionBar({
           <Ionicons
             name={isRegistered ? 'checkmark-circle' : 'add-circle-outline'}
             size={20}
-            color="#FDFBF7"
+            color={dynamicStyles.iconColorInverted}
           />
-          <Text style={styles.registerPillText}>
+          <Text style={[styles.registerPillText, dynamicStyles.registerPillText]}>
             {isRegistered ? 'Registered' : 'Register'}
           </Text>
         </Pressable>
 
-        {/* Check-In Pill - White Background */}
+        {/* Check-In Pill - Normal Background */}
         <Pressable
           style={({ pressed }) => [
             styles.contactPill,
+            dynamicStyles.contactPill,
             pressed && styles.pillPressed,
             (!isCheckInAvailable || isLoading) && styles.pillDisabled,
           ]}
           onPress={onCheckInPress}
           disabled={!isCheckInAvailable || isLoading}
         >
-          <Ionicons name="camera-outline" size={20} color="#1C1C1E" />
-          <Text style={styles.contactPillText}>Check-In</Text>
+          <Ionicons name="camera-outline" size={20} color={dynamicStyles.iconColor} />
+          <Text style={[styles.contactPillText, dynamicStyles.contactPillText]}>Check-In</Text>
         </Pressable>
 
-        {/* More Circle - White Background */}
+        {/* More Circle - Normal Background */}
         <Pressable
           style={({ pressed }) => [
             styles.moreCircle,
+            dynamicStyles.moreCircle,
             pressed && styles.pillPressed,
             isLoading && styles.pillDisabled,
           ]}
           onPress={onMorePress}
           disabled={isLoading}
         >
-          <Ionicons name="ellipsis-horizontal" size={20} color="#1C1C1E" />
+          <Ionicons name="ellipsis-horizontal" size={20} color={dynamicStyles.iconColor} />
         </Pressable>
       </View>
     </View>
@@ -103,7 +120,7 @@ export default function EventActionBar({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FDFBF7',
+    // backgroundColor removed
     paddingHorizontal: 24,
     paddingTop: 12,
   },
@@ -116,7 +133,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1C1C1E',
+    // backgroundColor removed
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 24,
@@ -128,7 +145,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   registerPillText: {
-    color: '#FDFBF7',
+    // color removed
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
@@ -138,16 +155,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FDFBF7',
+    // backgroundColor removed
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 24,
     gap: 8,
     borderWidth: 1.5,
-    borderColor: '#1C1C1E',
+    // borderColor removed
   },
   contactPillText: {
-    color: '#1C1C1E',
+    // color removed
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
@@ -156,11 +173,11 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#FDFBF7',
+    // backgroundColor removed
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#1C1C1E',
+    // borderColor removed
   },
   pillPressed: {
     opacity: 0.7,
