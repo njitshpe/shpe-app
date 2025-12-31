@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import { notificationService } from './notificationService';
+import { supabase } from '../lib/supabase';
+import { notificationService } from './notification.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { EventDB } from '../types/events';
 

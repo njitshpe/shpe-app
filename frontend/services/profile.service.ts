@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../lib/supabase';
 import type { UserProfile } from '../types/userProfile';
 import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
