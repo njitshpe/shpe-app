@@ -66,16 +66,7 @@ export default function HomeScreen() {
                         <Text style={styles.actionDescription}>View & edit profile</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.actionCard}
-                        onPress={() => router.push('/notifications')}
-                    >
-                        <View style={styles.actionIconContainer}>
-                            <Ionicons name="notifications" size={32} color="#8B5CF6" />
-                        </View>
-                        <Text style={styles.actionTitle}>Notifications</Text>
-                        <Text style={styles.actionDescription}>Manage alerts</Text>
-                    </TouchableOpacity>
+
                 </View>
 
                 {/* Debug Card - Remove in production */}

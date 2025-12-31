@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { profileService } from '../../lib/profileService';
+import { profileService } from '../../services/profile.service';
 import { validateProfile } from '../../utils/validation';
 import type { UserProfile } from '../../types/userProfile';
 import type { ServiceResponse } from '../../types/errors';

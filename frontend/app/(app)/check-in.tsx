@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
 import { cameraService } from '@/services';
-import { eventsService } from '@/lib/eventsService';
+import { eventsService } from '@/services/events.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { SHPE_COLORS } from '@/constants';
 
@@ -205,54 +205,53 @@ export default function CheckInScreen() {
     return (
         <View style={styles.container}>
             <CameraView
-                style={styles.camera}
+                style={StyleSheet.absoluteFillObject}
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
                     barcodeTypes: ['qr'],
                 }}
                 enableTorch={torchOn}
-            >
-                <View style={styles.overlay}>
-                    <View style={styles.header}>
-                        <Text style={styles.headerText}>Scan Event QR Code</Text>
-                        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-                            <Text style={styles.closeButtonText}>✕</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.scanArea}>
-                        <View style={styles.scanFrame} />
-                        {processing && (
-                            <View style={styles.processingOverlay}>
-                                <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
-                                <Text style={styles.processingText}>Processing check-in...</Text>
-                            </View>
-                        )}
-                    </View>
-
-                    <View style={styles.instructionsContainer}>
-                        <Text style={styles.instructionsText}>
-                            Position the QR code within the frame
-                        </Text>
-
-                        <TouchableOpacity
-                            style={styles.torchButton}
-                            onPress={toggleTorch}
-                        >
-                            <Text style={styles.torchButtonText}>
-                                {torchOn ? 'Flashlight On 🔦 ' : 'Flashlight Off 🔦'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {scanned && !processing && (
-                            <TouchableOpacity style={styles.button} onPress={resetScanner}>
-                                <Text style={styles.buttonText}>Scan Again</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
+            />
+            <View style={styles.overlay}>
+                <View style={styles.header}>
+                    <Text style={styles.headerText}>Scan Event QR Code</Text>
+                    <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+                        <Text style={styles.closeButtonText}>✕</Text>
+                    </TouchableOpacity>
                 </View>
-            </CameraView>
+
+                <View style={styles.scanArea}>
+                    <View style={styles.scanFrame} />
+                    {processing && (
+                        <View style={styles.processingOverlay}>
+                            <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
+                            <Text style={styles.processingText}>Processing check-in...</Text>
+                        </View>
+                    )}
+                </View>
+
+                <View style={styles.instructionsContainer}>
+                    <Text style={styles.instructionsText}>
+                        Position the QR code within the frame
+                    </Text>
+
+                    <TouchableOpacity
+                        style={styles.torchButton}
+                        onPress={toggleTorch}
+                    >
+                        <Text style={styles.torchButtonText}>
+                            {torchOn ? 'Flashlight On 🔦 ' : 'Flashlight Off 🔦'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {scanned && !processing && (
+                        <TouchableOpacity style={styles.button} onPress={resetScanner}>
+                            <Text style={styles.buttonText}>Scan Again</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
         </View>
     );
 }
@@ -283,6 +282,7 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'transparent',
+        width: '100%',
     },
     header: {
         flexDirection: 'row',
