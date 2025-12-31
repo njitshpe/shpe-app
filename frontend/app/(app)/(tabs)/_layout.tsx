@@ -1,25 +1,26 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native'; // <--- Added this import
+import { Platform } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabsLayout() {
+    const { theme } = useTheme();
+
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: '#D35400',
-                tabBarInactiveTintColor: '#9CA3AF',
+                tabBarActiveTintColor: theme.primary,
+                tabBarInactiveTintColor: theme.subtext,
                 tabBarStyle: {
-                    backgroundColor: '#fff',
-                    borderTopColor: '#E5E7EB',
+                    backgroundColor: theme.card,
+                    borderTopColor: theme.border,
                     borderTopWidth: 1,
-                    
-                    // --- THE FIX ---
+
                     // iOS needs more height + padding to clear the Home Bar
-                    height: Platform.OS === 'ios' ? 85 : 60, 
+                    height: Platform.OS === 'ios' ? 85 : 60,
                     paddingBottom: Platform.OS === 'ios' ? 30 : 10,
                     paddingTop: 10,
-                    // ----------------
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
