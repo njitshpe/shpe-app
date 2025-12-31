@@ -21,7 +21,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 export const GeneralSettings = () => {
   const router = useRouter();
-  const { theme, isDark, setMode } = useTheme();
+  const { theme, isDark, setMode, mode } = useTheme();
   const [loading, setLoading] = useState(true);
 
   // State for your switches
@@ -147,23 +147,39 @@ export const GeneralSettings = () => {
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
       </View>
       <View style={[styles.card, dynamicStyles.card]}>
-        <View style={styles.row}>
+        <View style={styles.themeSelectorContainer}>
           <View style={styles.labelContainer}>
             <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E0E0E0' }]}>
-              <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={theme.text} />
+              <Ionicons name={mode === 'dark' ? "moon" : mode === 'light' ? "sunny" : "settings-sharp"} size={20} color={theme.text} />
             </View>
             <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>Dark Mode</Text>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
               <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                {isDark ? 'Dark mode is on' : 'Light mode is on'}
+                {mode === 'system' ? 'Follows device settings' : mode === 'dark' ? 'Dark mode always on' : 'Light mode always on'}
               </Text>
             </View>
           </View>
-          <Switch
-            value={isDark}
-            onValueChange={(val) => setMode(val ? 'dark' : 'light')}
-            trackColor={{ false: '#767577', true: theme.primary }}
-          />
+
+          <View style={[styles.segmentedControl, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
+            {(['light', 'dark', 'system'] as const).map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[
+                  styles.segmentButton,
+                  mode === m && { backgroundColor: theme.primary },
+                  mode === m && styles.segmentButtonActive,
+                ]}
+                onPress={() => setMode(m)}
+              >
+                <Text style={[
+                  styles.segmentText,
+                  { color: mode === m ? '#fff' : theme.subtext }
+                ]}>
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
 
@@ -354,5 +370,35 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontWeight: '600',
     fontSize: 16,
+  },
+  themeSelectorContainer: {
+    padding: 16,
+    gap: 16,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 4,
+    height: 40,
+  },
+  segmentButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  segmentButtonActive: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.20,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
   }
 });

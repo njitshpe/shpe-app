@@ -40,7 +40,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // Loading State
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
         <ActivityIndicator size="large" color="#D35400" />
       </View>
     );
