@@ -6,6 +6,7 @@ import { Slot, useSegments, useRouter } from 'expo-router';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { EventsProvider } from '@/contexts/EventsContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/shared';
 
 /**
@@ -56,15 +57,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <NotificationProvider>
-          <EventsProvider>
-            <AuthGuard>
-              <Slot />
-            </AuthGuard>
-          </EventsProvider>
-        </NotificationProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <EventsProvider>
+              <AuthGuard>
+                <Slot />
+              </AuthGuard>
+            </EventsProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

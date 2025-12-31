@@ -13,6 +13,7 @@ import {
 import { format, startOfWeek, addDays, addWeeks, isSameDay, startOfDay } from 'date-fns';
 import { Event } from '@/data/mockEvents';
 import { NEON_COLORS } from '@/constants';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface WeekStripProps {
   selectedDate: Date;
@@ -62,6 +63,7 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
   const [currentWeekIndex, setCurrentWeekIndex] = useState(ANCHOR_INDEX);
   const isScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { theme, isDark } = useTheme();
 
   // Generate all weeks (computed once on mount, centered on today)
   const weeksData = useMemo(() => generateWeeksRange(new Date()), []);
@@ -168,6 +170,15 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
     [containerWidth]
   );
 
+  const dynamicStyles = {
+    container: { backgroundColor: theme.card, borderBottomColor: theme.border },
+    dayLabel: { color: theme.subtext },
+    dayLabelSelected: { color: theme.text },
+    dayNumberContainerSelected: { backgroundColor: theme.primary },
+    dayNumber: { color: theme.text },
+    dayNumberSelected: { color: '#FFFFFF' }, // Always white on primary
+  };
+
   const renderWeek = useCallback(
     ({ item }: { item: WeekData }) => {
       return (
@@ -184,16 +195,16 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
                 style={styles.dayItem}
                 onPress={() => onDateSelect(date)}
               >
-                <Text style={[styles.dayLabel, isSelected && styles.dayLabelSelected]}>
+                <Text style={[styles.dayLabel, dynamicStyles.dayLabel, isSelected && dynamicStyles.dayLabelSelected]}>
                   {dayLabel}
                 </Text>
                 <View
                   style={[
                     styles.dayNumberContainer,
-                    isSelected && styles.dayNumberContainerSelected,
+                    isSelected && dynamicStyles.dayNumberContainerSelected,
                   ]}
                 >
-                  <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>
+                  <Text style={[styles.dayNumber, dynamicStyles.dayNumber, isSelected && dynamicStyles.dayNumberSelected]}>
                     {dayNumber}
                   </Text>
                 </View>
@@ -205,13 +216,13 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
         </View>
       );
     },
-    [containerWidth, selectedDate, hasEvents, onDateSelect]
+    [containerWidth, selectedDate, hasEvents, onDateSelect, theme, isDark]
   );
 
   const keyExtractor = useCallback((item: WeekData) => item.weekStart.getTime().toString(), []);
 
   return (
-    <View style={styles.container} onLayout={handleLayout}>
+    <View style={[styles.container, dynamicStyles.container]} onLayout={handleLayout}>
       <FlatList
         ref={flatListRef}
         data={weeksData}
@@ -242,10 +253,10 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    // backgroundColor removed
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    // borderBottomColor removed
     width: '100%',
   },
   weekContainer: {
@@ -262,11 +273,11 @@ const styles = StyleSheet.create({
   dayLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#9CA3AF',
+    // color removed
     marginBottom: 6,
   },
   dayLabelSelected: {
-    color: '#111827',
+    // color removed
     fontWeight: '600',
   },
   dayNumberContainer: {
@@ -278,12 +289,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   dayNumberContainerSelected: {
-    backgroundColor: '#111827',
+    // backgroundColor removed
   },
   dayNumber: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    // color removed
   },
   dayNumberSelected: {
     color: '#FFFFFF',

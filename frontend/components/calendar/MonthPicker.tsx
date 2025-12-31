@@ -6,8 +6,6 @@ import {
   Pressable,
   FlatList,
   Dimensions,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Animated,
   Modal,
 } from 'react-native';
@@ -17,13 +15,13 @@ import {
   endOfMonth,
   getDaysInMonth,
   getDay,
-  isSameMonth,
   isSameDay,
   addMonths,
   addDays,
   startOfDay,
 } from 'date-fns';
 import { Event } from '@/data/mockEvents';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface MonthPickerProps {
   selectedDate: Date;
@@ -62,12 +60,6 @@ interface MonthData {
 /**
  * Generates a large array of months centered around today
  * Each month renders only the weeks it occupies (4-6 rows)
- *
- * CRITICAL GRID ALIGNMENT LOGIC:
- * 1. Calculate startDayOfWeek (0 = Sunday, 6 = Saturday) for the 1st of the month
- * 2. Prepend that many empty placeholder cells
- * 3. Add the actual days of the month
- * 4. Fill remaining cells with days from next month to complete the last week
  */
 const generateMonthsRange = (anchorDate: Date): MonthData[] => {
   const anchorMonthStart = startOfMonth(anchorDate);
@@ -81,9 +73,7 @@ const generateMonthsRange = (anchorDate: Date): MonthData[] => {
     const cells: DayCell[] = [];
 
     // Step 1: Add leading days from previous month before month starts
-    // If month starts on Wednesday (3), we need 3 empty cells for Sun, Mon, Tue
     for (let j = 0; j < startDayOfWeek; j++) {
-      // Calculate the actual date for the previous month's trailing days
       const trailingDate = addDays(monthStart, -(startDayOfWeek - j));
       cells.push({
         date: trailingDate,
@@ -135,9 +125,9 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
   const flatListRef = useRef<FlatList>(null);
   const animatedHeight = useRef(new Animated.Value(0)).current;
   const [currentMonthIndex, setCurrentMonthIndex] = useState(ANCHOR_INDEX);
+  const { theme, isDark } = useTheme();
 
   // Generate all months (computed once on mount, centered on today)
-  // PERFORMANCE: useMemo prevents regeneration on every render
   const monthsData = useMemo(() => generateMonthsRange(new Date()), []);
   const monthOffsets = useMemo(() => {
     const offsets: number[] = [];
@@ -153,7 +143,6 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
   }, [monthsData]);
 
   // Calculate which dates have events
-  // PERFORMANCE: useMemo + Set for O(1) lookup
   const datesWithEvents = useMemo(() => {
     const datesSet = new Set<string>();
 
@@ -215,6 +204,19 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
     }
   };
 
+  const dynamicStyles = {
+    container: { backgroundColor: theme.card, borderBottomColor: theme.border },
+    header: { backgroundColor: theme.card, borderBottomColor: theme.border },
+    headerTitle: { color: theme.text },
+    closeButtonText: { color: theme.info },
+    monthTitle: { color: theme.text },
+    weekDayText: { color: theme.subtext },
+    dayText: { color: theme.text },
+    dayTextFaded: { color: theme.subtext },
+    dayCellSelected: { backgroundColor: theme.primary },
+    eventDot: { backgroundColor: theme.success },
+  };
+
   const renderMonth = useCallback(
     ({ item }: { item: MonthData }) => {
       const monthTitle = format(item.monthStart, 'MMMM yyyy');
@@ -222,15 +224,15 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
       return (
         <View style={styles.monthContainer}>
           {/* Month title */}
-          <View style={styles.monthHeader}>
-            <Text style={styles.monthTitle}>{monthTitle}</Text>
+          <View style={[styles.monthHeader, dynamicStyles.header]}>
+            <Text style={[styles.monthTitle, dynamicStyles.monthTitle]}>{monthTitle}</Text>
           </View>
 
           {/* Weekday headers */}
           <View style={styles.weekDaysRow}>
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <View key={day} style={styles.weekDayCell}>
-                <Text style={styles.weekDayText}>{day}</Text>
+                <Text style={[styles.weekDayText, dynamicStyles.weekDayText]}>{day}</Text>
               </View>
             ))}
           </View>
@@ -244,14 +246,15 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
               return (
                 <Pressable
                   key={`${item.monthStart.getTime()}-${index}`}
-                  style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                  style={[styles.dayCell, isSelected && dynamicStyles.dayCellSelected]}
                   onPress={() => handleDayPress(cell.date)}
                 >
                   <View style={styles.dayCellContent}>
                     <Text
                       style={[
                         styles.dayText,
-                        !cell.isCurrentMonth && styles.dayTextFaded,
+                        dynamicStyles.dayText,
+                        !cell.isCurrentMonth && dynamicStyles.dayTextFaded,
                         isSelected && styles.dayTextSelected,
                       ]}
                     >
@@ -259,7 +262,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
                     </Text>
                     {hasEvent && cell.isCurrentMonth && (
                       <View
-                        style={[styles.eventDot, isSelected && styles.eventDotSelected]}
+                        style={[styles.eventDot, dynamicStyles.eventDot, isSelected && styles.eventDotSelected]}
                       />
                     )}
                   </View>
@@ -270,7 +273,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
         </View>
       );
     },
-    [selectedDate, hasEventOnDate]
+    [selectedDate, hasEventOnDate, theme, isDark]
   );
 
   const keyExtractor = useCallback(
@@ -319,6 +322,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
         <Animated.View
           style={[
             styles.container,
+            dynamicStyles.container,
             {
               height: interpolatedHeight,
               transform: [{ translateY }],
@@ -328,7 +332,6 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
         >
 
           {/* Scrollable month list */}
-          {/* PERFORMANCE: initialNumToRender=1 prevents rendering all 48 months at once */}
           <FlatList
             ref={flatListRef}
             data={monthsData}
@@ -350,9 +353,9 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    // backgroundColor removed
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    // borderBottomColor removed
     overflow: 'hidden',
   },
   header: {
@@ -362,13 +365,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
+    // borderBottomColor removed
+    // backgroundColor removed
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    // color removed
   },
   closeButton: {
     paddingHorizontal: 12,
@@ -377,7 +380,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#3B82F6',
+    // color removed
   },
   monthContainer: {
     paddingBottom: 16,
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
   monthTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    // color removed
   },
   weekDaysRow: {
     flexDirection: 'row',
@@ -406,7 +409,7 @@ const styles = StyleSheet.create({
   weekDayText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    // color removed
   },
   gridContainer: {
     flexDirection: 'row',
@@ -420,7 +423,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayCellSelected: {
-    backgroundColor: '#111827',
+    // backgroundColor removed
     borderRadius: DAY_CELL_SIZE / 2,
   },
   dayCellContent: {
@@ -430,10 +433,10 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
+    // color removed
   },
   dayTextFaded: {
-    color: '#D1D5DB',
+    // color removed
   },
   dayTextSelected: {
     color: '#FFFFFF',
@@ -443,7 +446,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#10B981',
+    // backgroundColor removed
     marginTop: 2,
   },
   eventDotSelected: {

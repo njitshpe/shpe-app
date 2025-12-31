@@ -4,11 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditProfileScreen } from '@/components/profile';
 import { SHPE_COLORS } from '@/constants';
-import { Link } from 'expo-router'; // <--- Added for navigation
-import { Ionicons } from '@expo/vector-icons'; // <--- Added for the icon
+import { Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile } = useAuth();
+    const { theme, isDark } = useTheme();
 
     // Load profile on mount if missing
     React.useEffect(() => {
@@ -57,12 +59,21 @@ export default function ProfileScreen() {
         }
     };
 
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        header: { backgroundColor: isDark ? '#1C1C1E' : SHPE_COLORS.darkBlue }, // Keep brand color in light mode, dark card in dark mode? Or maybe just brand color always? Let's stick to brand color for header identity, but maybe darken it in dark mode if needed. Actually, SHPE_COLORS.darkBlue is quite dark (#002855), so it might work in dark mode too. Let's keep it for now or use theme.primary if we want it to match the theme. Let's use SHPE_COLORS.darkBlue as it's a profile header.
+        text: { color: theme.text },
+        subtext: { color: theme.subtext },
+        card: { backgroundColor: theme.card },
+        primaryButton: { backgroundColor: theme.primary },
+    };
+
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
             <ScrollView style={styles.scrollView}>
                 {/* Header Section */}
-                <View style={styles.headerContainer}>
-                    
+                <View style={[styles.headerContainer, { backgroundColor: SHPE_COLORS.darkBlue }]}>
+
                     {/* --- NEW GEAR ICON --- */}
                     <Link href="/settings" asChild>
                         <TouchableOpacity style={styles.settingsButton}>
@@ -127,7 +138,7 @@ export default function ProfileScreen() {
                 {/* Action Buttons */}
                 <View style={styles.actionSection}>
                     <TouchableOpacity
-                        style={styles.primaryButton}
+                        style={[styles.primaryButton, dynamicStyles.primaryButton]}
                         onPress={() => setShowEditProfile(true)}
                     >
                         <Text style={styles.primaryButtonText}>Edit Profile</Text>
@@ -144,11 +155,11 @@ export default function ProfileScreen() {
                         onSave={handleProfileUpdate}
                     />
                 ) : (
-                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
-                        <Text style={{ marginTop: 10, color: SHPE_COLORS.textGray }}>Loading profile...</Text>
+                    <View style={[styles.loadingContainer, dynamicStyles.container]}>
+                        <ActivityIndicator size="large" color={theme.primary} />
+                        <Text style={{ marginTop: 10, color: theme.subtext }}>Loading profile...</Text>
                         <TouchableOpacity onPress={() => setShowEditProfile(false)} style={{ marginTop: 20 }}>
-                            <Text style={{ color: SHPE_COLORS.lightBlue }}>Close</Text>
+                            <Text style={{ color: theme.info }}>Close</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -160,28 +171,26 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        // backgroundColor removed
     },
     scrollView: {
         flex: 1,
     },
     headerContainer: {
-        backgroundColor: SHPE_COLORS.darkBlue,
+        // backgroundColor removed (set inline)
         paddingTop: 30,
         paddingBottom: 30,
         paddingHorizontal: 20,
         alignItems: 'center',
-        position: 'relative', // Necessary for absolute positioning of gear icon
+        position: 'relative',
     },
-    // --- NEW STYLE FOR GEAR ICON ---
     settingsButton: {
         position: 'absolute',
-        top: 20,   
-        right: 20, 
+        top: 20,
+        right: 20,
         zIndex: 10,
-        padding: 5, 
+        padding: 5,
     },
-    // -------------------------------
     avatarContainer: {
         marginBottom: 15,
         shadowColor: "#000",
@@ -275,7 +284,7 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     primaryButton: {
-        backgroundColor: SHPE_COLORS.orange,
+        // backgroundColor removed
         paddingVertical: 16,
         borderRadius: 8,
         alignItems: 'center',
@@ -290,4 +299,9 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
+    }
 });
