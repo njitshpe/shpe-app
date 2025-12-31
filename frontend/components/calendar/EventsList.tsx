@@ -10,7 +10,7 @@ import {
   isWithinInterval,
 } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Event } from '@/data/mockEvents';
+import { Event } from '@/types/events';
 import { TactileEventCard } from './TactileEventCard';
 import { useTheme } from '@/contexts/ThemeContext';
 

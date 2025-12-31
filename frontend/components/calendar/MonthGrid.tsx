@@ -21,7 +21,7 @@ import {
   startOfDay,
   addMonths,
 } from 'date-fns';
-import { Event } from '@/data/mockEvents';
+import { Event } from '@/types/events';
 
 interface MonthGridProps {
   selectedDate: Date;

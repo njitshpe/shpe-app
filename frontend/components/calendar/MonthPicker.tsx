@@ -20,7 +20,7 @@ import {
   addDays,
   startOfDay,
 } from 'date-fns';
-import { Event } from '@/data/mockEvents';
+import { Event } from '@/types/events';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface MonthPickerProps {
