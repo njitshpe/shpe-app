@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback, Dimensions } from 'react-native';
-import { SHPE_COLORS } from '@/constants';
+import { View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ImageSourceModalProps {
   visible: boolean;
@@ -10,17 +10,25 @@ interface ImageSourceModalProps {
   onSelectFiles: () => void;
 }
 
-export function ImageSourceModal({ 
-  visible, 
-  onClose, 
-  onSelectCamera, 
-  onSelectLibrary, 
-  onSelectFiles 
+export function ImageSourceModal({
+  visible,
+  onClose,
+  onSelectCamera,
+  onSelectLibrary,
+  onSelectFiles
 }: ImageSourceModalProps) {
-  
+  const { theme, isDark } = useTheme();
+
   // If not visible, we render nothing. 
   // This replaces the "visible" prop of the native Modal.
   if (!visible) return null;
+
+  const dynamicStyles = {
+    modalContent: { backgroundColor: theme.card },
+    title: { color: theme.text },
+    optionText: { color: theme.primary },
+    separator: { backgroundColor: theme.border },
+  };
 
   return (
     // This creates a full-screen overlay that sits ON TOP of everything else
@@ -28,23 +36,23 @@ export function ImageSourceModal({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.modalContent}>
-              <Text style={styles.title}>Update Profile Picture</Text>
-              
+            <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+              <Text style={[styles.title, dynamicStyles.title]}>Update Profile Picture</Text>
+
               <TouchableOpacity style={styles.option} onPress={onSelectCamera}>
-                <Text style={styles.optionText}>Take Photo</Text>
-              </TouchableOpacity>
-              
-              <View style={styles.separator} />
-              
-              <TouchableOpacity style={styles.option} onPress={onSelectLibrary}>
-                <Text style={styles.optionText}>Choose from Library</Text>
+                <Text style={[styles.optionText, dynamicStyles.optionText]}>Take Photo</Text>
               </TouchableOpacity>
 
-              <View style={styles.separator} />
+              <View style={[styles.separator, dynamicStyles.separator]} />
+
+              <TouchableOpacity style={styles.option} onPress={onSelectLibrary}>
+                <Text style={[styles.optionText, dynamicStyles.optionText]}>Choose from Library</Text>
+              </TouchableOpacity>
+
+              <View style={[styles.separator, dynamicStyles.separator]} />
 
               <TouchableOpacity style={styles.option} onPress={onSelectFiles}>
-                <Text style={styles.optionText}>Choose from Files</Text>
+                <Text style={[styles.optionText, dynamicStyles.optionText]}>Choose from Files</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.option, styles.cancelButton]} onPress={onClose}>
@@ -74,7 +82,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: SHPE_COLORS.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -83,7 +90,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: SHPE_COLORS.darkBlue,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -93,11 +99,9 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 18,
-    color: SHPE_COLORS.darkBlue,
   },
   separator: {
     height: 1,
-    backgroundColor: '#E0E0E0',
   },
   cancelButton: {
     marginTop: 10,

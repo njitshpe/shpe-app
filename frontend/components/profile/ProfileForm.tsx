@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import type { UserProfile } from '@/types/userProfile';
-import { validators } from '@/types/errors';
 import { formatPhoneNumber } from '@/utils';
-import { SHPE_COLORS } from '@/constants';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ProfileFormProps {
   profile: UserProfile;
@@ -11,6 +10,15 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ profile, onChange }: ProfileFormProps) {
+  const { theme, isDark } = useTheme();
+
+  const dynamicStyles = {
+    label: { color: theme.subtext },
+    input: { color: theme.text, borderBottomColor: theme.border },
+    multilineInput: { borderColor: theme.border, color: theme.text },
+    limit: { color: theme.subtext },
+  };
+
   const renderInput = (
     label: string,
     field: keyof UserProfile | 'major' | 'expected_graduation_year' | 'graduation_year' | 'current_company' | 'current_position' | 'affiliation' | 'school_name' | 'reason_for_joining' | 'ucid',
@@ -37,14 +45,20 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
     return (
       <View style={styles.inputContainer}>
         <View style={styles.rowLabel}>
-          <Text style={styles.label}>{label}</Text>
-          {maxLength && <Text style={styles.limit}>{value.length}/{maxLength}</Text>}
+          <Text style={[styles.label, dynamicStyles.label]}>{label}</Text>
+          {maxLength && <Text style={[styles.limit, dynamicStyles.limit]}>{value.length}/{maxLength}</Text>}
         </View>
         <TextInput
-          style={[styles.input, multiline && styles.multilineInput]}
+          style={[
+            styles.input,
+            dynamicStyles.input,
+            multiline && styles.multilineInput,
+            multiline && dynamicStyles.multilineInput
+          ]}
           value={value}
           onChangeText={handleChangeText}
           placeholder={placeholder}
+          placeholderTextColor={theme.subtext}
           maxLength={maxLength}
           keyboardType={keyboardType}
           multiline={multiline}
@@ -108,25 +122,20 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: SHPE_COLORS.textGray,
     fontWeight: '500',
   },
   limit: {
     fontSize: 12,
-    color: '#999',
   },
   input: {
     borderBottomWidth: 1,
-    borderBottomColor: SHPE_COLORS.border,
     fontSize: 16,
-    color: SHPE_COLORS.darkBlue,
     paddingVertical: 8,
   },
   multilineInput: {
     height: 80,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: SHPE_COLORS.border,
     borderRadius: 4,
     padding: 8,
     borderBottomWidth: 1, // Reset override

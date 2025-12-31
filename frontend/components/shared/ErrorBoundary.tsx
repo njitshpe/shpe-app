@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -70,24 +71,38 @@ interface ErrorFallbackProps {
 }
 
 function ErrorFallback({ error, onReset }: ErrorFallbackProps) {
+    const { theme, isDark } = useTheme();
+
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        content: { backgroundColor: theme.card, shadowColor: theme.shadow },
+        title: { color: theme.text },
+        message: { color: theme.subtext },
+        errorDetails: { backgroundColor: isDark ? '#330000' : '#FFF3F3', borderColor: theme.primary },
+        errorTitle: { color: '#D32F2F' },
+        errorText: { color: theme.subtext },
+        button: { backgroundColor: theme.primary },
+        buttonText: { color: '#FFFFFF' },
+    };
+
     return (
-        <View style={styles.container}>
-            <View style={styles.content}>
+        <View style={[styles.container, dynamicStyles.container]}>
+            <View style={[styles.content, dynamicStyles.content]}>
                 <Text style={styles.emoji}>⚠️</Text>
-                <Text style={styles.title}>Oops! Something went wrong</Text>
-                <Text style={styles.message}>
+                <Text style={[styles.title, dynamicStyles.title]}>Oops! Something went wrong</Text>
+                <Text style={[styles.message, dynamicStyles.message]}>
                     We encountered an unexpected error. Don't worry, your data is safe.
                 </Text>
 
                 {__DEV__ && error && (
-                    <View style={styles.errorDetails}>
-                        <Text style={styles.errorTitle}>Error Details (Dev Only):</Text>
-                        <Text style={styles.errorText}>{error.message}</Text>
+                    <View style={[styles.errorDetails, dynamicStyles.errorDetails]}>
+                        <Text style={[styles.errorTitle, dynamicStyles.errorTitle]}>Error Details (Dev Only):</Text>
+                        <Text style={[styles.errorText, dynamicStyles.errorText]}>{error.message}</Text>
                     </View>
                 )}
 
-                <TouchableOpacity style={styles.button} onPress={onReset}>
-                    <Text style={styles.buttonText}>Try Again</Text>
+                <TouchableOpacity style={[styles.button, dynamicStyles.button]} onPress={onReset}>
+                    <Text style={[styles.buttonText, dynamicStyles.buttonText]}>Try Again</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -97,19 +112,16 @@ function ErrorFallback({ error, onReset }: ErrorFallbackProps) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
     },
     content: {
-        backgroundColor: '#FFFFFF',
         borderRadius: 16,
         padding: 32,
         maxWidth: 400,
         width: '100%',
         alignItems: 'center',
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -122,39 +134,32 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#1A1A1A',
         marginBottom: 12,
         textAlign: 'center',
     },
     message: {
         fontSize: 16,
-        color: '#666666',
         textAlign: 'center',
         marginBottom: 24,
         lineHeight: 24,
     },
     errorDetails: {
-        backgroundColor: '#FFF3F3',
         borderRadius: 8,
         padding: 16,
         marginBottom: 24,
         width: '100%',
         borderLeftWidth: 4,
-        borderLeftColor: '#FF5F05',
     },
     errorTitle: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#D32F2F',
         marginBottom: 8,
     },
     errorText: {
         fontSize: 12,
-        color: '#666666',
         fontFamily: 'monospace',
     },
     button: {
-        backgroundColor: '#FF5F05',
         paddingVertical: 14,
         paddingHorizontal: 32,
         borderRadius: 8,
@@ -162,7 +167,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
-        color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
     },

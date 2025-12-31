@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Image } from 'react-native';
-import { SHPE_COLORS } from '@/constants';
 import { ProfileForm } from './ProfileForm';
 import { InterestPicker } from './InterestPicker';
 import { ResumeUploader } from '@/components/media';
 import { useResume, useEditProfile } from '@/hooks/profile';
 import { useProfilePhoto } from '@/hooks/media';
 import type { UserProfile } from '@/types/userProfile';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface EditProfileScreenProps {
   onClose: () => void;
@@ -18,6 +18,7 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
   const { pickResume } = useResume();
   const { formData, loading, updateField, toggleInterest, updateResume, saveProfile } = useEditProfile(initialData);
   const { pickPhoto } = useProfilePhoto();
+  const { theme, isDark } = useTheme();
 
   const handleSave = async () => {
     const response = await saveProfile();
@@ -40,18 +41,30 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
     });
   };
 
+  const dynamicStyles = {
+    container: { backgroundColor: theme.background },
+    header: { borderBottomColor: theme.border },
+    title: { color: theme.text },
+    cancelText: { color: theme.subtext },
+    saveText: { color: theme.primary },
+    avatarPlaceholder: { backgroundColor: isDark ? '#333' : '#E0E0E0' },
+    avatarInitials: { color: theme.subtext },
+    editIconBadge: { backgroundColor: theme.primary, borderColor: theme.card },
+    changePhotoText: { color: theme.primary },
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.header, dynamicStyles.header]}>
         <TouchableOpacity onPress={onClose} disabled={loading}>
-          <Text style={styles.cancelText}>Cancel</Text>
+          <Text style={[styles.cancelText, dynamicStyles.cancelText]}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Edit Profile</Text>
+        <Text style={[styles.title, dynamicStyles.title]}>Edit Profile</Text>
         <TouchableOpacity onPress={handleSave} disabled={loading}>
           {loading ? (
-            <ActivityIndicator size="small" color="#FF5F05" />
+            <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Text style={styles.saveText}>Save</Text>
+            <Text style={[styles.saveText, dynamicStyles.saveText]}>Save</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -64,18 +77,18 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
             {formData.profile_picture_url ? (
               <Image source={{ uri: formData.profile_picture_url }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitials}>
+              <View style={[styles.avatarPlaceholder, dynamicStyles.avatarPlaceholder]}>
+                <Text style={[styles.avatarInitials, dynamicStyles.avatarInitials]}>
                   {formData.first_name?.[0]}{formData.last_name?.[0]}
                 </Text>
               </View>
             )}
-            <View style={styles.editIconBadge}>
+            <View style={[styles.editIconBadge, dynamicStyles.editIconBadge]}>
               <Text style={styles.editIconText}>📷</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleImagePick}>
-            <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+            <Text style={[styles.changePhotoText, dynamicStyles.changePhotoText]}>Change Profile Photo</Text>
           </TouchableOpacity>
         </View>
 
@@ -104,18 +117,17 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
   },
-  title: { fontSize: 18, fontWeight: 'bold', color: SHPE_COLORS.darkBlue },
-  cancelText: { color: SHPE_COLORS.darkGray, fontSize: 16 },
-  saveText: { color: SHPE_COLORS.orange, fontSize: 16, fontWeight: 'bold' },
+  title: { fontSize: 18, fontWeight: 'bold' },
+  cancelText: { fontSize: 16 },
+  saveText: { fontSize: 16, fontWeight: 'bold' },
   content: { padding: 20 },
   avatarContainer: {
     alignItems: 'center',
@@ -133,34 +145,29 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitials: {
     fontSize: 36,
-    color: SHPE_COLORS.darkGray,
     fontWeight: 'bold',
   },
   editIconBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: SHPE_COLORS.darkBlue,
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: SHPE_COLORS.white,
   },
   editIconText: {
     fontSize: 16,
   },
   changePhotoText: {
     marginTop: 8,
-    color: SHPE_COLORS.orange,
     fontSize: 14,
     fontWeight: '600',
   },
