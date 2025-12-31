@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AuthInputProps {
   label: string;
@@ -20,15 +21,26 @@ export function AuthInput({
   keyboardType = 'default',
   autoCapitalize = 'none',
 }: AuthInputProps) {
+  const { theme, isDark } = useTheme();
+
+  const dynamicStyles = {
+    label: { color: theme.text },
+    input: {
+      borderColor: theme.border,
+      backgroundColor: theme.card,
+      color: theme.text,
+    },
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, dynamicStyles.label]}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, dynamicStyles.input]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#999"
+        placeholderTextColor={theme.subtext}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
@@ -45,16 +57,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 14,
     fontSize: 16,
-    backgroundColor: '#fafafa',
-    color: '#333',
   },
 });

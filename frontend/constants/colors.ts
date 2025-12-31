@@ -20,6 +20,16 @@ export const SHPE_COLORS = {
     background: '#f5f5f5',
 } as const;
 
+export const NEON_COLORS = {
+    red: '#FF3B30',
+    green: '#34C759',
+    blue: '#007AFF',
+    yellow: '#FFCC00',
+    orange: '#FF9500',
+    purple: '#AF52DE',
+    pink: '#FF2D55',
+} as const;
+
 export interface ThemeColors {
     primary: string;
     background: string;
@@ -30,6 +40,7 @@ export interface ThemeColors {
     success: string;
     error: string;
     info: string;
+    shadow: string;
     // Calendar specific
     calendarBackground: string;
     calendarText: string;
@@ -46,6 +57,7 @@ export const lightTheme: ThemeColors = {
     success: '#34C759',
     error: '#FF3B30',
     info: '#007AFF',
+    shadow: '#000000',
     calendarBackground: '#FFFFFF',
     calendarText: '#000000',
     calendarAccent: '#F2F2F7',
@@ -61,6 +73,7 @@ export const darkTheme: ThemeColors = {
     success: '#30D158',
     error: '#FF453A',
     info: '#0A84FF',
+    shadow: '#000000',
     calendarBackground: '#1C1C1E',
     calendarText: '#FFFFFF',
     calendarAccent: '#2C2C2E',
