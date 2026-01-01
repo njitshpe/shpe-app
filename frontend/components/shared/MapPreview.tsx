@@ -6,11 +6,11 @@ import {
   Pressable,
   Modal,
   Animated,
-  Platform,
   Linking,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface MapPreviewProps {
   locationName: string;
@@ -27,6 +27,7 @@ export default function MapPreview({
 }: MapPreviewProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const scaleAnim = useState(new Animated.Value(0))[0];
+  const { theme, isDark } = useTheme();
 
   // Determine if we have valid location data
   const hasCoordinates = latitude !== undefined && longitude !== undefined;
@@ -43,11 +44,11 @@ export default function MapPreview({
 
   const region = hasCoordinates
     ? {
-        latitude: latitude!,
-        longitude: longitude!,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }
+      latitude: latitude!,
+      longitude: longitude!,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }
     : defaultRegion;
 
   const handleMapPress = () => {
@@ -116,13 +117,27 @@ export default function MapPreview({
     }
   };
 
+  const dynamicStyles = {
+    mapCard: { backgroundColor: theme.card, borderColor: theme.border },
+    mapContainer: { backgroundColor: isDark ? '#333' : '#F5F3F0' },
+    mapSubtext: { color: theme.text },
+    fallbackContainer: { backgroundColor: isDark ? '#333' : '#F5F3F0' },
+    fallbackText: { color: theme.subtext },
+    modalContent: { backgroundColor: theme.card },
+    modalTitle: { color: theme.text },
+    modalButton: { backgroundColor: theme.background, borderColor: theme.border },
+    modalButtonText: { color: theme.text },
+    cancelButton: { backgroundColor: theme.text }, // Inverted for contrast
+    cancelButtonText: { color: theme.background },
+  };
+
   // Fallback UI for missing location
   if (!hasLocation) {
     return (
-      <View style={styles.mapCard}>
-        <View style={styles.fallbackContainer}>
-          <Ionicons name="location-outline" size={40} color="#6e6e73" />
-          <Text style={styles.fallbackText}>Location unavailable</Text>
+      <View style={[styles.mapCard, dynamicStyles.mapCard]}>
+        <View style={[styles.fallbackContainer, dynamicStyles.fallbackContainer]}>
+          <Ionicons name="location-outline" size={40} color={theme.subtext} />
+          <Text style={[styles.fallbackText, dynamicStyles.fallbackText]}>Location unavailable</Text>
         </View>
       </View>
     );
@@ -131,10 +146,10 @@ export default function MapPreview({
   return (
     <>
       <Pressable
-        style={({ pressed }) => [styles.mapCard, pressed && styles.mapCardPressed]}
+        style={({ pressed }) => [styles.mapCard, dynamicStyles.mapCard, pressed && styles.mapCardPressed]}
         onPress={handleMapPress}
       >
-        <View style={styles.mapContainer}>
+        <View style={[styles.mapContainer, dynamicStyles.mapContainer]}>
           <MapView
             style={styles.map}
             region={region}
@@ -143,6 +158,7 @@ export default function MapPreview({
             pitchEnabled={false}
             rotateEnabled={false}
             provider={PROVIDER_DEFAULT}
+            userInterfaceStyle={isDark ? 'dark' : 'light'}
           >
             {hasCoordinates && (
               <Marker
@@ -154,8 +170,8 @@ export default function MapPreview({
           </MapView>
         </View>
         <View style={styles.mapFooter}>
-          <Ionicons name="navigate" size={16} color="#1C1C1E" />
-          <Text style={styles.mapSubtext}>Tap for directions</Text>
+          <Ionicons name="navigate" size={16} color={theme.text} />
+          <Text style={[styles.mapSubtext, dynamicStyles.mapSubtext]}>Tap for directions</Text>
         </View>
       </Pressable>
 
@@ -170,6 +186,7 @@ export default function MapPreview({
           <Animated.View
             style={[
               styles.modalContent,
+              dynamicStyles.modalContent,
               {
                 transform: [
                   {
@@ -184,41 +201,44 @@ export default function MapPreview({
             ]}
           >
             <Pressable>
-              <Text style={styles.modalTitle}>Get Directions</Text>
+              <Text style={[styles.modalTitle, dynamicStyles.modalTitle]}>Get Directions</Text>
 
               {/* Apple Maps Button */}
               <Pressable
                 style={({ pressed }) => [
                   styles.modalButton,
+                  dynamicStyles.modalButton,
                   pressed && styles.modalButtonPressed,
                 ]}
                 onPress={openAppleMaps}
               >
-                <Ionicons name="map" size={20} color="#1C1C1E" />
-                <Text style={styles.modalButtonText}>Open in Apple Maps</Text>
+                <Ionicons name="map" size={20} color={theme.text} />
+                <Text style={[styles.modalButtonText, dynamicStyles.modalButtonText]}>Open in Apple Maps</Text>
               </Pressable>
 
               {/* Google Maps Button */}
               <Pressable
                 style={({ pressed }) => [
                   styles.modalButton,
+                  dynamicStyles.modalButton,
                   pressed && styles.modalButtonPressed,
                 ]}
                 onPress={openGoogleMaps}
               >
-                <Ionicons name="navigate" size={20} color="#1C1C1E" />
-                <Text style={styles.modalButtonText}>Open in Google Maps</Text>
+                <Ionicons name="navigate" size={20} color={theme.text} />
+                <Text style={[styles.modalButtonText, dynamicStyles.modalButtonText]}>Open in Google Maps</Text>
               </Pressable>
 
               {/* Cancel Button */}
               <Pressable
                 style={({ pressed }) => [
                   styles.cancelButton,
+                  dynamicStyles.cancelButton,
                   pressed && styles.modalButtonPressed,
                 ]}
                 onPress={handleCloseModal}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, dynamicStyles.cancelButtonText]}>Cancel</Text>
               </Pressable>
             </Pressable>
           </Animated.View>
@@ -230,11 +250,9 @@ export default function MapPreview({
 
 const styles = StyleSheet.create({
   mapCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E8E5E0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -247,7 +265,6 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     height: 180,
-    backgroundColor: '#F5F3F0',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: 'hidden',
@@ -265,13 +282,11 @@ const styles = StyleSheet.create({
   },
   mapSubtext: {
     fontSize: 13,
-    color: '#1C1C1E',
     fontWeight: '600',
   },
 
   // Fallback styles
   fallbackContainer: {
-    backgroundColor: '#F5F3F0',
     borderRadius: 12,
     height: 180,
     alignItems: 'center',
@@ -280,7 +295,6 @@ const styles = StyleSheet.create({
   },
   fallbackText: {
     fontSize: 13,
-    color: '#6e6e73',
     textAlign: 'center',
     fontWeight: '500',
     marginTop: 8,
@@ -295,7 +309,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: {
-    backgroundColor: '#FDFBF7',
     borderRadius: 20,
     padding: 24,
     width: '100%',
@@ -309,7 +322,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
     textAlign: 'center',
     marginBottom: 20,
     letterSpacing: -0.4,
@@ -318,14 +330,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 28,
     marginBottom: 12,
     gap: 10,
     borderWidth: 1.5,
-    borderColor: '#E8E5E0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -339,11 +349,9 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
     letterSpacing: -0.2,
   },
   cancelButton: {
-    backgroundColor: '#1C1C1E',
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 28,
@@ -354,7 +362,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FDFBF7',
     letterSpacing: -0.2,
   },
 });

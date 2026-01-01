@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isSameDay } from 'date-fns';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface CalendarHeaderProps {
   selectedDate: Date;
@@ -17,6 +18,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onTodayPress,
 }) => {
   const headerText = format(selectedDate, 'MMMM do');
+  const { theme, isDark } = useTheme();
 
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -36,29 +38,37 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     outputRange: ['0deg', '180deg'],
   });
 
+  const dynamicStyles = {
+    container: { backgroundColor: theme.card },
+    headerText: { color: theme.text },
+    chevron: { color: theme.text },
+    todayButton: { backgroundColor: isDark ? '#333' : '#F3F4F6' },
+    todayIcon: { color: theme.text },
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       <View style={styles.headerRow}>
         <Pressable
           style={styles.headerButton}
           onPress={onHeaderPress}
         >
-          <Text style={styles.headerText}>{headerText}</Text>
+          <Text style={[styles.headerText, dynamicStyles.headerText]}>{headerText}</Text>
           <Animated.View style={{ transform: [{ rotate: chevronRotation }] }}>
-            <Ionicons name="chevron-down" size={24} color="#000000" style={styles.chevron} />
+            <Ionicons name="chevron-down" size={24} color={theme.text} style={styles.chevron} />
           </Animated.View>
         </Pressable>
 
         {/* Magnetic Today Button */}
         {onTodayPress && (
           <Pressable
-            style={[styles.todayButton, isToday && styles.todayButtonInactive]}
+            style={[styles.todayButton, dynamicStyles.todayButton, isToday && styles.todayButtonInactive]}
             onPress={onTodayPress}
           >
             <Ionicons
               name="alarm-outline"
               size={22}
-              color="#000000"
+              color={theme.text}
               style={[styles.todayIcon, isToday && styles.todayIconInactive]}
             />
           </Pressable>
@@ -73,7 +83,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 25,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    // backgroundColor removed
   },
   headerRow: {
     flexDirection: 'row',
@@ -88,7 +98,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 34,
     fontWeight: '700',
-    color: '#000000',
+    // color removed
     letterSpacing: -0.5,
   },
   chevron: {
@@ -101,7 +111,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    // backgroundColor removed
   },
   todayButtonInactive: {
     backgroundColor: 'transparent',

@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
-import { OnboardingPage1 } from '../components/onboarding/OnboardingPage1';
-import { OnboardingPage2 } from '../components/onboarding/OnboardingPage2';
-import { OnboardingPage3 } from '../components/onboarding/OnboardingPage3';
-import type { UserType } from '../types/userProfile';
-import { useAuth } from '../contexts/AuthContext';
+import { OnboardingPage1, OnboardingPage2, OnboardingPage3 } from '@/components/onboarding';
+import type { UserType } from '@/types/userProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function OnboardingScreen() {
     const { user, signOut } = useAuth();
     const [currentPage, setCurrentPage] = useState(1);
     const [formData, setFormData] = useState<any>({});
+    const { theme, isDark } = useTheme();
 
     // Get user info from auth context
     const userType = (user?.user_metadata?.user_type as UserType) || 'student';
@@ -27,13 +27,24 @@ export default function OnboardingScreen() {
 
     const totalPages = 3;
 
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        progressContainer: {
+            backgroundColor: theme.card,
+            borderBottomColor: theme.border,
+        },
+        progressText: { color: theme.subtext },
+        progressDot: { backgroundColor: theme.border },
+        progressDotActive: { backgroundColor: '#D35400' }, // Keep brand color
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, dynamicStyles.container]}>
             {/* Progress Indicator */}
-            <View style={styles.progressContainer}>
+            <View style={[styles.progressContainer, dynamicStyles.progressContainer]}>
                 <View style={styles.headerRow}>
                     <View style={styles.headerSpacer} />
-                    <Text style={styles.progressText}>
+                    <Text style={[styles.progressText, dynamicStyles.progressText]}>
                         Step {currentPage} of {totalPages}
                     </Text>
                     <TouchableOpacity onPress={signOut} style={styles.signOutButton}>
@@ -46,7 +57,8 @@ export default function OnboardingScreen() {
                             key={step}
                             style={[
                                 styles.progressDot,
-                                step <= currentPage && styles.progressDotActive,
+                                dynamicStyles.progressDot,
+                                step <= currentPage && dynamicStyles.progressDotActive,
                             ]}
                         />
                     ))}
@@ -87,14 +99,14 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
+        // backgroundColor removed
     },
     progressContainer: {
-        backgroundColor: '#fff',
+        // backgroundColor removed
         paddingVertical: 16,
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
+        // borderBottomColor removed
     },
     headerRow: {
         flexDirection: 'row',
@@ -107,7 +119,7 @@ const styles = StyleSheet.create({
     },
     progressText: {
         fontSize: 14,
-        color: '#666',
+        // color removed
         fontWeight: '600',
     },
     signOutButton: {
@@ -128,9 +140,7 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#ddd',
+        // backgroundColor removed
     },
-    progressDotActive: {
-        backgroundColor: '#D35400',
-    },
+    // progressDotActive removed (handled dynamically)
 });

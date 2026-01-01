@@ -1,13 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { INTEREST_OPTIONS, InterestType } from '../types/userProfile';
-
-const SHPE_COLORS = {
-  darkBlue: '#002855',
-  orange: '#FF5F05',
-  white: '#FFFFFF',
-  gray: '#F4F4F4'
-};
+import { INTEREST_OPTIONS, InterestType } from '@/types/userProfile';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface InterestPickerProps {
   selectedInterests: InterestType[];
@@ -15,19 +9,39 @@ interface InterestPickerProps {
 }
 
 export function InterestPicker({ selectedInterests, onToggle }: InterestPickerProps) {
+  const { theme, isDark } = useTheme();
+
+  const dynamicStyles = {
+    label: { color: theme.text },
+    chip: { backgroundColor: isDark ? '#333' : '#F3F4F6' },
+    chipSelected: { backgroundColor: theme.primary },
+    chipText: { color: theme.text },
+    chipTextSelected: { color: '#FFFFFF' },
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Interests</Text>
+      <Text style={[styles.label, dynamicStyles.label]}>Interests</Text>
       <View style={styles.chipContainer}>
         {INTEREST_OPTIONS.map((option) => {
           const isSelected = selectedInterests.includes(option.value);
           return (
             <TouchableOpacity
               key={option.value}
-              style={[styles.chip, isSelected && styles.chipSelected]}
+              style={[
+                styles.chip,
+                dynamicStyles.chip,
+                isSelected && dynamicStyles.chipSelected
+              ]}
               onPress={() => onToggle(option.value)}
             >
-              <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+              <Text
+                style={[
+                  styles.chipText,
+                  dynamicStyles.chipText,
+                  isSelected && dynamicStyles.chipTextSelected
+                ]}
+              >
                 {option.label}
               </Text>
             </TouchableOpacity>
@@ -45,7 +59,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: SHPE_COLORS.darkBlue,
     marginBottom: 10
   },
   chipContainer: {
@@ -57,16 +70,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: SHPE_COLORS.gray
-  },
-  chipSelected: {
-    backgroundColor: SHPE_COLORS.orange
   },
   chipText: {
-    color: SHPE_COLORS.darkBlue
-  },
-  chipTextSelected: {
-    color: SHPE_COLORS.white,
-    fontWeight: 'bold'
+    // color removed
   },
 });

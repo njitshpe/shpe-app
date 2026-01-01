@@ -13,12 +13,12 @@ import {
     Platform,
     TouchableWithoutFeedback,
     Keyboard,
-    SafeAreaView,
     Image,
     ActionSheetIOS,
 } from 'react-native';
-import { PhotoHelper } from '../../lib/PhotoService';
-import type { UserType } from '../../types/userProfile';
+import { PhotoHelper } from '@/services';
+import type { UserType } from '@/types/userProfile';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface OnboardingPage1Props {
     userType: UserType;
@@ -60,6 +60,8 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
     // Dropdown state
     const [modalVisible, setModalVisible] = useState(false);
     const [dropdownType, setDropdownType] = useState<'major' | 'affiliation' | null>(null);
+
+    const { theme, isDark } = useTheme();
 
     const handleImagePick = async () => {
         const options = ['Take Photo', 'Choose from Library', 'Choose from Files', 'Cancel'];
@@ -167,19 +169,52 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
         setModalVisible(false);
     };
 
+    const dynamicStyles = {
+        title: { color: theme.text },
+        subtitle: { color: theme.subtext },
+        label: { color: theme.text },
+        hint: { color: theme.subtext },
+        input: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+        },
+        dropdownTrigger: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+        },
+        dropdownText: { color: theme.text },
+        placeholderText: { color: theme.subtext },
+        dropdownIcon: { color: theme.subtext },
+        nextButton: { backgroundColor: theme.primary },
+        modalContent: { backgroundColor: theme.card },
+        modalHeader: { borderBottomColor: theme.border },
+        modalTitle: { color: theme.text },
+        closeButton: { color: theme.primary },
+        dropdownItem: { borderBottomColor: theme.border },
+        dropdownItemText: { color: theme.text },
+        dropdownItemTextActive: { color: theme.primary },
+        checkmark: { color: theme.primary },
+        avatarPlaceholder: { backgroundColor: isDark ? '#333' : '#E0E0E0' },
+        avatarInitials: { color: theme.subtext },
+        editIconBadge: { backgroundColor: theme.primary, borderColor: theme.card },
+        changePhotoText: { color: theme.primary },
+    };
+
     const renderDropdownItem = ({ item }: { item: string }) => (
         <TouchableOpacity
-            style={styles.dropdownItem}
+            style={[styles.dropdownItem, dynamicStyles.dropdownItem]}
             onPress={() => handleSelect(item)}
         >
             <Text style={[
                 styles.dropdownItemText,
-                (dropdownType === 'major' ? major : affiliation) === item && styles.dropdownItemTextActive
+                dynamicStyles.dropdownItemText,
+                (dropdownType === 'major' ? major : affiliation) === item && dynamicStyles.dropdownItemTextActive
             ]}>
                 {item}
             </Text>
             {(dropdownType === 'major' ? major : affiliation) === item && (
-                <Text style={styles.checkmark}>✓</Text>
+                <Text style={[styles.checkmark, dynamicStyles.checkmark]}>✓</Text>
             )}
         </TouchableOpacity>
     );
@@ -191,8 +226,8 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                    <Text style={styles.title}>Let's get to know you</Text>
-                    <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
+                    <Text style={[styles.title, dynamicStyles.title]}>Let's get to know you</Text>
+                    <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Tell us a bit about yourself</Text>
 
                     {/* Avatar Picker */}
                     <View style={styles.avatarContainer}>
@@ -200,84 +235,92 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
                             {profilePicture ? (
                                 <Image source={{ uri: profilePicture }} style={styles.avatar} />
                             ) : (
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={styles.avatarInitials}>
+                                <View style={[styles.avatarPlaceholder, dynamicStyles.avatarPlaceholder]}>
+                                    <Text style={[styles.avatarInitials, dynamicStyles.avatarInitials]}>
                                         {firstName && lastName ? `${firstName[0]}${lastName[0]}` : '📷'}
                                     </Text>
                                 </View>
                             )}
-                            <View style={styles.editIconBadge}>
+                            <View style={[styles.editIconBadge, dynamicStyles.editIconBadge]}>
                                 <Text style={styles.editIconText}>+</Text>
                             </View>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={handleImagePick}>
-                            <Text style={styles.changePhotoText}>Add Profile Photo</Text>
+                            <Text style={[styles.changePhotoText, dynamicStyles.changePhotoText]}>Add Profile Photo</Text>
                         </TouchableOpacity>
                     </View>
 
                     {/* First Name */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>First Name *</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>First Name *</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, dynamicStyles.input]}
                             value={firstName}
                             onChangeText={setFirstName}
                             placeholder="John"
-                            placeholderTextColor="#999"
+                            placeholderTextColor={theme.subtext}
                         />
                     </View>
 
                     {/* Last Name */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Last Name *</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>Last Name *</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, dynamicStyles.input]}
                             value={lastName}
                             onChangeText={setLastName}
                             placeholder="Doe"
-                            placeholderTextColor="#999"
+                            placeholderTextColor={theme.subtext}
                         />
                     </View>
 
                     {/* Major (for students/alumni) or Affiliation (for others) */}
                     {userType === 'student' || userType === 'alumni' ? (
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Major *</Text>
+                            <Text style={[styles.label, dynamicStyles.label]}>Major *</Text>
                             <TouchableOpacity
-                                style={styles.dropdownTrigger}
+                                style={[styles.dropdownTrigger, dynamicStyles.dropdownTrigger]}
                                 onPress={() => openDropdown('major')}
                             >
-                                <Text style={[styles.dropdownText, !major && styles.placeholderText]}>
+                                <Text style={[
+                                    styles.dropdownText,
+                                    dynamicStyles.dropdownText,
+                                    !major && dynamicStyles.placeholderText
+                                ]}>
                                     {major || 'Select your major'}
                                 </Text>
-                                <Text style={styles.dropdownIcon}>▼</Text>
+                                <Text style={[styles.dropdownIcon, dynamicStyles.dropdownIcon]}>▼</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Affiliation *</Text>
+                            <Text style={[styles.label, dynamicStyles.label]}>Affiliation *</Text>
                             <TouchableOpacity
-                                style={styles.dropdownTrigger}
+                                style={[styles.dropdownTrigger, dynamicStyles.dropdownTrigger]}
                                 onPress={() => openDropdown('affiliation')}
                             >
-                                <Text style={[styles.dropdownText, !affiliation && styles.placeholderText]}>
+                                <Text style={[
+                                    styles.dropdownText,
+                                    dynamicStyles.dropdownText,
+                                    !affiliation && dynamicStyles.placeholderText
+                                ]}>
                                     {affiliation || 'Select your affiliation'}
                                 </Text>
-                                <Text style={styles.dropdownIcon}>▼</Text>
+                                <Text style={[styles.dropdownIcon, dynamicStyles.dropdownIcon]}>▼</Text>
                             </TouchableOpacity>
                         </View>
                     )}
 
                     {/* Bio */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Bio *</Text>
-                        <Text style={styles.hint}>Tell us about yourself in 2-3 sentences</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>Bio *</Text>
+                        <Text style={[styles.hint, dynamicStyles.hint]}>Tell us about yourself in 2-3 sentences</Text>
                         <TextInput
-                            style={[styles.input, styles.textArea]}
+                            style={[styles.input, styles.textArea, dynamicStyles.input]}
                             value={bio}
                             onChangeText={setBio}
                             placeholder="I'm a passionate engineer interested in..."
-                            placeholderTextColor="#999"
+                            placeholderTextColor={theme.subtext}
                             multiline
                             numberOfLines={4}
                             textAlignVertical="top"
@@ -285,7 +328,7 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
                     </View>
 
                     {/* Next Button */}
-                    <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+                    <TouchableOpacity style={[styles.nextButton, dynamicStyles.nextButton]} onPress={handleNext}>
                         <Text style={styles.nextButtonText}>Next</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -303,13 +346,13 @@ export function OnboardingPage1({ userType, initialData, onNext }: OnboardingPag
                     activeOpacity={1}
                     onPress={() => setModalVisible(false)}
                 >
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>
+                    <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+                        <View style={[styles.modalHeader, dynamicStyles.modalHeader]}>
+                            <Text style={[styles.modalTitle, dynamicStyles.modalTitle]}>
                                 Select {dropdownType === 'major' ? 'Major' : 'Affiliation'}
                             </Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                <Text style={styles.closeButton}>Close</Text>
+                                <Text style={[styles.closeButton, dynamicStyles.closeButton]}>Close</Text>
                             </TouchableOpacity>
                         </View>
                         <FlatList
@@ -336,12 +379,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#1a1a1a',
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
         marginBottom: 24,
     },
     inputGroup: {
@@ -350,31 +391,24 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#333',
         marginBottom: 8,
     },
     hint: {
         fontSize: 12,
-        color: '#999',
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#ddd',
         borderRadius: 8,
         padding: 12,
         fontSize: 16,
-        color: '#333',
     },
     textArea: {
         minHeight: 100,
         paddingTop: 12,
     },
     dropdownTrigger: {
-        backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#ddd',
         borderRadius: 8,
         padding: 12,
         flexDirection: 'row',
@@ -383,17 +417,11 @@ const styles = StyleSheet.create({
     },
     dropdownText: {
         fontSize: 16,
-        color: '#333',
-    },
-    placeholderText: {
-        color: '#999',
     },
     dropdownIcon: {
         fontSize: 12,
-        color: '#666',
     },
     nextButton: {
-        backgroundColor: '#D35400',
         padding: 16,
         borderRadius: 8,
         alignItems: 'center',
@@ -411,7 +439,6 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#fff',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         maxHeight: '70%',
@@ -422,16 +449,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#eee',
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#1a1a1a',
     },
     closeButton: {
         fontSize: 16,
-        color: '#D35400',
         fontWeight: '600',
     },
     list: {
@@ -443,19 +467,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#f5f5f5',
     },
     dropdownItemText: {
         fontSize: 16,
-        color: '#333',
-    },
-    dropdownItemTextActive: {
-        color: '#D35400',
-        fontWeight: '600',
     },
     checkmark: {
         fontSize: 16,
-        color: '#D35400',
         fontWeight: 'bold',
     },
     avatarContainer: {
@@ -474,27 +491,23 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: '#E0E0E0',
         justifyContent: 'center',
         alignItems: 'center',
     },
     avatarInitials: {
         fontSize: 36,
-        color: '#666',
         fontWeight: 'bold',
     },
     editIconBadge: {
         position: 'absolute',
         bottom: 0,
         right: 0,
-        backgroundColor: '#D35400',
         width: 32,
         height: 32,
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: '#FFFFFF',
     },
     editIconText: {
         fontSize: 20,
@@ -503,7 +516,6 @@ const styles = StyleSheet.create({
     },
     changePhotoText: {
         marginTop: 8,
-        color: '#D35400',
         fontSize: 14,
         fontWeight: '600',
     },

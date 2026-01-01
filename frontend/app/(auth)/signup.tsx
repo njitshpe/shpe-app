@@ -10,9 +10,10 @@ import {
     ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/AuthInput';
-import type { UserType } from '../../types/userProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthInput } from '@/components/auth';
+import type { UserType } from '@/types/userProfile';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -23,6 +24,7 @@ export default function SignupScreen() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { signUp, signInWithGoogle } = useAuth();
+    const { theme, isDark } = useTheme();
 
     const handleSignup = async () => {
         // Validate user type selection
@@ -94,9 +96,30 @@ export default function SignupScreen() {
         setLoading(false);
     };
 
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        title: { color: theme.text },
+        subtitle: { color: theme.subtext },
+        googleButton: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+        },
+        googleButtonText: { color: theme.text },
+        dividerLine: { backgroundColor: theme.border },
+        dividerText: { color: theme.subtext },
+        sectionLabel: { color: theme.text },
+        userTypeButton: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+        },
+        userTypeButtonText: { color: theme.subtext },
+        userTypeButtonTextActive: { color: '#fff' },
+        footerText: { color: theme.subtext },
+    };
+
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, dynamicStyles.container]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <ScrollView
@@ -107,32 +130,33 @@ export default function SignupScreen() {
                     <View style={styles.logoPlaceholder}>
                         <Text style={styles.logoText}>SHPE</Text>
                     </View>
-                    <Text style={styles.title}>Create Account</Text>
-                    <Text style={styles.subtitle}>Join the SHPE NJIT community</Text>
+                    <Text style={[styles.title, dynamicStyles.title]}>Create Account</Text>
+                    <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Join the SHPE NJIT community</Text>
                 </View>
 
                 <View style={styles.form}>
                     <TouchableOpacity
-                        style={[styles.googleButton, loading && styles.buttonDisabled]}
+                        style={[styles.googleButton, dynamicStyles.googleButton, loading && styles.buttonDisabled]}
                         onPress={handleGoogleSignup}
                         disabled={loading}
                     >
-                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                        <Text style={[styles.googleButtonText, dynamicStyles.googleButtonText]}>Continue with Google</Text>
                     </TouchableOpacity>
 
                     <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or</Text>
-                        <View style={styles.dividerLine} />
+                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
+                        <Text style={[styles.dividerText, dynamicStyles.dividerText]}>or</Text>
+                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
                     </View>
 
                     {/* User Type Selection */}
                     <View style={styles.userTypeSection}>
-                        <Text style={styles.sectionLabel}>I am a:</Text>
+                        <Text style={[styles.sectionLabel, dynamicStyles.sectionLabel]}>I am a:</Text>
                         <View style={styles.userTypeButtons}>
                             <TouchableOpacity
                                 style={[
                                     styles.userTypeButton,
+                                    dynamicStyles.userTypeButton,
                                     userType === 'student' && styles.userTypeButtonActiveRed,
                                 ]}
                                 onPress={() => setUserType('student')}
@@ -140,7 +164,8 @@ export default function SignupScreen() {
                             >
                                 <Text style={[
                                     styles.userTypeButtonText,
-                                    userType === 'student' && styles.userTypeButtonTextActive,
+                                    dynamicStyles.userTypeButtonText,
+                                    userType === 'student' && dynamicStyles.userTypeButtonTextActive,
                                 ]}>
                                     NJIT Student
                                 </Text>
@@ -149,6 +174,7 @@ export default function SignupScreen() {
                             <TouchableOpacity
                                 style={[
                                     styles.userTypeButton,
+                                    dynamicStyles.userTypeButton,
                                     userType === 'alumni' && styles.userTypeButtonActiveOrange,
                                 ]}
                                 onPress={() => setUserType('alumni')}
@@ -156,7 +182,8 @@ export default function SignupScreen() {
                             >
                                 <Text style={[
                                     styles.userTypeButtonText,
-                                    userType === 'alumni' && styles.userTypeButtonTextActive,
+                                    dynamicStyles.userTypeButtonText,
+                                    userType === 'alumni' && dynamicStyles.userTypeButtonTextActive,
                                 ]}>
                                     Alumni
                                 </Text>
@@ -165,6 +192,7 @@ export default function SignupScreen() {
                             <TouchableOpacity
                                 style={[
                                     styles.userTypeButton,
+                                    dynamicStyles.userTypeButton,
                                     userType === 'other' && styles.userTypeButtonActiveOrange,
                                 ]}
                                 onPress={() => setUserType('other')}
@@ -172,7 +200,8 @@ export default function SignupScreen() {
                             >
                                 <Text style={[
                                     styles.userTypeButtonText,
-                                    userType === 'other' && styles.userTypeButtonTextActive,
+                                    dynamicStyles.userTypeButtonText,
+                                    userType === 'other' && dynamicStyles.userTypeButtonTextActive,
                                 ]}>
                                     Other
                                 </Text>
@@ -226,7 +255,7 @@ export default function SignupScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Already have an account? </Text>
+                        <Text style={[styles.footerText, dynamicStyles.footerText]}>Already have an account? </Text>
                         <TouchableOpacity onPress={() => router.replace('/login')}>
                             <Text style={styles.link}>Sign In</Text>
                         </TouchableOpacity>
@@ -240,7 +269,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        // backgroundColor removed
     },
     scrollContent: {
         flexGrow: 1,
@@ -268,26 +297,26 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        // color removed
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        // color removed
     },
     form: {
         width: '100%',
     },
     googleButton: {
-        backgroundColor: '#fff',
+        // backgroundColor removed
         borderWidth: 1,
-        borderColor: '#ddd',
+        // borderColor removed
         padding: 16,
         borderRadius: 8,
         marginBottom: 20,
     },
     googleButtonText: {
-        color: '#333',
+        // color removed
         textAlign: 'center',
         fontWeight: '600',
         fontSize: 16,
@@ -300,11 +329,11 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#ddd',
+        // backgroundColor removed
     },
     dividerText: {
         marginHorizontal: 16,
-        color: '#999',
+        // color removed
         fontSize: 14,
     },
     userTypeSection: {
@@ -313,7 +342,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#333',
+        // color removed
         marginBottom: 12,
     },
     userTypeButtons: {
@@ -322,9 +351,9 @@ const styles = StyleSheet.create({
     },
     userTypeButton: {
         flex: 1,
-        backgroundColor: '#fff',
+        // backgroundColor removed
         borderWidth: 1,
-        borderColor: '#ddd',
+        // borderColor removed
         paddingVertical: 12,
         paddingHorizontal: 8,
         borderRadius: 8,
@@ -341,14 +370,12 @@ const styles = StyleSheet.create({
         borderWidth: 2,
     },
     userTypeButtonText: {
-        color: '#666',
+        // color removed
         fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',
     },
-    userTypeButtonTextActive: {
-        color: '#fff',
-    },
+    // userTypeButtonTextActive removed (handled dynamically)
     button: {
         backgroundColor: '#D35400',
         padding: 16,
@@ -370,7 +397,7 @@ const styles = StyleSheet.create({
         marginTop: 24,
     },
     footerText: {
-        color: '#666',
+        // color removed
         fontSize: 14,
     },
     link: {

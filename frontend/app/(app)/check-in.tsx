@@ -10,14 +10,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
-import { cameraService } from '../../lib/cameraService';
-import { eventsService } from '../../lib/eventsService';
-import { useAuth } from '../../contexts/AuthContext';
-import { SHPE_COLORS } from '../../constants/colors';
+import { cameraService } from '@/services';
+import { eventsService } from '@/services/events.service';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function CheckInScreen() {
     const router = useRouter();
     const { user } = useAuth();
+    const { theme } = useTheme();
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -179,24 +180,35 @@ export default function CheckInScreen() {
         setTorchOn((prev) => !prev);
     };
 
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        text: { color: theme.text },
+        button: { backgroundColor: theme.primary },
+        buttonText: { color: '#FFFFFF' }, // Always white on primary
+        secondaryButton: { borderColor: theme.primary },
+        secondaryButtonText: { color: theme.primary },
+        scanFrame: { borderColor: theme.primary },
+        loadingIndicator: { color: theme.primary },
+    };
+
     if (hasPermission === null) {
         return (
-            <View style={styles.container}>
-                <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
-                <Text style={styles.loadingText}>Requesting camera permission...</Text>
+            <View style={[styles.container, dynamicStyles.container]}>
+                <ActivityIndicator size="large" color={theme.primary} />
+                <Text style={[styles.loadingText, dynamicStyles.text]}>Requesting camera permission...</Text>
             </View>
         );
     }
 
     if (hasPermission === false) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.errorText}>Camera permission is required to scan QR codes.</Text>
-                <TouchableOpacity style={styles.button} onPress={requestCameraPermission}>
-                    <Text style={styles.buttonText}>Grant Permission</Text>
+            <View style={[styles.container, dynamicStyles.container]}>
+                <Text style={[styles.errorText, dynamicStyles.text]}>Camera permission is required to scan QR codes.</Text>
+                <TouchableOpacity style={[styles.button, dynamicStyles.button]} onPress={requestCameraPermission}>
+                    <Text style={[styles.buttonText, dynamicStyles.buttonText]}>Grant Permission</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={() => router.back()}>
-                    <Text style={[styles.buttonText, styles.secondaryButtonText]}>Cancel</Text>
+                <TouchableOpacity style={[styles.button, styles.secondaryButton, dynamicStyles.secondaryButton]} onPress={() => router.back()}>
+                    <Text style={[styles.buttonText, styles.secondaryButtonText, dynamicStyles.secondaryButtonText]}>Cancel</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -205,54 +217,53 @@ export default function CheckInScreen() {
     return (
         <View style={styles.container}>
             <CameraView
-                style={styles.camera}
+                style={StyleSheet.absoluteFillObject}
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 barcodeScannerSettings={{
                     barcodeTypes: ['qr'],
                 }}
                 enableTorch={torchOn}
-            >
-                <View style={styles.overlay}>
-                    <View style={styles.header}>
-                        <Text style={styles.headerText}>Scan Event QR Code</Text>
-                        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-                            <Text style={styles.closeButtonText}>✕</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.scanArea}>
-                        <View style={styles.scanFrame} />
-                        {processing && (
-                            <View style={styles.processingOverlay}>
-                                <ActivityIndicator size="large" color={SHPE_COLORS.orange} />
-                                <Text style={styles.processingText}>Processing check-in...</Text>
-                            </View>
-                        )}
-                    </View>
-
-                    <View style={styles.instructionsContainer}>
-                        <Text style={styles.instructionsText}>
-                            Position the QR code within the frame
-                        </Text>
-
-                        <TouchableOpacity
-                            style={styles.torchButton}
-                            onPress={toggleTorch}
-                        >
-                            <Text style={styles.torchButtonText}>
-                                {torchOn ? 'Flashlight On 🔦 ' : 'Flashlight Off 🔦'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {scanned && !processing && (
-                            <TouchableOpacity style={styles.button} onPress={resetScanner}>
-                                <Text style={styles.buttonText}>Scan Again</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
+            />
+            <View style={styles.overlay}>
+                <View style={styles.header}>
+                    <Text style={styles.headerText}>Scan Event QR Code</Text>
+                    <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+                        <Text style={styles.closeButtonText}>✕</Text>
+                    </TouchableOpacity>
                 </View>
-            </CameraView>
+
+                <View style={styles.scanArea}>
+                    <View style={[styles.scanFrame, dynamicStyles.scanFrame]} />
+                    {processing && (
+                        <View style={styles.processingOverlay}>
+                            <ActivityIndicator size="large" color={theme.primary} />
+                            <Text style={styles.processingText}>Processing check-in...</Text>
+                        </View>
+                    )}
+                </View>
+
+                <View style={styles.instructionsContainer}>
+                    <Text style={styles.instructionsText}>
+                        Position the QR code within the frame
+                    </Text>
+
+                    <TouchableOpacity
+                        style={styles.torchButton}
+                        onPress={toggleTorch}
+                    >
+                        <Text style={styles.torchButtonText}>
+                            {torchOn ? 'Flashlight On 🔦 ' : 'Flashlight Off 🔦'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {scanned && !processing && (
+                        <TouchableOpacity style={[styles.button, dynamicStyles.button]} onPress={resetScanner}>
+                            <Text style={[styles.buttonText, dynamicStyles.buttonText]}>Scan Again</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
         </View>
     );
 }
@@ -260,17 +271,14 @@ export default function CheckInScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: SHPE_COLORS.darkBlue,
         justifyContent: 'center',
         alignItems: 'center',
     },
     loadingText: {
         marginTop: 20,
-        color: SHPE_COLORS.white,
         fontSize: 16,
     },
     errorText: {
-        color: SHPE_COLORS.white,
         fontSize: 16,
         textAlign: 'center',
         marginHorizontal: 40,
@@ -283,6 +291,7 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'transparent',
+        width: '100%',
     },
     header: {
         flexDirection: 'row',
@@ -293,7 +302,7 @@ const styles = StyleSheet.create({
         paddingBottom: 20,
     },
     headerText: {
-        color: SHPE_COLORS.white,
+        color: '#FFFFFF',
         fontSize: 20,
         fontWeight: 'bold',
     },
@@ -306,7 +315,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     closeButtonText: {
-        color: SHPE_COLORS.white,
+        color: '#FFFFFF',
         fontSize: 24,
         fontWeight: 'bold',
     },
@@ -319,7 +328,6 @@ const styles = StyleSheet.create({
         width: 250,
         height: 250,
         borderWidth: 3,
-        borderColor: SHPE_COLORS.orange,
         borderRadius: 20,
         backgroundColor: 'transparent',
     },
@@ -333,7 +341,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     processingText: {
-        color: SHPE_COLORS.white,
+        color: '#FFFFFF',
         marginTop: 15,
         fontSize: 16,
     },
@@ -343,7 +351,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     instructionsText: {
-        color: SHPE_COLORS.white,
+        color: '#FFFFFF',
         fontSize: 16,
         textAlign: 'center',
         marginBottom: 20,
@@ -356,12 +364,11 @@ const styles = StyleSheet.create({
         marginBottom: 15,
     },
     torchButtonText: {
-        color: SHPE_COLORS.white,
+        color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
     },
     button: {
-        backgroundColor: SHPE_COLORS.orange,
         paddingVertical: 15,
         paddingHorizontal: 40,
         borderRadius: 12,
@@ -370,16 +377,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
-        color: SHPE_COLORS.white,
         fontSize: 16,
         fontWeight: 'bold',
     },
     secondaryButton: {
         backgroundColor: 'transparent',
         borderWidth: 2,
-        borderColor: SHPE_COLORS.orange,
     },
     secondaryButtonText: {
-        color: SHPE_COLORS.orange,
+        // color handled by dynamic styles
     },
 });

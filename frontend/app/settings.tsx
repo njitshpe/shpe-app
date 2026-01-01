@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 // We go up one level (..) to leave 'app', then into 'components'
-import { GeneralSettings } from '../components/settings/GeneralSettings';
+import { GeneralSettings } from '@/components/settings';
 
 export default function SettingsPage() {
   return (

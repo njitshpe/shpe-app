@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
-import type { Event, EventAttendance } from '../types/events';
+import { supabase } from '../lib/supabase';
+import type { EventDB, EventAttendance } from '../types/events';
 import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
@@ -8,7 +8,7 @@ import { handleSupabaseError, createError } from '../types/errors';
 
 class EventsService {
   // Get event details by event_id (the simple ID from QR code)
-  async getEventByEventId(eventId: string): Promise<ServiceResponse<Event>> {
+  async getEventByEventId(eventId: string): Promise<ServiceResponse<EventDB>> {
     try {
       const { data, error } = await supabase
         .from('events')
@@ -69,7 +69,7 @@ class EventsService {
   }
 
   // Validate if check-in is currently allowed for an event
-  validateCheckInTime(event: Event): { valid: boolean; reason?: string } {
+  validateCheckInTime(event: EventDB): { valid: boolean; reason?: string } {
     const now = new Date();
 
     // Check if check-in window is specified
@@ -120,7 +120,7 @@ class EventsService {
     userId: string,
     latitude?: number,
     longitude?: number
-  ): Promise<ServiceResponse<{ attendance: EventAttendance; event: Event }>> {
+  ): Promise<ServiceResponse<{ attendance: EventAttendance; event: EventDB }>> {
     try {
       // 1. Get event details
       const eventResponse = await this.getEventByEventId(eventId);

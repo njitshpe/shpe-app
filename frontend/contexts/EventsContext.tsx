@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import { Event } from '../data/mockEvents';
+import { eventsService } from '../services/events.service';
 import { supabase, EventRow } from '../lib/supabase';
 
 // State shape
