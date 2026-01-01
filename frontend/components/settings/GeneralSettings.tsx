@@ -3,19 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  Switch,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// --- IMPORTS FROM YOUR LIB FOLDER ---
+// --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
-import { eventNotificationHelper } from '@/services/eventNotification.helper';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -23,93 +21,61 @@ export const GeneralSettings = () => {
   const router = useRouter();
   const { theme, isDark, setMode, mode } = useTheme();
   const [loading, setLoading] = useState(true);
-
-  // State for your switches
-  const [preferences, setPreferences] = useState({
-    eventReminders: false,
-    newEvents: false,
-    announcements: false,
-  });
+  
+  // State for single notification permission
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
-    loadPreferences();
-    initializePermissions();
+    checkPermissionStatus();
   }, []);
 
-  // --- 1. LOAD SAVED SETTINGS ---
-  const loadPreferences = async () => {
+  // --- 1. CHECK PERMISSION STATUS ---
+  const checkPermissionStatus = async () => {
     try {
-      const savedPrefs = await AsyncStorage.getItem('user_preferences');
-      if (savedPrefs) {
-        setPreferences(JSON.parse(savedPrefs));
+      const { granted } = await notificationService.checkPermission();
+      setNotificationsEnabled(granted);
+    } catch (error) {
+      console.log('Error checking permissions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 2. HANDLE ENABLE REQUEST ---
+  const handleToggleNotifications = async () => {
+    if (notificationsEnabled) {
+      // Optional: If they want to turn it off, guide them to settings
+      // since apps cannot revoke their own permissions programmatically.
+      Alert.alert(
+        "Notifications Enabled",
+        "To turn off notifications, please go to your device settings.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Open Settings", onPress: () => Linking.openSettings() }
+        ]
+      );
+    } else {
+      // Request permission
+      const { granted } = await notificationService.requestPermission();
+      setNotificationsEnabled(granted);
+      
+      if (!granted) {
+        // If they denied it previously, we might need to send them to settings
+        Alert.alert(
+          "Permission Required",
+          "Notifications are currently disabled. Please enable them in your device settings to receive updates.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() }
+          ]
+        );
       }
-    } catch (error) {
-      console.log('Error loading settings:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  // --- 2. CHECK PERMISSIONS ON LOAD ---
-  const initializePermissions = async () => {
-    const { granted } = await notificationService.checkPermission();
-    if (!granted) {
-      await notificationService.requestPermission();
-    }
-  };
-
-  // --- 3. SAVE SETTINGS WHEN TOGGLED ---
-  const toggleSwitch = async (key: keyof typeof preferences) => {
-    const newPrefs = { ...preferences, [key]: !preferences[key] };
-    setPreferences(newPrefs);
-
-    try {
-      await AsyncStorage.setItem('user_preferences', JSON.stringify(newPrefs));
-    } catch (error) {
-      console.log('Error saving setting:', error);
-    }
-  };
-
-  // --- 4. TEST: INSTANT NOTIFICATION ---
-  const performInstantNotificationTest = async () => {
-    const id = await notificationService.sendImmediateNotification(
-      "🚀 Instant Test",
-      "This notification happened right now!"
-    );
-
-    if (!id) {
-      Alert.alert("Error", "Could not send. Check permissions.");
-    }
-  };
-
-  // --- 5. TEST: DELAYED NOTIFICATION ---
-  const performDelayedNotificationTest = async () => {
-    const id = await notificationService.scheduleNotification(
-      "⏳ Delayed Test",
-      "This arrived after 3 seconds.",
-      { seconds: 3 }
-    );
-    if (id) {
-      Alert.alert("Scheduled", "Lock your phone now to see it appear in 3 seconds.");
-    }
-  };
-
-  // --- 6. DATABASE CHECK TEST ---
-  const performEventCheckTest = async () => {
-    setLoading(true);
-    try {
-      await eventNotificationHelper.resetLastCheck();
-      const result = await eventNotificationHelper.checkAndNotifyNewEvents();
-      Alert.alert("Check Complete", `Found ${result.count} new events.`);
-    } catch (error) {
-      Alert.alert("Error", "Failed to check events.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // --- LOGOUT ---
   const handleLogout = async () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
+    Alert.alert("Log Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Log Out",
@@ -127,7 +93,6 @@ export const GeneralSettings = () => {
     return <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 50 }} />;
   }
 
-  // Dynamic styles based on theme
   const dynamicStyles = {
     container: { backgroundColor: theme.background },
     sectionTitle: { color: theme.subtext },
@@ -142,7 +107,7 @@ export const GeneralSettings = () => {
   return (
     <ScrollView style={[styles.container, dynamicStyles.container]}>
 
-      {/* --- APPEARANCE SECTION --- */}
+      {/* --- APPEARANCE --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
       </View>
@@ -154,12 +119,8 @@ export const GeneralSettings = () => {
             </View>
             <View>
               <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                {mode === 'system' ? 'Follows device settings' : mode === 'dark' ? 'Dark mode always on' : 'Light mode always on'}
-              </Text>
             </View>
           </View>
-
           <View style={[styles.segmentedControl, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
             {(['light', 'dark', 'system'] as const).map((m) => (
               <TouchableOpacity
@@ -171,10 +132,7 @@ export const GeneralSettings = () => {
                 ]}
                 onPress={() => setMode(m)}
               >
-                <Text style={[
-                  styles.segmentText,
-                  { color: mode === m ? '#fff' : theme.subtext }
-                ]}>
+                <Text style={[styles.segmentText, { color: mode === m ? '#fff' : theme.subtext }]}>
                   {m.charAt(0).toUpperCase() + m.slice(1)}
                 </Text>
               </TouchableOpacity>
@@ -183,93 +141,42 @@ export const GeneralSettings = () => {
         </View>
       </View>
 
-      {/* --- NOTIFICATIONS SECTION --- */}
+      {/* --- NOTIFICATIONS --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
       </View>
       <View style={[styles.card, dynamicStyles.card]}>
-        <View style={styles.row}>
+        <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
           <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#E0F2FE' }]}>
-              <Ionicons name="calendar" size={20} color={theme.info} />
+            <View style={[styles.iconBox, { backgroundColor: notificationsEnabled ? '#DCFCE7' : '#F3F4F6' }]}>
+              <Ionicons 
+                name={notificationsEnabled ? "notifications" : "notifications-off"} 
+                size={20} 
+                color={notificationsEnabled ? theme.success : theme.subtext} 
+              />
             </View>
             <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>Event Reminders</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>Get notified before events start</Text>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>
+                {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
+              </Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                {notificationsEnabled 
+                  ? "Tap to manage in settings" 
+                  : "Tap to allow permission"}
+              </Text>
             </View>
           </View>
-          <Switch
-            value={preferences.eventReminders}
-            onValueChange={() => toggleSwitch('eventReminders')}
-            trackColor={{ false: '#767577', true: theme.primary }}
+          
+          {/* Visual Indicator of state */}
+          <Ionicons 
+            name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"} 
+            size={24} 
+            color={notificationsEnabled ? theme.success : theme.subtext} 
           />
-        </View>
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        <View style={styles.row}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#DCFCE7' }]}>
-              <Ionicons name="add-circle" size={20} color={theme.success} />
-            </View>
-            <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>New Events</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>When new events are posted</Text>
-            </View>
-          </View>
-          <Switch
-            value={preferences.newEvents}
-            onValueChange={() => toggleSwitch('newEvents')}
-            trackColor={{ false: '#767577', true: theme.primary }}
-          />
-        </View>
+        </TouchableOpacity>
       </View>
 
-      {/* --- DEBUG / TESTS --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>DEBUG / TEST SERVICES</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-
-        {/* Instant Test */}
-        <TouchableOpacity style={styles.row} onPress={performInstantNotificationTest}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#F3F4F6' }]}>
-              <Ionicons name="flash" size={20} color={theme.primary} />
-            </View>
-            <Text style={[styles.rowLabel, dynamicStyles.text]}>Test Instant Notification</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
-        </TouchableOpacity>
-
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        {/* Delayed Test */}
-        <TouchableOpacity style={styles.row} onPress={performDelayedNotificationTest}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#F3F4F6' }]}>
-              <Ionicons name="timer" size={20} color={theme.primary} />
-            </View>
-            <Text style={[styles.rowLabel, dynamicStyles.text]}>Test Delayed (3s)</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
-        </TouchableOpacity>
-
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        {/* Database Check */}
-        <TouchableOpacity style={styles.row} onPress={performEventCheckTest}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#F3F4F6' }]}>
-              <Ionicons name="server" size={20} color={theme.primary} />
-            </View>
-            <Text style={[styles.rowLabel, dynamicStyles.text]}>Run "New Event" Check</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
-        </TouchableOpacity>
-
-      </View>
-
-      {/* --- ACCOUNT SECTION --- */}
+      {/* --- ACCOUNT --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
       </View>
@@ -284,7 +191,7 @@ export const GeneralSettings = () => {
         </TouchableOpacity>
       </View>
 
-      {/* --- RETURN TO PROFILE BUTTON --- */}
+      {/* --- RETURN BUTTON --- */}
       <TouchableOpacity
         style={[styles.backButton, dynamicStyles.backButton]}
         onPress={() => router.replace('/(tabs)/profile')}
@@ -389,10 +296,7 @@ const styles = StyleSheet.create({
   },
   segmentButtonActive: {
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.20,
     shadowRadius: 1.41,
     elevation: 2,
