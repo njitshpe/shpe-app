@@ -41,7 +41,9 @@
         "CAMERA",
         "READ_CALENDAR",
         "WRITE_CALENDAR",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "notification": {
@@ -63,6 +65,13 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f34ddf0e-8a29-472b-922f-2a0137b273bd"
+      }
+    },
+    "owner": "elpescad"
   }
 }
