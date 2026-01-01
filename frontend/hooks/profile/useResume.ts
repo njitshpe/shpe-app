@@ -19,7 +19,6 @@ export function useResume() {
         const file = result.assets[0];
         setResumeName(file.name);
         setResumeUri(file.uri);
-        Alert.alert('Success', 'Resume attached!');
         return { name: file.name, uri: file.uri };
       }
     } catch (err) {
