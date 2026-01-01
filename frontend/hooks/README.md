@@ -1,4 +1,4 @@
-# /hooks/ - Business Logic (No UI)
+# /hooks/ - Business Logic (Domain-Organized)
 
 **Purpose**: Custom React hooks that encapsulate business logic and data fetching
 
@@ -7,19 +7,23 @@
 - ❌ No raw SQL
 - ✅ Calls Supabase client or Edge Functions
 - ✅ Returns data + loading states
+- ✅ Organized by domain
 
-**Planned Hooks**:
+**Structure**:
 ```
 hooks/
-├── useAuth.ts                 # Authentication state & methods
-├── useEvents.ts               # Events CRUD & filtering
-├── useCheckIn.ts              # QR check-in logic
-├── usePoints.ts               # Points calculation & display
-├── useFeed.ts                 # Feed data fetching
-├── useProfile.ts              # Profile data & updates
-├── useRSVP.ts                 # RSVP management
-├── useHighlights.ts           # Event photo uploads
-└── useAdmin.ts                # Admin analytics data
+├── calendar/           # Calendar-specific hooks
+│   ├── useAdaptiveTheme.ts
+│   └── useCalendarScroll.ts
+├── events/             # Event management
+│   ├── useEventAttendees.ts
+│   └── useEventRegistration.ts
+├── media/              # Media handling
+│   └── useProfilePhoto.ts
+└── profile/            # Profile management
+    ├── useEditProfile.ts
+    ├── useProfile.ts
+    └── useResume.ts
 ```
 
 **Hook Pattern**:
@@ -47,6 +51,13 @@ export function useEvents() {
 
   return { events, loading, error }
 }
+```
+
+**Import Pattern**:
+```typescript
+import { useProfile, useEditProfile } from '@/hooks/profile/useProfile';
+import { useEventRegistration } from '@/hooks/events/useEventRegistration';
+import { useProfilePhoto } from '@/hooks/media/useProfilePhoto';
 ```
 
 **Responsibilities**:

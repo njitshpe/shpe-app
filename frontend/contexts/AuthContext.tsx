@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import type { AppError } from '../types/errors';
 import { mapSupabaseError, validators, createError } from '../types/errors';
 import type { UserProfile } from '../types/userProfile';
-import { profileService } from '../lib/profileService';
+import { profileService } from '../services/profile.service';
 
 WebBrowser.maybeCompleteAuthSession();
 

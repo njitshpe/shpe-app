@@ -4,15 +4,14 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { CalendarDate } from '../../types/calendar.types';
-import {
-  calendarTheme,
-  DATE_ITEM_WIDTH,
-  DATE_ITEM_HEIGHT,
-} from '../../constants/calendarTheme';
+import { CalendarDate } from '@/types/calendar';
+import { useTheme } from '@/contexts/ThemeContext';
+
+// Define constants locally since calendar-theme.ts was removed
+const DATE_ITEM_WIDTH = 48;
+const DATE_ITEM_HEIGHT = 60;
 
 interface DateItemProps {
   date: CalendarDate;
@@ -24,6 +23,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const DateItem = memo(({ date, isSelected, onPress }: DateItemProps) => {
   const scale = useSharedValue(1);
+  const { theme, isDark } = useTheme();
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -48,6 +48,14 @@ export const DateItem = memo(({ date, isSelected, onPress }: DateItemProps) => {
     onPress();
   };
 
+  const dynamicStyles = {
+    selectedContent: { backgroundColor: theme.primary },
+    dayOfWeek: { color: theme.subtext },
+    dayNumber: { color: theme.text },
+    selectedText: { color: '#FFFFFF' },
+    todayIndicator: { backgroundColor: theme.primary },
+  };
+
   return (
     <AnimatedPressable
       onPress={handlePress}
@@ -61,13 +69,14 @@ export const DateItem = memo(({ date, isSelected, onPress }: DateItemProps) => {
       <Animated.View
         style={[
           styles.content,
-          isSelected && styles.selectedContent,
+          isSelected && dynamicStyles.selectedContent,
         ]}
       >
         <Text
           style={[
             styles.dayOfWeek,
-            isSelected && styles.selectedText,
+            dynamicStyles.dayOfWeek,
+            isSelected && dynamicStyles.selectedText,
           ]}
         >
           {date.dayOfWeek}
@@ -75,13 +84,14 @@ export const DateItem = memo(({ date, isSelected, onPress }: DateItemProps) => {
         <Text
           style={[
             styles.dayNumber,
-            isSelected && styles.selectedText,
+            dynamicStyles.dayNumber,
+            isSelected && dynamicStyles.selectedText,
           ]}
         >
           {date.dayNumber}
         </Text>
         {date.isToday && !isSelected && (
-          <Animated.View style={styles.todayIndicator} />
+          <Animated.View style={[styles.todayIndicator, dynamicStyles.todayIndicator]} />
         )}
       </Animated.View>
     </AnimatedPressable>
@@ -105,22 +115,14 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
   },
-  selectedContent: {
-    backgroundColor: calendarTheme.selectedDateBackground,
-  },
   dayOfWeek: {
     fontSize: 12,
     fontWeight: '500',
-    color: calendarTheme.unselectedDateText,
     marginBottom: 4,
   },
   dayNumber: {
     fontSize: 24,
     fontWeight: '600',
-    color: calendarTheme.headerText,
-  },
-  selectedText: {
-    color: calendarTheme.selectedDateText,
   },
   todayIndicator: {
     position: 'absolute',
@@ -128,6 +130,5 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: calendarTheme.headerText,
   },
 });

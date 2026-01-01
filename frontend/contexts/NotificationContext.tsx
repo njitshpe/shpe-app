@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import * as Notifications from 'expo-notifications';
-import { notificationService } from '../lib/notificationService';
+import { notificationService } from '../services/notification.service';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {

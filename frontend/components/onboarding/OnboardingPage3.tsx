@@ -13,12 +13,13 @@ import {
     TouchableWithoutFeedback,
     Keyboard,
 } from 'react-native';
-import { INTEREST_OPTIONS } from '../../types/userProfile';
-import type { UserType, InterestType } from '../../types/userProfile';
-import { profileService } from '../../lib/profileService';
-import { useAuth } from '../../contexts/AuthContext';
-import { ResumeUploader } from '../ResumeUploader';
-import { useResume } from '../../hooks/Profile/useResume';
+import { INTEREST_OPTIONS } from '@/types/userProfile';
+import type { UserType, InterestType } from '@/types/userProfile';
+import { profileService } from '@/services/profile.service';
+import { useAuth } from '@/contexts/AuthContext';
+import { ResumeUploader } from '@/components/media';
+import { useResume } from '@/hooks/profile';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface OnboardingPage3Props {
     userType: UserType;
@@ -30,6 +31,7 @@ interface OnboardingPage3Props {
 
 export function OnboardingPage3({ userType, userId, email, formData, onBack }: OnboardingPage3Props) {
     const { loadProfile, updateUserMetadata } = useAuth();
+    const { theme, isDark } = useTheme();
     const [interests, setInterests] = useState<InterestType[]>([]);
     const [linkedin, setLinkedin] = useState('');
     const [phone, setPhone] = useState('');
@@ -98,25 +100,48 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
         }
     };
 
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        title: { color: theme.text },
+        subtitle: { color: theme.subtext },
+        label: { color: theme.text },
+        input: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            color: theme.text,
+        },
+        chip: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+        },
+        chipText: { color: theme.subtext },
+        backButton: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+        },
+        backButtonText: { color: theme.subtext },
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.container}
+            style={[styles.container, dynamicStyles.container]}
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-                    <Text style={styles.title}>Final Steps</Text>
-                    <Text style={styles.subtitle}>What are you interested in?</Text>
+                <ScrollView style={[styles.container, dynamicStyles.container]} contentContainerStyle={styles.content}>
+                    <Text style={[styles.title, dynamicStyles.title]}>Final Steps</Text>
+                    <Text style={[styles.subtitle, dynamicStyles.subtitle]}>What are you interested in?</Text>
 
                     {/* Interests */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Interests * (Select all that apply)</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>Interests * (Select all that apply)</Text>
                         <View style={styles.chipContainer}>
                             {INTEREST_OPTIONS.map((option) => (
                                 <TouchableOpacity
                                     key={option.value}
                                     style={[
                                         styles.chip,
+                                        dynamicStyles.chip,
                                         interests.includes(option.value) && styles.chipActive,
                                     ]}
                                     onPress={() => toggleInterest(option.value)}
@@ -124,6 +149,7 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
                                     <Text
                                         style={[
                                             styles.chipText,
+                                            dynamicStyles.chipText,
                                             interests.includes(option.value) && styles.chipTextActive,
                                         ]}
                                     >
@@ -136,13 +162,13 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
 
                     {/* LinkedIn */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>LinkedIn URL (Optional)</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>LinkedIn URL (Optional)</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, dynamicStyles.input]}
                             value={linkedin}
                             onChangeText={setLinkedin}
                             placeholder="https://linkedin.com/in/..."
-                            placeholderTextColor="#999"
+                            placeholderTextColor={theme.subtext}
                             autoCapitalize="none"
                             keyboardType="url"
                         />
@@ -150,20 +176,20 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
 
                     {/* Phone Number */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Phone Number (Optional)</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>Phone Number (Optional)</Text>
                         <TextInput
-                            style={styles.input}
+                            style={[styles.input, dynamicStyles.input]}
                             value={phone}
                             onChangeText={setPhone}
                             placeholder="(555) 555-5555"
-                            placeholderTextColor="#999"
+                            placeholderTextColor={theme.subtext}
                             keyboardType="phone-pad"
                         />
                     </View>
 
                     {/* Resume Upload */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Resume (Optional)</Text>
+                        <Text style={[styles.label, dynamicStyles.label]}>Resume (Optional)</Text>
                         <ResumeUploader
                             resumeName={resumeName}
                             onUpload={handleResumePick}
@@ -176,11 +202,11 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
 
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity
-                            style={styles.backButton}
+                            style={[styles.backButton, dynamicStyles.backButton]}
                             onPress={onBack}
                             disabled={loading}
                         >
-                            <Text style={styles.backButtonText}>Back</Text>
+                            <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Back</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -204,6 +230,7 @@ export function OnboardingPage3({ userType, userId, email, formData, onBack }: O
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        // backgroundColor removed
     },
     content: {
         padding: 20,
@@ -212,12 +239,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        // color removed
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        // color removed
         marginBottom: 24,
     },
     inputGroup: {
@@ -226,17 +253,17 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#333',
+        // color removed
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#fff',
+        // backgroundColor removed
         borderWidth: 1,
-        borderColor: '#ddd',
+        // borderColor removed
         borderRadius: 8,
         padding: 12,
         fontSize: 16,
-        color: '#333',
+        // color removed
     },
     chipContainer: {
         flexDirection: 'row',
@@ -244,9 +271,9 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     chip: {
-        backgroundColor: '#fff',
+        // backgroundColor removed
         borderWidth: 1,
-        borderColor: '#ddd',
+        // borderColor removed
         borderRadius: 20,
         paddingVertical: 10,
         paddingHorizontal: 16,
@@ -260,7 +287,7 @@ const styles = StyleSheet.create({
     },
     chipText: {
         fontSize: 14,
-        color: '#666',
+        // color removed
     },
     chipTextActive: {
         color: '#D35400',
@@ -278,11 +305,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#ddd',
-        backgroundColor: '#fff',
+        // borderColor removed
+        // backgroundColor removed
     },
     backButtonText: {
-        color: '#666',
+        // color removed
         fontSize: 16,
         fontWeight: '600',
     },

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface RegistrationSuccessModalProps {
   visible: boolean;
@@ -22,6 +23,7 @@ export default function RegistrationSuccessModal({
   visible,
   onClose,
 }: RegistrationSuccessModalProps) {
+  const { theme, isDark } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
   const opacityAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -48,6 +50,14 @@ export default function RegistrationSuccessModal({
     }
   }, [visible, scaleAnim, opacityAnim]);
 
+  const dynamicStyles = {
+    content: { backgroundColor: theme.card },
+    closeButton: { backgroundColor: theme.background },
+    title: { color: theme.text },
+    subtitle: { color: theme.subtext },
+    iconColor: theme.text,
+  };
+
   return (
     <Modal
       visible={visible}
@@ -56,7 +66,7 @@ export default function RegistrationSuccessModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
+      <BlurView intensity={20} tint={isDark ? "dark" : "light"} style={styles.blurContainer}>
         <Animated.View
           style={[
             styles.overlay,
@@ -70,14 +80,15 @@ export default function RegistrationSuccessModal({
           <Animated.View
             style={[
               styles.content,
+              dynamicStyles.content,
               {
                 transform: [{ scale: scaleAnim }],
               },
             ]}
           >
             {/* Close Button */}
-            <Pressable style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={24} color="#1C1C1E" />
+            <Pressable style={[styles.closeButton, dynamicStyles.closeButton]} onPress={onClose}>
+              <Ionicons name="close" size={24} color={dynamicStyles.iconColor} />
             </Pressable>
 
             {/* Success Icon - Big Green Check Circle */}
@@ -88,10 +99,10 @@ export default function RegistrationSuccessModal({
             </View>
 
             {/* Title */}
-            <Text style={styles.title}>You're In</Text>
+            <Text style={[styles.title, dynamicStyles.title]}>You're In</Text>
 
             {/* Subtitle */}
-            <Text style={styles.subtitle}>
+            <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
               Thank you. We look forward to seeing you!
             </Text>
           </Animated.View>
@@ -115,7 +126,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   content: {
-    backgroundColor: '#FDFBF7',
     borderRadius: 32,
     padding: 40,
     alignItems: 'center',
@@ -134,7 +144,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F5F3F0',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -159,7 +168,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#1C1C1E',
     marginBottom: 12,
     letterSpacing: -0.5,
     textAlign: 'center',
@@ -167,7 +175,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#6e6e73',
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 20,

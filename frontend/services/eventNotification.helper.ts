@@ -1,13 +1,13 @@
-import { supabase } from './supabase';
-import { notificationService } from './notificationService';
+import { supabase } from '../lib/supabase';
+import { notificationService } from './notification.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Event } from '../types/events';
+import type { EventDB } from '../types/events';
 
 const LAST_CHECK_KEY = '@last_event_check';
 
 class EventNotificationHelper {
   // Check for new events created since last check and send notifications for them
-  async checkAndNotifyNewEvents(): Promise<{ count: number; events: Event[] }> {
+  async checkAndNotifyNewEvents(): Promise<{ count: number; events: EventDB[] }> {
     try {
       // Get last check timestamp
       const lastCheckStr = await AsyncStorage.getItem(LAST_CHECK_KEY);

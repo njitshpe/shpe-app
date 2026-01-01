@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -16,7 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "LSApplicationQueriesSchemes": [
           "instagram",
           "fb",
@@ -61,10 +63,6 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
         }
       ]
-    ],
-    "extra": {
-      "supabaseUrl": "https://jsayqpclkkoqglulvzbu.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzYXlxcGNsa2tvcWdsdWx2emJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjU0ODcsImV4cCI6MjA4MjIwMTQ4N30.kX0uOlcXtXYHxsH83HfAzE00BVG6VnmVwKDMan-x6BI"
-    }
+    ]
   }
 }

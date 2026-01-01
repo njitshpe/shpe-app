@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { SHPE_COLORS } from '../constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ResumeUploaderProps {
   resumeName: string | null;
@@ -9,12 +9,22 @@ interface ResumeUploaderProps {
 }
 
 export function ResumeUploader({ resumeName, onUpload, onRemove }: ResumeUploaderProps) {
+  const { theme, isDark } = useTheme();
+
+  const dynamicStyles = {
+    label: { color: theme.text },
+    uploadBox: { backgroundColor: isDark ? '#333' : '#F3F4F6' },
+    fileName: { color: theme.subtext },
+    button: { backgroundColor: theme.primary },
+    buttonText: { color: '#FFFFFF' }, // Always white on primary
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Resume</Text>
-      <View style={styles.uploadBox}>
+      <Text style={[styles.label, dynamicStyles.label]}>Resume</Text>
+      <View style={[styles.uploadBox, dynamicStyles.uploadBox]}>
         <View style={styles.fileInfo}>
-          <Text style={styles.fileName} numberOfLines={1}>
+          <Text style={[styles.fileName, dynamicStyles.fileName]} numberOfLines={1}>
             {resumeName || 'No resume uploaded'}
           </Text>
         </View>
@@ -25,12 +35,12 @@ export function ResumeUploader({ resumeName, onUpload, onRemove }: ResumeUploade
               style={[styles.button, styles.removeButton]}
               onPress={onRemove}
             >
-              <Text style={styles.buttonText}>✕</Text>
+              <Text style={[styles.buttonText, dynamicStyles.buttonText]}>✕</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.button} onPress={onUpload}>
-            <Text style={styles.buttonText}>
+          <TouchableOpacity style={[styles.button, dynamicStyles.button]} onPress={onUpload}>
+            <Text style={[styles.buttonText, dynamicStyles.buttonText]}>
               {resumeName ? 'Replace' : 'Upload PDF'}
             </Text>
           </TouchableOpacity>
@@ -47,14 +57,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: SHPE_COLORS.darkBlue,
     marginBottom: 10
   },
   uploadBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: SHPE_COLORS.gray,
     padding: 15,
     borderRadius: 10
   },
@@ -63,7 +71,6 @@ const styles = StyleSheet.create({
     marginRight: 10
   },
   fileName: {
-    color: SHPE_COLORS.darkGray,
     flex: 1,
     marginRight: 10
   },
@@ -72,7 +79,6 @@ const styles = StyleSheet.create({
     gap: 8
   },
   button: {
-    backgroundColor: SHPE_COLORS.lightBlue,
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6
@@ -81,7 +87,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30'
   },
   buttonText: {
-    color: SHPE_COLORS.white,
     fontWeight: '600'
   },
 });

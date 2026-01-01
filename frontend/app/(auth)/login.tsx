@@ -10,8 +10,9 @@ import {
     ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/AuthInput';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthInput } from '@/components/auth';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -19,6 +20,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { signIn, signInWithGoogle } = useAuth();
+    const { theme, isDark } = useTheme();
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -46,9 +48,23 @@ export default function LoginScreen() {
         }
     };
 
+    const dynamicStyles = {
+        container: { backgroundColor: theme.background },
+        title: { color: theme.text },
+        subtitle: { color: theme.subtext },
+        googleButton: {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+        },
+        googleButtonText: { color: theme.text },
+        dividerLine: { backgroundColor: theme.border },
+        dividerText: { color: theme.subtext },
+        footerText: { color: theme.subtext },
+    };
+
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, dynamicStyles.container]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <ScrollView
@@ -59,23 +75,23 @@ export default function LoginScreen() {
                     <View style={styles.logoPlaceholder}>
                         <Text style={styles.logoText}>SHPE</Text>
                     </View>
-                    <Text style={styles.title}>Welcome Back</Text>
-                    <Text style={styles.subtitle}>Sign in to your SHPE NJIT account</Text>
+                    <Text style={[styles.title, dynamicStyles.title]}>Welcome Back</Text>
+                    <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Sign in to your SHPE NJIT account</Text>
                 </View>
 
                 <View style={styles.form}>
                     <TouchableOpacity
-                        style={[styles.googleButton, loading && styles.buttonDisabled]}
+                        style={[styles.googleButton, dynamicStyles.googleButton, loading && styles.buttonDisabled]}
                         onPress={handleGoogleLogin}
                         disabled={loading}
                     >
-                        <Text style={styles.googleButtonText}>Continue with Google</Text>
+                        <Text style={[styles.googleButtonText, dynamicStyles.googleButtonText]}>Continue with Google</Text>
                     </TouchableOpacity>
 
                     <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or</Text>
-                        <View style={styles.dividerLine} />
+                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
+                        <Text style={[styles.dividerText, dynamicStyles.dividerText]}>or</Text>
+                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
                     </View>
 
                     <AuthInput
@@ -105,7 +121,7 @@ export default function LoginScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Don't have an account? </Text>
+                        <Text style={[styles.footerText, dynamicStyles.footerText]}>Don't have an account? </Text>
                         <TouchableOpacity onPress={() => router.replace('/signup')}>
                             <Text style={styles.link}>Sign Up</Text>
                         </TouchableOpacity>
@@ -119,7 +135,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        // backgroundColor removed
     },
     scrollContent: {
         flexGrow: 1,
@@ -147,26 +163,26 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        // color removed
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        // color removed
     },
     form: {
         width: '100%',
     },
     googleButton: {
-        backgroundColor: '#fff',
+        // backgroundColor removed
         borderWidth: 1,
-        borderColor: '#ddd',
+        // borderColor removed
         padding: 16,
         borderRadius: 8,
         marginBottom: 20,
     },
     googleButtonText: {
-        color: '#333',
+        // color removed
         textAlign: 'center',
         fontWeight: '600',
         fontSize: 16,
@@ -179,11 +195,11 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#ddd',
+        // backgroundColor removed
     },
     dividerText: {
         marginHorizontal: 16,
-        color: '#999',
+        // color removed
         fontSize: 14,
     },
     button: {
@@ -207,7 +223,7 @@ const styles = StyleSheet.create({
         marginTop: 24,
     },
     footerText: {
-        color: '#666',
+        // color removed
         fontSize: 14,
     },
     link: {

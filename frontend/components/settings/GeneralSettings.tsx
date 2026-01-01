@@ -1,39 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Switch, 
-  TouchableOpacity, 
-  Alert, 
-  ActivityIndicator, 
-  ScrollView 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- IMPORTS FROM YOUR LIB FOLDER ---
-import { notificationService } from '../../lib/notificationService';
-import { eventNotificationHelper } from '../../lib/eventNotificationHelper';
-import { supabase } from '../../lib/supabase';
-
-const COLORS = {
-  primary: '#D35400', 
-  background: '#F2F2F7',
-  card: '#FFFFFF',
-  text: '#1F2937',
-  subtext: '#6B7280',
-  border: '#F3F4F6',
-  destructive: '#EF4444',
-  success: '#34C759',
-  info: '#0284C7'
-};
+import { notificationService } from '@/services/notification.service';
+import { eventNotificationHelper } from '@/services/eventNotification.helper';
+import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export const GeneralSettings = () => {
   const router = useRouter();
+  const { theme, isDark, setMode, mode } = useTheme();
   const [loading, setLoading] = useState(true);
-  
+
   // State for your switches
   const [preferences, setPreferences] = useState({
     eventReminders: false,
@@ -71,8 +61,8 @@ export const GeneralSettings = () => {
   // --- 3. SAVE SETTINGS WHEN TOGGLED ---
   const toggleSwitch = async (key: keyof typeof preferences) => {
     const newPrefs = { ...preferences, [key]: !preferences[key] };
-    setPreferences(newPrefs); 
-    
+    setPreferences(newPrefs);
+
     try {
       await AsyncStorage.setItem('user_preferences', JSON.stringify(newPrefs));
     } catch (error) {
@@ -121,133 +111,185 @@ export const GeneralSettings = () => {
   const handleLogout = async () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
-      { 
-        text: "Log Out", 
-        style: "destructive", 
+      {
+        text: "Log Out",
+        style: "destructive",
         onPress: async () => {
           await supabase.auth.signOut();
           router.dismissAll();
-          router.replace('/(auth)/login'); 
+          router.replace('/(auth)/login');
         }
       }
     ]);
   };
 
   if (loading) {
-    return <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />;
+    return <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 50 }} />;
   }
 
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: { backgroundColor: theme.background },
+    sectionTitle: { color: theme.subtext },
+    card: { backgroundColor: theme.card, shadowColor: isDark ? '#000' : '#000' },
+    text: { color: theme.text },
+    subtext: { color: theme.subtext },
+    divider: { backgroundColor: theme.border },
+    backButton: { backgroundColor: theme.card, borderColor: theme.border },
+    backButtonText: { color: theme.text },
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      
+    <ScrollView style={[styles.container, dynamicStyles.container]}>
+
+      {/* --- APPEARANCE SECTION --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <View style={styles.themeSelectorContainer}>
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E0E0E0' }]}>
+              <Ionicons name={mode === 'dark' ? "moon" : mode === 'light' ? "sunny" : "settings-sharp"} size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                {mode === 'system' ? 'Follows device settings' : mode === 'dark' ? 'Dark mode always on' : 'Light mode always on'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.segmentedControl, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
+            {(['light', 'dark', 'system'] as const).map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[
+                  styles.segmentButton,
+                  mode === m && { backgroundColor: theme.primary },
+                  mode === m && styles.segmentButtonActive,
+                ]}
+                onPress={() => setMode(m)}
+              >
+                <Text style={[
+                  styles.segmentText,
+                  { color: mode === m ? '#fff' : theme.subtext }
+                ]}>
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+
       {/* --- NOTIFICATIONS SECTION --- */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>NOTIFICATIONS</Text>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
       </View>
-      <View style={styles.card}>
+      <View style={[styles.card, dynamicStyles.card]}>
         <View style={styles.row}>
           <View style={styles.labelContainer}>
             <View style={[styles.iconBox, { backgroundColor: '#E0F2FE' }]}>
-              <Ionicons name="calendar" size={20} color={COLORS.info} />
+              <Ionicons name="calendar" size={20} color={theme.info} />
             </View>
             <View>
-              <Text style={styles.rowLabel}>Event Reminders</Text>
-              <Text style={styles.rowSubLabel}>Get notified before events start</Text>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Event Reminders</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>Get notified before events start</Text>
             </View>
           </View>
           <Switch
             value={preferences.eventReminders}
             onValueChange={() => toggleSwitch('eventReminders')}
-            trackColor={{ false: '#767577', true: COLORS.primary }}
+            trackColor={{ false: '#767577', true: theme.primary }}
           />
         </View>
-        <View style={styles.divider} />
+        <View style={[styles.divider, dynamicStyles.divider]} />
 
         <View style={styles.row}>
           <View style={styles.labelContainer}>
             <View style={[styles.iconBox, { backgroundColor: '#DCFCE7' }]}>
-              <Ionicons name="add-circle" size={20} color={COLORS.success} />
+              <Ionicons name="add-circle" size={20} color={theme.success} />
             </View>
             <View>
-              <Text style={styles.rowLabel}>New Events</Text>
-              <Text style={styles.rowSubLabel}>When new events are posted</Text>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>New Events</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>When new events are posted</Text>
             </View>
           </View>
           <Switch
             value={preferences.newEvents}
             onValueChange={() => toggleSwitch('newEvents')}
-            trackColor={{ false: '#767577', true: COLORS.primary }}
+            trackColor={{ false: '#767577', true: theme.primary }}
           />
         </View>
       </View>
 
       {/* --- DEBUG / TESTS --- */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>DEBUG / TEST SERVICES</Text>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>DEBUG / TEST SERVICES</Text>
       </View>
-      <View style={styles.card}>
-        
-        {/* Instant Test (Black Text) */}
+      <View style={[styles.card, dynamicStyles.card]}>
+
+        {/* Instant Test */}
         <TouchableOpacity style={styles.row} onPress={performInstantNotificationTest}>
           <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#F3F4F6' }]}>
-              <Ionicons name="flash" size={20} color={COLORS.primary} />
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#F3F4F6' }]}>
+              <Ionicons name="flash" size={20} color={theme.primary} />
             </View>
-            <Text style={styles.rowLabel}>Test Instant Notification</Text>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Test Instant Notification</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.subtext} />
+          <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
         </TouchableOpacity>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, dynamicStyles.divider]} />
 
         {/* Delayed Test */}
         <TouchableOpacity style={styles.row} onPress={performDelayedNotificationTest}>
           <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#F3F4F6' }]}>
-              <Ionicons name="timer" size={20} color={COLORS.primary} />
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#F3F4F6' }]}>
+              <Ionicons name="timer" size={20} color={theme.primary} />
             </View>
-            <Text style={styles.rowLabel}>Test Delayed (3s)</Text>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Test Delayed (3s)</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.subtext} />
+          <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
         </TouchableOpacity>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, dynamicStyles.divider]} />
 
         {/* Database Check */}
         <TouchableOpacity style={styles.row} onPress={performEventCheckTest}>
           <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#F3F4F6' }]}>
-              <Ionicons name="server" size={20} color={COLORS.primary} />
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#F3F4F6' }]}>
+              <Ionicons name="server" size={20} color={theme.primary} />
             </View>
-            <Text style={styles.rowLabel}>Run "New Event" Check</Text>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Run "New Event" Check</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.subtext} />
+          <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
         </TouchableOpacity>
 
       </View>
 
       {/* --- ACCOUNT SECTION --- */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>ACCOUNT</Text>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
       </View>
-      <View style={styles.card}>
+      <View style={[styles.card, dynamicStyles.card]}>
         <TouchableOpacity style={styles.row} onPress={handleLogout}>
           <View style={styles.labelContainer}>
             <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="log-out-outline" size={20} color={COLORS.destructive} />
+              <Ionicons name="log-out-outline" size={20} color={theme.error} />
             </View>
-            <Text style={[styles.rowLabel, { color: COLORS.destructive }]}>Log Out</Text>
+            <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
           </View>
         </TouchableOpacity>
       </View>
 
       {/* --- RETURN TO PROFILE BUTTON --- */}
-      <TouchableOpacity 
-        style={styles.backButton} 
-        // THIS IS THE FIX: Point directly to the profile tab
-        onPress={() => router.replace('/(tabs)/profile')} 
+      <TouchableOpacity
+        style={[styles.backButton, dynamicStyles.backButton]}
+        onPress={() => router.replace('/(tabs)/profile')}
       >
-        <Text style={styles.backButtonText}>Return to Profile</Text>
+        <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Return to Profile</Text>
       </TouchableOpacity>
 
       <Text style={styles.versionText}>Version 1.0.0</Text>
@@ -259,8 +301,7 @@ export const GeneralSettings = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    paddingTop: 60, 
+    paddingTop: 60,
   },
   sectionHeader: {
     marginTop: 24,
@@ -269,16 +310,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 13,
-    color: COLORS.subtext,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: COLORS.card,
     marginHorizontal: 16,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -306,17 +344,14 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: COLORS.text,
   },
   rowSubLabel: {
     fontSize: 12,
-    color: COLORS.subtext,
     marginTop: 2,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.border,
-    marginLeft: 56, 
+    marginLeft: 56,
   },
   versionText: {
     textAlign: 'center',
@@ -328,15 +363,42 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginHorizontal: 16,
     padding: 16,
-    backgroundColor: 'white',
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   backButtonText: {
-    color: '#4B5563',
     fontWeight: '600',
     fontSize: 16,
+  },
+  themeSelectorContainer: {
+    padding: 16,
+    gap: 16,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 4,
+    height: 40,
+  },
+  segmentButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  segmentButtonActive: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.20,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
   }
 });

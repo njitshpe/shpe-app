@@ -8,12 +8,9 @@ import {
     LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEvents } from '../../../../contexts/EventsContext';
-import { useAdaptiveTheme } from '../../../../hooks/calendar/useAdaptiveTheme';
-import { CalendarHeader } from '../../../../components/calendar/CalendarHeader';
-import { WeekStrip } from '../../../../components/calendar/WeekStrip';
-import { MonthPicker } from '../../../../components/calendar/MonthPicker';
-import { EventsList } from '../../../../components/calendar/EventsList';
+import { useEvents } from '@/contexts/EventsContext';
+import { useAdaptiveTheme } from '@/hooks/calendar';
+import { CalendarHeader, WeekStrip, MonthPicker, EventsList } from '@/components/calendar';
 
 export default function CalendarScreen() {
     const { events, isLoading, error } = useEvents();

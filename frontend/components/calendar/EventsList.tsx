@@ -10,8 +10,9 @@ import {
   isWithinInterval,
 } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/types/events';
 import { TactileEventCard } from './TactileEventCard';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface EventsListProps {
   events: Event[];
@@ -26,6 +27,7 @@ interface EventSection {
 
 export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) => {
   const router = useRouter();
+  const { theme, isDark } = useTheme();
   const today = startOfDay(new Date());
 
   // Split events into sections: Today's Events + Upcoming Events
@@ -83,11 +85,18 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
     ];
   }, [events, selectedDate, today]);
 
+  const dynamicStyles = {
+    sectionTitle: { color: theme.text },
+    sectionCount: { color: theme.subtext, backgroundColor: isDark ? '#333' : '#F3F4F6' },
+    emptyText: { color: theme.text },
+    emptySubtext: { color: theme.subtext },
+  };
+
   const renderSectionHeader = ({ section }: { section: EventSection }) => (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{section.title}</Text>
       {section.data.length > 0 && (
-        <Text style={styles.sectionCount}>{section.data.length}</Text>
+        <Text style={[styles.sectionCount, dynamicStyles.sectionCount]}>{section.data.length}</Text>
       )}
     </View>
   );
@@ -111,8 +120,8 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
 
   const renderEmptyComponent = (message: string, subtext: string) => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>{message}</Text>
-      <Text style={styles.emptySubtext}>{subtext}</Text>
+      <Text style={[styles.emptyText, dynamicStyles.emptyText]}>{message}</Text>
+      <Text style={[styles.emptySubtext, dynamicStyles.emptySubtext]}>{subtext}</Text>
     </View>
   );
 
@@ -169,14 +178,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    // color removed
     letterSpacing: -0.3,
   },
   sectionCount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#9CA3AF',
-    backgroundColor: '#F3F4F6',
+    // color removed
+    // backgroundColor removed
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -195,13 +204,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    // color removed
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    // color removed
     textAlign: 'center',
     lineHeight: 20,
   },

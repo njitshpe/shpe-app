@@ -3,10 +3,11 @@ import { View, ActivityIndicator } from 'react-native';
 import { Slot, useSegments, useRouter } from 'expo-router';
 
 // Providers
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { NotificationProvider } from '../contexts/NotificationContext';
-import { EventsProvider } from '../contexts/EventsContext';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { NotificationProvider } from '@/contexts/NotificationContext';
+import { EventsProvider } from '@/contexts/EventsContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ErrorBoundary } from '@/components/shared';
 
 /**
  * Auth Guard Component
@@ -39,7 +40,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // Loading State
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
         <ActivityIndicator size="large" color="#D35400" />
       </View>
     );
@@ -56,15 +57,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <NotificationProvider>
-          <EventsProvider>
-            <AuthGuard>
-              <Slot />
-            </AuthGuard>
-          </EventsProvider>
-        </NotificationProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <EventsProvider>
+              <AuthGuard>
+                <Slot />
+              </AuthGuard>
+            </EventsProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
