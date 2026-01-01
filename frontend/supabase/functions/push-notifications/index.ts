@@ -5,52 +5,81 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 interface NotificationPayload {
   type: 'INSERT' | 'UPDATE'
   table: string
-  record: any       // The new data
+  record: any
   schema: string
-  old_record: any   // The old data (before the update)
+  old_record: any
 }
 
 Deno.serve(async (req) => {
   try {
+    console.log("--- 1. FUNCTION STARTED ---")
+    
     const payload: NotificationPayload = await req.json()
     const { type, record, old_record } = payload
-
-    // 1. Determine Message Content
-    let title = ''
-    let body = ''
-
-    if (type === 'INSERT') {
-      // --- NEW EVENT ---
-      title = 'New SHPE Event!'
-      body = `${record.title} is happening on ${new Date(record.date).toLocaleDateString()}`
     
-    } else if (type === 'UPDATE') {
-      // --- UPDATE Logic ---
-      
-      // Check for Cancellation (Active changed from true -> false)
-      const wasActive = old_record?.is_active ?? true
-      const isActive = record.is_active
-
-      if (wasActive && !isActive) {
-        title = 'Event Cancelled'
-        body = `${record.title} has been cancelled.`
-      } else {
-        // Just a general update (Time, Room, etc.)
-        title = 'Event Update'
-        body = `Details for ${record.title} have been updated. Check the app for info.`
-      }
-    } else {
-      // We don't care about Deletes for now
-      return new Response('Event type not supported', { status: 200 })
-    }
-
-    // 2. Connect to Supabase to get user tokens
+    // Initialize Supabase Client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // 3. Fetch all push tokens
+    // --- 1. IDENTIFY THE EVENT ---
+    // Your DB uses 'event_id', not 'id'
+    const eventId = record?.event_id || old_record?.event_id
+    
+    // --- 2. GET THE REAL NAME ---
+    // Your DB uses 'name', not 'title'
+    let eventName = record?.name || old_record?.name || 'SHPE Event'
+
+    // If we have an ID but no Name (phantom update), fetch it from DB
+    if (eventId && (!eventName || eventName === 'SHPE Event')) {
+      console.log(`--- Fetching name for event_id: ${eventId}`)
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('name')  // Select 'name' specifically
+        .eq('event_id', eventId) // Match 'event_id'
+        .single()
+      
+      if (!eventError && eventData?.name) {
+        eventName = eventData.name
+        console.log(`--- Found Real Name: ${eventName}`)
+      }
+    }
+
+    let title = ''
+    let body = ''
+
+    if (type === 'INSERT') {
+      console.log("--- Logic: New Event")
+      title = `New Event: ${eventName} 📅`
+      body = `Check out the details in the app!`
+    
+    } else if (type === 'UPDATE') {
+      console.log("--- Logic: Update")
+      
+      const wasActive = old_record?.is_active ?? true
+      const isActive = record.is_active
+
+      // 1. CANCELLATION
+      if (wasActive && !isActive) {
+        title = `Cancelled: ${eventName} 🚫`
+        body = `This event is no longer happening.`
+      } 
+      // 2. RE-ACTIVATION
+      else if (!wasActive && isActive) {
+        title = `Back On: ${eventName} ✅`
+        body = `This event is active again!`
+      }
+      // 3. GENERAL UPDATE
+      else {
+        title = `Update: ${eventName} 📢`
+        body = `Details have been updated.`
+      }
+    } else {
+      return new Response('Event type not supported', { status: 200 })
+    }
+
+    // --- FETCH TOKENS ---
     const { data: profiles, error } = await supabase
       .from('user_profiles')
       .select('push_token')
@@ -58,21 +87,19 @@ Deno.serve(async (req) => {
 
     if (error) throw error
 
-    const tokens = profiles
-      .map((p) => p.push_token)
-      .filter((t) => t && t.length > 0)
+    const tokens = profiles.map((p) => p.push_token).filter((t) => t && t.length > 0)
 
     if (tokens.length === 0) {
       return new Response('No tokens found', { status: 200 })
     }
 
-    // 4. Send to Expo
+    // --- SEND TO EXPO ---
     const messages = tokens.map((token) => ({
       to: token,
       sound: 'default',
       title: title,
       body: body,
-      data: { eventId: record.id },
+      data: { eventId: eventId },
     }))
 
     const expoResponse = await fetch('https://exp.host/--/api/v2/push/send', {
