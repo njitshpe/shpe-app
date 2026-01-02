@@ -1,7 +1,9 @@
-// Database schema (snake_case, matches Supabase)
+// types/events.ts
+
+// 1. Rename 'Event' to 'EventDB' to match your imports and avoid conflicts
 export interface EventDB {
   id: string;
-  event_id: string;  // The simple ID associated with events in Supabase, stored in QR codes
+  event_id: string;  // The simple ID used in QR codes
   name: string;
   description?: string;
   location?: string;
@@ -16,30 +18,7 @@ export interface EventDB {
   is_active: boolean;
 }
 
-// UI schema (camelCase, optimized for React Native components)
-export interface EventUI {
-  id: string;
-  title: string;
-  description?: string;
-  startTimeISO: string;
-  endTimeISO: string;
-  locationName: string;
-  address?: string;
-  latitude?: number;
-  longitude?: number;
-  coverImageUrl?: string;
-  hostName?: string | null;
-  tags: string[];
-  priceLabel?: string;
-  capacityLabel?: string;
-  status: 'upcoming' | 'past';
-}
-
-// Temporary backward compatibility alias - prefer EventUI in new code
-// TODO: Remove once all imports are migrated to EventUI/EventDB
-export type Event = EventUI;
-
-// Attendance record
+// 2. Update this to use EventDB
 export interface EventAttendance {
   id: string;
   event_id: string;
@@ -50,16 +29,14 @@ export interface EventAttendance {
   longitude?: number;
 }
 
-// API response cases
 export interface CheckInResponse {
   success: boolean;
   attendance?: EventAttendance;
-  event?: EventDB;  // Check-in uses DB schema
+  event?: EventDB; // Updated reference here too
   error?: string;
   errorCode?: 'EVENT_NOT_FOUND' | 'ALREADY_CHECKED_IN' | 'CHECK_IN_CLOSED' | 'EVENT_FULL' | 'UNAUTHORIZED';
 }
 
-// QR Scan result
 export interface QRScanResult {
   type: string;
   data: string;
