@@ -45,6 +45,10 @@ export interface ThemeColors {
     calendarBackground: string;
     calendarText: string;
     calendarAccent: string;
+    // Events feed specific
+    ongoingBadge: string;
+    fabBackground: string;
+    fabIcon: string;
 }
 
 export const lightTheme: ThemeColors = {
@@ -61,6 +65,9 @@ export const lightTheme: ThemeColors = {
     calendarBackground: '#FFFFFF',
     calendarText: '#000000',
     calendarAccent: '#F2F2F7',
+    ongoingBadge: '#FF3B30',
+    fabBackground: SHPE_COLORS.orange,
+    fabIcon: '#FFFFFF',
 };
 
 export const darkTheme: ThemeColors = {
@@ -77,5 +84,8 @@ export const darkTheme: ThemeColors = {
     calendarBackground: '#1C1C1E',
     calendarText: '#FFFFFF',
     calendarAccent: '#2C2C2E',
+    ongoingBadge: '#FF453A',
+    fabBackground: SHPE_COLORS.orange,
+    fabIcon: '#FFFFFF',
 };
 
