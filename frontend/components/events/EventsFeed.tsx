@@ -10,7 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Event } from '@/types/events';
 import { useOngoingEvents } from '@/hooks/events';
-import { TactileEventCard } from '@/components/calendar/TactileEventCard';
+import { CompactEventCard } from './CompactEventCard';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface EventsFeedProps {
@@ -83,7 +83,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     const renderEvent = ({ item }: { item: Event }) => {
         const isPast = pastEvents.includes(item);
         return (
-            <TactileEventCard
+            <CompactEventCard
                 event={item}
                 onPress={() => handleEventPress(item.id)}
                 isPast={isPast}
