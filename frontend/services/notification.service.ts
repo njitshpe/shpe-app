@@ -1,128 +1,166 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Alert, Linking, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import type {
-  NotificationPermissionStatus,
-  NotificationType,
-  ScheduledNotification,
-  EventReminderTrigger,
-} from '../types/notifications';
+import { supabase } from '@/lib/supabase';
+import type { NotificationPermissionStatus } from '../types/notifications';
 
 // Configure how notifications are presented when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: true,
+    shouldSetBadge: false,
     shouldShowBanner: true,
     shouldShowList: true,
   }),
 });
 
-const STORAGE_KEYS = {
-  PREFERENCES: '@notification_preferences',
-  SCHEDULED_NOTIFICATIONS: '@scheduled_notifications',
-};
-
 class NotificationService {
-  // Request notification permissions from the user
+  
+  // --- MAIN: REGISTER & SAVE TOKEN ---
+  async registerForPushNotificationsAsync() {
+    let token;
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    if (Device.isDevice) {
+      // 1. Check Permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        return null;
+      }
+
+      // 2. Get the Project ID
+      // We look in two places to be safe.
+      const projectId = 
+        Constants?.expoConfig?.extra?.eas?.projectId ?? 
+        Constants?.easConfig?.projectId;
+
+      if (!projectId) {
+        console.error(" ERROR: Project ID is missing. Please run 'npx eas-cli init' in your terminal!");
+        return;
+      }
+      
+      try {
+        // 3. Generate the Token
+        const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+        token = tokenData.data;
+        console.log('Push Token Generated:', token);
+
+        // 4. Save to Supabase
+        await this.saveTokenToSupabase(token);
+      } catch (e) {
+        console.error("Error fetching push token:", e);
+      }
+
+    } else {
+      console.log('Must use physical device for Push Notifications');
+    }
+
+    return token;
+  }
+
+  // --- HELPER: SAVE TO DB (Fixed Table Name) ---
+  private async saveTokenToSupabase(token: string) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Update 'user_profiles' table with the new token
+      const { error } = await supabase
+        .from('user_profiles') // <--- FIXED: Was 'profiles'
+        .update({ push_token: token })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error("Error saving push token to Supabase:", error.message);
+      } else {
+        console.log("Push Token linked to User Profile!");
+      }
+    } catch (err) {
+      console.log("Error in saveTokenToSupabase:", err);
+    }
+  }
+
+  // --- PERMISSIONS ---
   async requestPermission(): Promise<NotificationPermissionStatus> {
     try {
-      // Check if we're on an actual device
       if (!Device.isDevice) {
-        console.warn('Notifications only work on physical devices');
-        return {
-          granted: false,
-          canAskAgain: false,
-          status: 'denied',
-        };
+        return { granted: false, canAskAgain: false, status: 'denied' };
       }
 
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
-      // Request permission if not already granted
       if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
 
-      const granted = finalStatus === 'granted';
-      const canAskAgain = finalStatus === 'undetermined';
+      if (finalStatus === 'granted') {
+        this.registerForPushNotificationsAsync(); 
+      }
 
       return {
-        granted,
-        canAskAgain,
+        granted: finalStatus === 'granted',
+        canAskAgain: finalStatus === 'undetermined',
         status: finalStatus as 'granted' | 'denied' | 'undetermined',
       };
     } catch (error) {
       console.error('Error requesting notification permission:', error);
-      return {
-        granted: false,
-        canAskAgain: false,
-        status: 'denied',
-      };
+      return { granted: false, canAskAgain: false, status: 'denied' };
     }
   }
 
-  // Check current notification permission status without requesting
   async checkPermission(): Promise<NotificationPermissionStatus> {
     try {
       const { status } = await Notifications.getPermissionsAsync();
-      const granted = status === 'granted';
-      const canAskAgain = status === 'undetermined';
-
       return {
-        granted,
-        canAskAgain,
+        granted: status === 'granted',
+        canAskAgain: status === 'undetermined',
         status: status as 'granted' | 'denied' | 'undetermined',
       };
     } catch (error) {
       console.error('Error checking notification permission:', error);
-      return {
-        granted: false,
-        canAskAgain: false,
-        status: 'denied',
-      };
+      return { granted: false, canAskAgain: false, status: 'denied' };
     }
   }
 
-  // Handle permission denial, show appropriate message
   handlePermissionDenied(canAskAgain: boolean): void {
     if (!canAskAgain) {
       Alert.alert(
-        'Notification Permission Required',
-        'Please enable notifications in your device settings to receive event updates.',
+        'Permission Required',
+        'Please enable notifications in settings to receive updates.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          { text: 'Settings', onPress: () => Linking.openSettings() },
         ]
-      );
-    } else {
-      Alert.alert(
-        'Notification Permission Required',
-        'Enable notifications to stay updated on SHPE events and announcements.',
-        [{ text: 'OK' }]
       );
     }
   }
 
-  // Schedule a local notification
-  async scheduleNotification(
-    title: string,
-    body: string,
-    trigger: Date | { seconds: number },
-    data?: any
-  ): Promise<string | null> {
+  // --- SCHEDULING ---
+  async scheduleNotification(title: string, body: string, trigger: Date | { seconds: number }, data?: any) {
     try {
       const { granted } = await this.checkPermission();
-      if (!granted) {
-        console.warn('Notification permission not granted');
-        return null;
-      }
+      if (!granted) return null;
 
-      const notificationId = await Notifications.scheduleNotificationAsync({
+      return await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
@@ -130,59 +168,22 @@ class NotificationService {
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger:
-          trigger instanceof Date
-            ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger }
-            : { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: trigger.seconds },
+        trigger: trigger instanceof Date 
+          ? { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger }
+          : { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: trigger.seconds },
       });
-
-      return notificationId;
     } catch (error) {
       console.error('Error scheduling notification:', error);
       return null;
     }
   }
 
-  // Schedule an event reminder notification
-  async scheduleEventReminder(
-    eventName: string,
-    eventTime: Date,
-    reminderMinutesBefore: number = 30
-  ): Promise<string | null> {
-    const reminderTime = new Date(eventTime.getTime() - reminderMinutesBefore * 60 * 1000);
-
-    // Dont schedule if reminder time is in the past
-    if (reminderTime <= new Date()) {
-      console.warn('Reminder time is in the past, not scheduling');
-      return null;
-    }
-
-    return await this.scheduleNotification(
-      'Event Reminder',
-      `${eventName} starts in ${reminderMinutesBefore} minutes!`,
-      reminderTime,
-      {
-        type: 'event_reminder',
-        eventName,
-        eventTime: eventTime.toISOString(),
-      }
-    );
-  }
-
-  // Send an immediate notification
-  async sendImmediateNotification(
-    title: string,
-    body: string,
-    data?: any
-  ): Promise<string | null> {
+  async sendImmediateNotification(title: string, body: string, data?: any) {
     try {
       const { granted } = await this.checkPermission();
-      if (!granted) {
-        console.warn('Notification permission not granted');
-        return null;
-      }
+      if (!granted) return null;
 
-      const notificationId = await Notifications.scheduleNotificationAsync({
+      return await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
@@ -190,115 +191,42 @@ class NotificationService {
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
-        trigger: null, // Null means send immediately
+        trigger: null,
       });
-
-      return notificationId;
     } catch (error) {
       console.error('Error sending immediate notification:', error);
       return null;
     }
   }
 
-  // Send a new event announcement notification
-  async sendNewEventNotification(eventName: string, eventTime: Date): Promise<string | null> {
+  async sendNewEventNotification(eventName: string, eventTime: Date) {
     const formattedTime = eventTime.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
+      weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
     });
-
     return await this.sendImmediateNotification(
       'New SHPE Event!',
       `${eventName} - ${formattedTime}`,
-      {
-        type: 'new_event',
-        eventName,
-        eventTime: eventTime.toISOString(),
-      }
+      { type: 'new_event', eventName, eventTime: eventTime.toISOString() }
     );
   }
 
-  // Send a general announcement notification
-  async sendAnnouncementNotification(
-    title: string,
-    message: string
-  ): Promise<string | null> {
-    return await this.sendImmediateNotification(title, message, {
-      type: 'announcement',
-    });
+  async sendAnnouncementNotification(title: string, message: string) {
+    return await this.sendImmediateNotification(title, message, { type: 'announcement' });
   }
 
-  // Cancel a scheduled notification
-  async cancelNotification(notificationId: string): Promise<void> {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(notificationId);
-    } catch (error) {
-      console.error('Error canceling notification:', error);
-    }
-  }
+  // --- UTILS ---
+  async cancelNotification(id: string) { await Notifications.cancelScheduledNotificationAsync(id); }
+  async cancelAllNotifications() { await Notifications.cancelAllScheduledNotificationsAsync(); }
+  async dismissAllNotifications() { await Notifications.dismissAllNotificationsAsync(); }
+  async getBadgeCount() { return await Notifications.getBadgeCountAsync(); }
+  async setBadgeCount(count: number) { await Notifications.setBadgeCountAsync(count); }
+  async clearBadgeCount() { await this.setBadgeCount(0); }
 
-  // Cancel all scheduled notifications
-  async cancelAllNotifications(): Promise<void> {
-    try {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-    } catch (error) {
-      console.error('Error canceling all notifications:', error);
-    }
-  }
-
-  // Get all scheduled notifications
-  async getAllScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
-    try {
-      return await Notifications.getAllScheduledNotificationsAsync();
-    } catch (error) {
-      console.error('Error getting scheduled notifications:', error);
-      return [];
-    }
-  }
-
-  // Dismiss all displayed notifications
-  async dismissAllNotifications(): Promise<void> {
-    try {
-      await Notifications.dismissAllNotificationsAsync();
-    } catch (error) {
-      console.error('Error dismissing notifications:', error);
-    }
-  }
-
-  // Get badge count (iOS)
-  async getBadgeCount(): Promise<number> {
-    try {
-      return await Notifications.getBadgeCountAsync();
-    } catch (error) {
-      console.error('Error getting badge count:', error);
-      return 0;
-    }
-  }
-
-  // Set badge count (iOS)
-  async setBadgeCount(count: number): Promise<void> {
-    try {
-      await Notifications.setBadgeCountAsync(count);
-    } catch (error) {
-      console.error('Error setting badge count:', error);
-    }
-  }
-
-  // Clear badge count (iOS)
-  async clearBadgeCount(): Promise<void> {
-    await this.setBadgeCount(0);
-  }
-
-  // Register notifications listeners
-  // Returns cleanup function
+  // --- LISTENERS ---
   registerNotificationListeners(
     onNotificationReceived?: (notification: Notifications.Notification) => void,
     onNotificationResponse?: (response: Notifications.NotificationResponse) => void
   ): () => void {
-    // Listener for notifications received while app is in foreground
     const receivedSubscription = Notifications.addNotificationReceivedListener(
       (notification) => {
         console.log('Notification received:', notification);
@@ -306,7 +234,6 @@ class NotificationService {
       }
     );
 
-    // Listener for when user taps on notification
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         console.log('Notification tapped:', response);
@@ -314,7 +241,6 @@ class NotificationService {
       }
     );
 
-    // Return cleanup function
     return () => {
       receivedSubscription.remove();
       responseSubscription.remove();

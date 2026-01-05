@@ -1,116 +1,70 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { notificationService } from './notification.service';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { EventDB } from '../types/events';
-
-const LAST_CHECK_KEY = '@last_event_check';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 class EventNotificationHelper {
-  // Check for new events created since last check and send notifications for them
-  async checkAndNotifyNewEvents(): Promise<{ count: number; events: EventDB[] }> {
-    try {
-      // Get last check timestamp
-      const lastCheckStr = await AsyncStorage.getItem(LAST_CHECK_KEY);
-      const lastCheck = lastCheckStr ? new Date(lastCheckStr) : new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: 24h ago
+  private subscription: RealtimeChannel | null = null;
 
-      // Query events created since last check
-      const { data: newEvents, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('is_active', true)
-        .gte('created_at', lastCheck.toISOString())
-        .order('created_at', { ascending: false });
+  /**
+   * --- START LISTENING ---
+   * Call this ONCE when the app starts.
+   */
+  startListening() {
+    if (this.subscription) {
+      console.log('Already listening for real-time event updates.');
+      return;
+    }
 
-      if (error) {
-        console.error('Error fetching new events:', error);
-        return { count: 0, events: [] };
-      }
+    console.log('Initializing Real-time Event Listener...');
 
-      if (!newEvents || newEvents.length === 0) {
-        console.log('No new events found');
-        return { count: 0, events: [] };
-      }
+    this.subscription = supabase
+      .channel('public:events') 
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        (payload) => this.handleRealtimeEvent(payload)
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Connected to Real-time Updates');
+        }
+      });
+  }
 
-      // Send notification for each new event
-      for (const event of newEvents) {
-        await notificationService.sendNewEventNotification(
-          event.name,
-          new Date(event.start_time)
-        );
-      }
-
-      // Update last check timestamp
-      await AsyncStorage.setItem(LAST_CHECK_KEY, new Date().toISOString());
-
-      return { count: newEvents.length, events: newEvents };
-    } catch (error) {
-      console.error('Error in checkAndNotifyNewEvents:', error);
-      return { count: 0, events: [] };
+  /**
+   * --- STOP LISTENING ---
+   */
+  stopListening() {
+    if (this.subscription) {
+      supabase.removeChannel(this.subscription);
+      this.subscription = null;
+      console.log('Stopped listening for real-time updates.');
     }
   }
 
-  // Get an event from database by event_id and send notification
-  // Useful for testing with specific events
-  async notifyForEvent(eventId: string): Promise<boolean> {
-    try {
-      const { data: event, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('event_id', eventId)
-        .eq('is_active', true)
-        .single();
+  /**
+   * --- PRIVATE: LOGIC HANDLER ---
+   * Handles database changes.
+   * NOTE: Notifications are now handled by Supabase Edge Functions.
+   * We keep this listener active in case we want to trigger UI refreshes later.
+   */
+  private async handleRealtimeEvent(payload: any) {
+    console.log(` Real-time payload received: ${payload.eventType}`);
 
-      if (error || !event) {
-        console.error('Event not found:', error);
-        return false;
-      }
+    // const newRecord = payload.new;
 
-      await notificationService.sendNewEventNotification(
-        event.name,
-        new Date(event.start_time)
-      );
-
-      return true;
-    } catch (error) {
-      console.error('Error in notifyForEvent:', error);
-      return false;
+    // --- 1. HANDLE INSERT (New Event) ---
+    if (payload.eventType === 'INSERT') {
+      console.log(' -> New Event Detected (Notification handled by Server)');
+      
+      // TODO: If you want the list to update automatically, call your fetchEvents() here!
+      return;
     }
-  }
 
-  // Schedule reminder for a specific event
-  async scheduleReminderForEvent(
-    eventId: string,
-    minutesBefore: number = 30
-  ): Promise<boolean> {
-    try {
-      const { data: event, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('event_id', eventId)
-        .eq('is_active', true)
-        .single();
-
-      if (error || !event) {
-        console.error('Event not found:', error);
-        return false;
-      }
-
-      await notificationService.scheduleEventReminder(
-        event.name,
-        new Date(event.start_time),
-        minutesBefore
-      );
-
-      return true;
-    } catch (error) {
-      console.error('Error in scheduleReminderForEvent:', error);
-      return false;
+    // --- 2. HANDLE UPDATE (Cancellation/Changes) ---
+    if (payload.eventType === 'UPDATE') {
+       console.log(' -> Event Update Detected (Notification handled by Server)');
     }
-  }
-
-  // Reset last check time (for testing)
-  async resetLastCheck(): Promise<void> {
-    await AsyncStorage.removeItem(LAST_CHECK_KEY);
   }
 }
 
