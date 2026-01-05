@@ -7,7 +7,7 @@ import { SHPE_COLORS } from '@/constants';
 import { ProfileForm } from './ProfileForm';
 import { InterestPicker } from './InterestPicker';
 import { ResumeUploader } from '@/components/media';
-import { useResume, useEditProfile } from '@/hooks/profile';
+import { useResume, useEditProfile } from '@/hooks/Profile';
 import { useProfilePhoto } from '@/hooks/media';
 import type { UserProfile } from '@/types/userProfile';
 

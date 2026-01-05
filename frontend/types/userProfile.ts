@@ -1,5 +1,21 @@
 export type UserType = 'student' | 'alumni' | 'guest' | 'other';
 
+export type UserRank = 'unranked' | 'bronze' | 'silver' | 'gold';
+
+export const RANK_THRESHOLDS: Record<UserRank, { min: number; max: number }> = {
+    unranked: { min: 0, max: 24 },
+    bronze: { min: 25, max: 49 },
+    silver: { min: 50, max: 74 },
+    gold: { min: 75, max: 100 },
+};
+
+export function getRankFromPoints(points: number): UserRank {
+    if (points >= 75) return 'gold';
+    if (points >= 50) return 'silver';
+    if (points >= 25) return 'bronze';
+    return 'unranked';
+}
+
 export type InterestType =
     | 'workshops'
     | 'networking'
@@ -32,6 +48,8 @@ export interface BaseProfile {
     resume_name?: string;
     created_at: string;
     updated_at: string;
+    rank_points?: number;
+    rank?: UserRank;
 }
 
 export interface StudentProfile extends BaseProfile {
