@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, ImageBackground } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Pressable, Animated, Image } from 'react-native';
 import { format, isAfter, isBefore } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Event } from '@/types/events';
 import { useTheme } from '@/contexts/ThemeContext';
+import { getEventGradient } from '@/utils/eventUtils';
 
 interface CompactEventCardProps {
     event: Event;
@@ -13,7 +13,8 @@ interface CompactEventCardProps {
     isPast?: boolean;
 }
 
-const CARD_HEIGHT = 200;
+const CARD_HEIGHT = 180;
+const IMAGE_WIDTH = 130;
 
 export const CompactEventCard: React.FC<CompactEventCardProps> = ({
     event,
@@ -31,11 +32,34 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
     const isPastByTime = isAfter(now, endTime);
     const showPastOverlay = isPast ?? isPastByTime;
 
+    // Get event color based on type (extract from gradient or define mapping)
+    // We use the middle color of the gradient as the primary accent color
+    const gradientColors = getEventGradient(event);
+    // Extract the solid color (2nd element in the array usually has the color)
+    // Format is ['transparent', 'rgba(r,g,b,0.4)', 'rgba(r,g,b,0.95)']
+    // We'll parse the RGB from the last element for the solid color
+    const primaryColor = gradientColors[2].replace('0.95)', '1)').replace('0.9)', '1)');
+
+    // Create a tint color (low opacity) for tags and background
+    const tintColor = primaryColor.replace('1)', '0.1)');
+    const tagTintColor = primaryColor.replace('1)', '0.15)');
+
     // Format date badge - show month and day number (e.g., "JAN 24")
     const monthDay = format(startTime, 'MMM d').toUpperCase();
 
-    // Format time prominently
-    const timeString = format(startTime, 'h:mm a');
+    // Format time prominently (Start - End)
+    const timeString = `${format(startTime, 'h:mm a')} - ${format(endTime, 'h:mm a')}`;
+
+    // Determine event type label for tag
+    const getEventTypeLabel = () => {
+        const text = `${event.title} ${event.tags?.join(' ') || ''}`.toLowerCase();
+        if (text.match(/social|mixer|fun|party/)) return 'Social';
+        if (text.match(/workshop|learn|study|tech/)) return 'Workshop';
+        if (text.match(/gbm|general|meeting/)) return 'General';
+        if (text.match(/corporate|company|resume/)) return 'Corporate';
+        return 'Event';
+    };
+    const eventTypeLabel = getEventTypeLabel();
 
     const handlePressIn = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -61,9 +85,29 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
 
     const dynamicStyles = {
         card: {
-            borderColor: isDark ? theme.border : 'transparent',
             backgroundColor: theme.card,
+            borderColor: isDark ? theme.border : '#E5E7EB',
+            shadowColor: primaryColor, // Colored shadow
         },
+        contentContainer: {
+            // Tinted background in dark mode, white in light mode
+            backgroundColor: isDark ? tintColor : theme.card,
+        },
+        text: {
+            color: theme.text,
+        },
+        subtext: {
+            color: theme.subtext,
+        },
+        tag: {
+            backgroundColor: tagTintColor,
+        },
+        tagText: {
+            color: primaryColor,
+        },
+        accentBar: {
+            backgroundColor: primaryColor,
+        }
     };
 
     return (
@@ -74,55 +118,74 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
             >
-                {/* Background Image */}
-                <ImageBackground
-                    source={imageSource}
-                    style={styles.imageBackground}
-                    imageStyle={styles.image}
-                >
-                    {/* Dark gradient overlay for text readability */}
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)']}
-                        style={styles.gradient}
-                    >
-                        {/* Top row: Date badge and Live indicator */}
-                        <View style={styles.topRow}>
-                            <View style={[styles.dateBadge, { backgroundColor: theme.primary }]}>
-                                <Text style={styles.dateText}>{monthDay}</Text>
+                <View style={styles.rowContainer}>
+                    {/* Left Side: Poster Image */}
+                    <View style={styles.imageContainer}>
+                        <Image
+                            source={imageSource}
+                            style={styles.image}
+                        />
+                        {showPastOverlay && <View style={styles.pastOverlay} pointerEvents="none" />}
+                    </View>
+
+                    {/* Vertical Accent Bar */}
+                    <View style={[styles.accentBar, dynamicStyles.accentBar]} />
+
+                    {/* Right Side: Content */}
+                    <View style={[styles.contentContainer, dynamicStyles.contentContainer]}>
+                        <View style={styles.innerContent}>
+                            {/* Top row: Date badge and Live/Type indicator */}
+                            <View style={styles.topRow}>
+                                <View style={[styles.dateBadge, { backgroundColor: primaryColor }]}>
+                                    <Text style={styles.dateText}>{monthDay}</Text>
+                                </View>
+
+                                {/* Live indicator OR Type Tag */}
+                                {isLive ? (
+                                    <View style={[styles.liveIndicator, { backgroundColor: '#22C55E' }]}>
+                                        <View style={styles.pulseDot} />
+                                        <Text style={styles.liveText}>LIVE</Text>
+                                    </View>
+                                ) : (
+                                    <View style={[styles.typeTag, dynamicStyles.tag]}>
+                                        <Text style={[styles.typeText, dynamicStyles.tagText]}>{eventTypeLabel}</Text>
+                                    </View>
+                                )}
                             </View>
 
-                            {/* Live indicator */}
-                            {isLive && (
-                                <View style={[styles.liveIndicator, { backgroundColor: theme.ongoingBadge }]}>
-                                    <View style={styles.pulseDot} />
-                                    <Text style={styles.liveText}>LIVE</Text>
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Event info at bottom */}
-                        <View style={styles.contentContainer}>
-                            {/* Time - more prominent */}
-                            <Text style={styles.timeText}>{timeString}</Text>
-
-                            {/* Title - larger and clearer */}
-                            <Text style={styles.titleText} numberOfLines={2}>
-                                {event.title}
-                            </Text>
-
-                            {/* Location */}
-                            {event.locationName && (
-                                <View style={styles.locationRow}>
-                                    <Ionicons name="location" size={14} color="#FFFFFF" />
-                                    <Text style={styles.locationText} numberOfLines={1}>
-                                        {event.locationName}
+                            {/* Middle: Title & Description */}
+                            <View style={styles.middleContainer}>
+                                <Text style={[styles.titleText, dynamicStyles.text]} numberOfLines={2}>
+                                    {event.title}
+                                </Text>
+                                {event.description && (
+                                    <Text style={[styles.descriptionText, dynamicStyles.subtext]} numberOfLines={2}>
+                                        {event.description}
                                     </Text>
+                                )}
+                            </View>
+
+                            {/* Bottom: Details */}
+                            <View style={styles.detailsContainer}>
+                                {/* Time */}
+                                <View style={styles.detailRow}>
+                                    <Ionicons name="time-outline" size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
+                                    <Text style={[styles.detailText, dynamicStyles.subtext]}>{timeString}</Text>
                                 </View>
-                            )}
+
+                                {/* Location */}
+                                {event.locationName && (
+                                    <View style={styles.detailRow}>
+                                        <Ionicons name="location-outline" size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
+                                        <Text style={[styles.detailText, dynamicStyles.subtext]} numberOfLines={1}>
+                                            {event.locationName}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
-                    </LinearGradient>
-                    {showPastOverlay && <View style={styles.pastOverlay} pointerEvents="none" />}
-                </ImageBackground>
+                    </View>
+                </View>
             </Pressable>
         </Animated.View>
     );
@@ -138,37 +201,51 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
         borderWidth: 1,
-        // Subtle shadow for depth
-        shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOpacity: 0.15, // Increased slightly for colored shadow visibility
+        shadowRadius: 12,
+        elevation: 5,
     },
-    imageBackground: {
-        width: '100%',
+    rowContainer: {
+        flexDirection: 'row',
         height: '100%',
     },
+    imageContainer: {
+        width: IMAGE_WIDTH,
+        height: '100%',
+        backgroundColor: '#E5E7EB',
+    },
     image: {
+        width: '100%',
+        height: '100%',
         resizeMode: 'cover',
     },
-    gradient: {
+    accentBar: {
+        width: 4,
+        height: '100%',
+    },
+    contentContainer: {
         flex: 1,
+        height: '100%',
+    },
+    innerContent: {
+        flex: 1,
+        padding: 12, // Reduced slightly to fit description
         justifyContent: 'space-between',
-        padding: 16,
     },
     topRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        marginBottom: 6,
     },
     dateBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
     },
     dateText: {
-        fontSize: 12,
+        fontSize: 10,
         fontWeight: '800',
         color: '#FFFFFF',
         letterSpacing: 0.5,
@@ -176,58 +253,64 @@ const styles = StyleSheet.create({
     liveIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 10,
-        gap: 5,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        gap: 4,
     },
     pulseDot: {
         width: 6,
         height: 6,
         borderRadius: 3,
         backgroundColor: '#FFFFFF',
-        shadowColor: '#FFFFFF',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 1,
-        shadowRadius: 4,
     },
     liveText: {
         fontSize: 10,
         fontWeight: '700',
         color: '#FFFFFF',
-        letterSpacing: 0.5,
     },
-    contentContainer: {
-        gap: 6,
+    typeTag: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
     },
-    timeText: {
-        fontSize: 16,
+    typeText: {
+        fontSize: 10,
         fontWeight: '700',
-        color: '#FFFFFF',
         letterSpacing: 0.3,
     },
+    middleContainer: {
+        flex: 1,
+        justifyContent: 'flex-start',
+        gap: 4,
+    },
     titleText: {
-        fontSize: 22,
+        fontSize: 16,
         fontWeight: '700',
-        color: '#FFFFFF',
-        lineHeight: 28,
+        lineHeight: 20,
         letterSpacing: -0.3,
     },
-    locationRow: {
+    descriptionText: {
+        fontSize: 12,
+        lineHeight: 16,
+        opacity: 0.8,
+    },
+    detailsContainer: {
+        gap: 4,
+        marginTop: 6,
+    },
+    detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 4,
-        marginTop: 2,
+        gap: 6,
     },
-    locationText: {
-        fontSize: 13,
+    detailText: {
+        fontSize: 12,
         fontWeight: '500',
-        color: '#FFFFFF',
-        opacity: 0.95,
         flex: 1,
     },
     pastOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(156, 163, 175, 0.4)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
 });

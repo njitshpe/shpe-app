@@ -5,12 +5,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useEvents } from '@/contexts/EventsContext';
+import { useOngoingEvents } from '@/hooks/events';
+import { CompactEventCard } from '@/components/events/CompactEventCard';
 
 export default function HomeScreen() {
     const router = useRouter();
     const { user, signOut, updateUserMetadata, profile } = useAuth();
     const { theme, isDark } = useTheme();
+    const { events } = useEvents();
+    const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
+
+    // Determine relevant event to show
+    const relevantEvent = ongoingEvents.length > 0
+        ? ongoingEvents[0]
+        : upcomingEvents.length > 0
+            ? upcomingEvents[0]
+            : null;
 
     const handleSignOut = () => {
         Alert.alert(
@@ -42,6 +54,24 @@ export default function HomeScreen() {
                     <Text style={styles.email}>{user?.email}</Text>
                 </View>
 
+                {/* Featured Event Card */}
+                {relevantEvent && (
+                    <View style={styles.eventContainer}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                                {ongoingEvents.length > 0 ? 'Happening Now' : 'Up Next'}
+                            </Text>
+                            <TouchableOpacity onPress={() => router.push('/calendar')}>
+                                <Text style={[styles.seeAllText, { color: theme.primary }]}>See All</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <CompactEventCard
+                            event={relevantEvent}
+                            onPress={() => router.push(`/event/${relevantEvent.id}`)}
+                        />
+                    </View>
+                )}
+
                 {/* Quick Actions */}
                 <View style={styles.actionsGrid}>
                     <TouchableOpacity
@@ -64,17 +94,6 @@ export default function HomeScreen() {
                         </View>
                         <Text style={[styles.actionTitle, dynamicStyles.text]}>Check In</Text>
                         <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Scan event QR code</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.actionCard, dynamicStyles.card]}
-                        onPress={() => router.push('/profile')}
-                    >
-                        <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
-                            <Ionicons name="person" size={32} color={theme.info} />
-                        </View>
-                        <Text style={[styles.actionTitle, dynamicStyles.text]}>My Profile</Text>
-                        <Text style={[styles.actionDescription, dynamicStyles.subtext]}>View & edit profile</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -152,6 +171,23 @@ const styles = StyleSheet.create({
     email: {
         color: 'rgba(255,255,255,0.9)',
         fontSize: 14,
+    },
+    eventContainer: {
+        marginBottom: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    seeAllText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
     actionsGrid: {
         flexDirection: 'row',
