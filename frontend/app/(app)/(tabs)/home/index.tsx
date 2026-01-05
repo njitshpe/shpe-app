@@ -72,19 +72,58 @@ export default function HomeScreen() {
                     </View>
                 )}
 
+                {/* Announcement Section */}
+                <View style={[styles.announcementCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <View style={styles.announcementIconContainer}>
+                        <Text style={styles.announcementEmoji}>👤</Text>
+                    </View>
+                    <View style={styles.announcementContent}>
+                        <View style={styles.announcementHeader}>
+                            <Text style={[styles.announcementTitle, { color: theme.text }]}>Welcome Back!🎉🎉</Text>
+                            <Text style={[styles.announcementTime, { color: theme.subtext }]}>2h ago</Text>
+                        </View>
+                        <Text style={[styles.announcementText, { color: theme.subtext }]}>
+                            Get ready for an amazing semester with SHPE!
+                        </Text>
+                    </View>
+                </View>
+
                 {/* Quick Actions */}
                 <View style={styles.actionsGrid}>
-                    <TouchableOpacity
-                        style={[styles.actionCard, dynamicStyles.card]}
-                        onPress={() => router.push('/calendar')}
-                    >
-                        <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
-                            <Ionicons name="calendar" size={32} color={theme.primary} />
-                        </View>
-                        <Text style={[styles.actionTitle, dynamicStyles.text]}>View Calendar</Text>
-                        <Text style={[styles.actionDescription, dynamicStyles.subtext]}>See upcoming events</Text>
-                    </TouchableOpacity>
+                    {/* Debug Card - Left Side */}
+                    {__DEV__ && (
+                        <View style={[styles.actionCard, { backgroundColor: isDark ? '#1C1C1E' : '#f0f0f0', borderColor: theme.border, borderWidth: 1, borderStyle: 'dashed' }]}>
+                            <Text style={styles.debugTitle}>Debug Tools</Text>
+                            <View style={styles.debugActions}>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={async () => {
+                                        try {
+                                            await updateUserMetadata({ onboarding_completed: false });
+                                            Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
+                                        } catch (e) {
+                                            Alert.alert('Error', 'Failed to reset onboarding');
+                                        }
+                                    }}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Reset Onboarding</Text>
+                                </TouchableOpacity>
 
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={() => {
+                                        console.log('User:', JSON.stringify(user, null, 2));
+                                        console.log('Profile:', JSON.stringify(profile, null, 2));
+                                        Alert.alert('Logged', 'User data logged to console');
+                                    }}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Check In - Right Side */}
                     <TouchableOpacity
                         style={[styles.actionCard, dynamicStyles.card]}
                         onPress={() => router.push('/check-in')}
@@ -96,41 +135,6 @@ export default function HomeScreen() {
                         <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Scan event QR code</Text>
                     </TouchableOpacity>
                 </View>
-
-                {/* Debug Card - Remove in production */}
-                {__DEV__ && (
-                    <View style={[styles.debugCard, { backgroundColor: isDark ? '#1C1C1E' : '#f0f0f0', borderColor: theme.border }]}>
-                        <Text style={styles.debugTitle}>Debug Tools</Text>
-                        <Text style={[styles.debugText, dynamicStyles.subtext]}>User ID: {user?.id}</Text>
-
-                        <View style={styles.debugActions}>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    try {
-                                        await updateUserMetadata({ onboarding_completed: false });
-                                        Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
-                                    } catch (e) {
-                                        Alert.alert('Error', 'Failed to reset onboarding');
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Reset Onboarding</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => {
-                                    console.log('User:', JSON.stringify(user, null, 2));
-                                    console.log('Profile:', JSON.stringify(profile, null, 2));
-                                    Alert.alert('Logged', 'User data logged to console');
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
             </View>
 
             {/* Sign Out Button */}
@@ -173,7 +177,47 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     eventContainer: {
+        marginBottom: 8,
+    },
+    announcementCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
         marginBottom: 24,
+        borderWidth: 1,
+        gap: 16,
+    },
+    announcementIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255, 165, 0, 0.1)', // Light orange tint
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    announcementEmoji: {
+        fontSize: 24,
+    },
+    announcementContent: {
+        flex: 1,
+        gap: 4,
+    },
+    announcementHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    announcementTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    announcementTime: {
+        fontSize: 12,
+    },
+    announcementText: {
+        fontSize: 14,
+        lineHeight: 20,
     },
     sectionHeader: {
         flexDirection: 'row',
