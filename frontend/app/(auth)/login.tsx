@@ -8,11 +8,15 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Pressable,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthInput } from '@/components/auth';
 import { useTheme } from '@/contexts/ThemeContext';
+import { GRADIENTS, SHADOWS, SPACING, RADIUS, TYPOGRAPHY, SHPE_COLORS } from '@/constants/colors';
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -48,187 +52,245 @@ export default function LoginScreen() {
         }
     };
 
-    const dynamicStyles = {
-        container: { backgroundColor: theme.background },
-        title: { color: theme.text },
-        subtitle: { color: theme.subtext },
-        googleButton: {
-            backgroundColor: theme.card,
-            borderColor: theme.border,
-        },
-        googleButtonText: { color: theme.text },
-        dividerLine: { backgroundColor: theme.border },
-        dividerText: { color: theme.subtext },
-        footerText: { color: theme.subtext },
-    };
+    const backgroundGradient = isDark ? GRADIENTS.darkBackground : GRADIENTS.lightBackground;
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, dynamicStyles.container]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <LinearGradient
+            colors={backgroundGradient}
+            style={styles.gradient}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
         >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <View style={styles.header}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>SHPE</Text>
-                    </View>
-                    <Text style={[styles.title, dynamicStyles.title]}>Welcome Back</Text>
-                    <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Sign in to your SHPE NJIT account</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <TouchableOpacity
-                        style={[styles.googleButton, dynamicStyles.googleButton, loading && styles.buttonDisabled]}
-                        onPress={handleGoogleLogin}
-                        disabled={loading}
-                    >
-                        <Text style={[styles.googleButtonText, dynamicStyles.googleButtonText]}>Continue with Google</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.divider}>
-                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
-                        <Text style={[styles.dividerText, dynamicStyles.dividerText]}>or</Text>
-                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
-                    </View>
-
-                    <AuthInput
-                        label="Email"
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="you@email.com"
-                        keyboardType="email-address"
-                    />
-
-                    <AuthInput
-                        label="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="Enter your password"
-                        secureTextEntry
-                    />
-
-                    <TouchableOpacity
-                        style={[styles.button, loading && styles.buttonDisabled]}
-                        onPress={handleLogin}
-                        disabled={loading}
-                    >
-                        <Text style={styles.buttonText}>
-                            {loading ? 'Signing in...' : 'Sign In'}
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Logo and Title - Top Left Anchor */}
+                    <View style={styles.header}>
+                        <View style={styles.logoContainer}>
+                            <LinearGradient
+                                colors={GRADIENTS.primaryButton}
+                                style={styles.logoCircle}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
+                                <Text style={styles.logoText}>SHPE</Text>
+                            </LinearGradient>
+                        </View>
+                        <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
+                        <Text style={[styles.subtitle, { color: theme.subtext }]}>
+                            Sign in to continue to SHPE NJIT
                         </Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.footer}>
-                        <Text style={[styles.footerText, dynamicStyles.footerText]}>Don't have an account? </Text>
-                        <TouchableOpacity onPress={() => router.replace('/signup')}>
-                            <Text style={styles.link}>Sign Up</Text>
-                        </TouchableOpacity>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+
+                    {/* Form - Middle Section */}
+                    <View style={styles.form}>
+                        <AuthInput
+                            label="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="you@email.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
+
+                        <AuthInput
+                            label="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="Enter your password"
+                            secureTextEntry
+                        />
+
+                        {/* Primary CTA - Bottom (Thumb Zone) */}
+                        <Pressable
+                            onPress={handleLogin}
+                            disabled={loading}
+                            style={({ pressed }) => [
+                                styles.button,
+                                loading && styles.buttonDisabled,
+                                pressed && styles.buttonPressed,
+                            ]}
+                        >
+                            {({ pressed }) => (
+                                <LinearGradient
+                                    colors={pressed ? GRADIENTS.primaryButtonPressed : GRADIENTS.primaryButton}
+                                    style={styles.buttonGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 0, y: 1 }}
+                                >
+                                    <Text style={styles.buttonText}>
+                                        {loading ? 'Signing in...' : 'Sign In'}
+                                    </Text>
+                                </LinearGradient>
+                            )}
+                        </Pressable>
+
+                        {/* Divider */}
+                        <View style={styles.divider}>
+                            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+                            <Text style={[styles.dividerText, { color: theme.subtext }]}>or</Text>
+                            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+                        </View>
+
+                        {/* Google Button - Distinct Dark-Mode Friendly Style */}
+                        <Pressable
+                            onPress={handleGoogleLogin}
+                            disabled={loading}
+                            style={({ pressed }) => [
+                                styles.googleButton,
+                                { backgroundColor: theme.card, borderColor: theme.border },
+                                loading && styles.buttonDisabled,
+                                pressed && styles.googleButtonPressed,
+                            ]}
+                        >
+                            <Ionicons
+                                name="logo-google"
+                                size={20}
+                                color={isDark ? '#FFFFFF' : '#4285F4'}
+                                style={styles.googleIcon}
+                            />
+                            <Text style={[styles.googleButtonText, { color: theme.text }]}>
+                                Continue with Google
+                            </Text>
+                        </Pressable>
+
+                        {/* Footer */}
+                        <View style={styles.footer}>
+                            <Text style={[styles.footerText, { color: theme.subtext }]}>
+                                Don't have an account?{' '}
+                            </Text>
+                            <TouchableOpacity onPress={() => router.replace('/signup')}>
+                                <Text style={[styles.link, { color: SHPE_COLORS.sunsetOrange }]}>
+                                    Sign Up
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
+    gradient: {
+        flex: 1,
+    },
     container: {
         flex: 1,
-        // backgroundColor removed
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
-        padding: 24,
+        padding: SPACING.lg,
+        paddingTop: SPACING.xxl + SPACING.lg, // Extra top padding
     },
     header: {
-        alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: SPACING.xxl,
     },
-    logoPlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#D35400',
+    logoContainer: {
+        marginBottom: SPACING.lg,
+    },
+    logoCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: RADIUS.full,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        ...SHADOWS.medium,
     },
     logoText: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: 'bold',
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        // color removed
-        marginBottom: 8,
+        ...TYPOGRAPHY.headline,
+        marginBottom: SPACING.sm,
     },
     subtitle: {
-        fontSize: 16,
-        // color removed
+        ...TYPOGRAPHY.body,
+        opacity: 0.85,
     },
     form: {
-        width: '100%',
+        flex: 1,
+        justifyContent: 'center',
     },
-    googleButton: {
-        // backgroundColor removed
-        borderWidth: 1,
-        // borderColor removed
-        padding: 16,
-        borderRadius: 8,
-        marginBottom: 20,
+    button: {
+        marginTop: SPACING.lg,
+        borderRadius: RADIUS.md,
+        overflow: 'hidden',
+        ...SHADOWS.primaryGlow,
     },
-    googleButtonText: {
-        // color removed
-        textAlign: 'center',
+    buttonGradient: {
+        paddingVertical: SPACING.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    buttonPressed: {
+        opacity: 0.9,
+        transform: [{ scale: 0.98 }],
+    },
+    buttonDisabled: {
+        opacity: 0.5,
+    },
+    buttonText: {
+        color: '#FFFFFF',
+        fontSize: 17,
         fontWeight: '600',
-        fontSize: 16,
+        letterSpacing: 0.3,
     },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginVertical: SPACING.lg,
     },
     dividerLine: {
         flex: 1,
         height: 1,
-        // backgroundColor removed
     },
     dividerText: {
-        marginHorizontal: 16,
-        // color removed
+        marginHorizontal: SPACING.md,
         fontSize: 14,
+        fontWeight: '500',
     },
-    button: {
-        backgroundColor: '#D35400',
-        padding: 16,
-        borderRadius: 8,
-        marginTop: 8,
+    googleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: SPACING.md,
+        borderRadius: RADIUS.md,
+        borderWidth: 1.5,
+        ...SHADOWS.small,
     },
-    buttonDisabled: {
-        opacity: 0.6,
+    googleButtonPressed: {
+        opacity: 0.8,
+        transform: [{ scale: 0.98 }],
     },
-    buttonText: {
-        color: '#fff',
-        textAlign: 'center',
-        fontWeight: '600',
+    googleIcon: {
+        marginRight: SPACING.sm,
+    },
+    googleButtonText: {
         fontSize: 16,
+        fontWeight: '600',
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 24,
+        marginTop: SPACING.xl,
+        paddingBottom: SPACING.lg,
     },
     footerText: {
-        // color removed
-        fontSize: 14,
+        fontSize: 15,
     },
     link: {
-        color: '#D35400',
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '600',
     },
 });
