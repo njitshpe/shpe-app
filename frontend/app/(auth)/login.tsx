@@ -15,16 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthInput } from '@/components/auth';
-import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHADOWS, SPACING, RADIUS, TYPOGRAPHY, SHPE_COLORS } from '@/constants/colors';
 
 export default function LoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
     const { signIn, signInWithGoogle } = useAuth();
-    const { theme, isDark } = useTheme();
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -39,7 +37,6 @@ export default function LoginScreen() {
         if (error) {
             Alert.alert('Sign In Failed', error.message);
         }
-        // If successful, auth state change will trigger navigation in root layout
     };
 
     const handleGoogleLogin = async () => {
@@ -52,11 +49,9 @@ export default function LoginScreen() {
         }
     };
 
-    const backgroundGradient = isDark ? GRADIENTS.darkBackground : GRADIENTS.lightBackground;
-
     return (
         <LinearGradient
-            colors={backgroundGradient}
+            colors={['#4A3B6E', '#2A2550', '#1E1B3B']}
             style={styles.gradient}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
@@ -70,31 +65,25 @@ export default function LoginScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Logo and Title - Top Left Anchor */}
-                    <View style={styles.header}>
-                        <View style={styles.logoContainer}>
-                            <LinearGradient
-                                colors={GRADIENTS.primaryButton}
-                                style={styles.logoCircle}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Text style={styles.logoText}>SHPE</Text>
-                            </LinearGradient>
+                    {/* Logo */}
+                    <View style={styles.logoContainer}>
+                        <View style={styles.logoCircle}>
+                            <View style={styles.logoInnerCircle}>
+                                <View style={styles.logoDiamond} />
+                            </View>
                         </View>
-                        <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
-                        <Text style={[styles.subtitle, { color: theme.subtext }]}>
-                            Sign in to continue to SHPE NJIT
-                        </Text>
                     </View>
 
-                    {/* Form - Middle Section */}
+                    {/* Title */}
+                    <Text style={styles.title}>Welcome to NJIT SHPE</Text>
+
+                    {/* Form */}
                     <View style={styles.form}>
                         <AuthInput
                             label="Email"
                             value={email}
                             onChangeText={setEmail}
-                            placeholder="you@email.com"
+                            placeholder="Enter your email"
                             keyboardType="email-address"
                             autoCapitalize="none"
                         />
@@ -103,74 +92,79 @@ export default function LoginScreen() {
                             label="Password"
                             value={password}
                             onChangeText={setPassword}
-                            placeholder="Enter your password"
+                            placeholder="Enter your Password"
                             secureTextEntry
                         />
 
-                        {/* Primary CTA - Bottom (Thumb Zone) */}
+                        {/* Remember Me & Forgot Password */}
+                        <View style={styles.optionsRow}>
+                            <TouchableOpacity
+                                style={styles.checkboxRow}
+                                onPress={() => setRememberMe(!rememberMe)}
+                                activeOpacity={0.7}
+                            >
+                                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                                    {rememberMe && (
+                                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>Remember me</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={() => Alert.alert('Forgot Password', 'Reset link sent!')}>
+                                <Text style={styles.forgotText}>Forgot Password?</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Login Button */}
                         <Pressable
                             onPress={handleLogin}
                             disabled={loading}
                             style={({ pressed }) => [
-                                styles.button,
+                                styles.loginButton,
                                 loading && styles.buttonDisabled,
                                 pressed && styles.buttonPressed,
                             ]}
                         >
-                            {({ pressed }) => (
-                                <LinearGradient
-                                    colors={pressed ? GRADIENTS.primaryButtonPressed : GRADIENTS.primaryButton}
-                                    style={styles.buttonGradient}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 0, y: 1 }}
-                                >
-                                    <Text style={styles.buttonText}>
-                                        {loading ? 'Signing in...' : 'Sign In'}
-                                    </Text>
-                                </LinearGradient>
-                            )}
+                            <LinearGradient
+                                colors={['#8B7FD6', '#B895D9', '#FFA86E']}
+                                style={styles.buttonGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                <Text style={styles.loginButtonText}>
+                                    {loading ? 'Logging in...' : 'Log In'}
+                                </Text>
+                            </LinearGradient>
                         </Pressable>
 
                         {/* Divider */}
                         <View style={styles.divider}>
-                            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-                            <Text style={[styles.dividerText, { color: theme.subtext }]}>or</Text>
-                            <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>Or</Text>
+                            <View style={styles.dividerLine} />
                         </View>
 
-                        {/* Google Button - Distinct Dark-Mode Friendly Style */}
-                        <Pressable
-                            onPress={handleGoogleLogin}
-                            disabled={loading}
-                            style={({ pressed }) => [
-                                styles.googleButton,
-                                { backgroundColor: theme.card, borderColor: theme.border },
-                                loading && styles.buttonDisabled,
-                                pressed && styles.googleButtonPressed,
-                            ]}
-                        >
-                            <Ionicons
-                                name="logo-google"
-                                size={20}
-                                color={isDark ? '#FFFFFF' : '#4285F4'}
-                                style={styles.googleIcon}
-                            />
-                            <Text style={[styles.googleButtonText, { color: theme.text }]}>
-                                Continue with Google
-                            </Text>
-                        </Pressable>
-
-                        {/* Footer */}
-                        <View style={styles.footer}>
-                            <Text style={[styles.footerText, { color: theme.subtext }]}>
-                                Don't have an account?{' '}
-                            </Text>
-                            <TouchableOpacity onPress={() => router.replace('/signup')}>
-                                <Text style={[styles.link, { color: SHPE_COLORS.sunsetOrange }]}>
-                                    Sign Up
-                                </Text>
+                        {/* Social Buttons */}
+                        <View style={styles.socialRow}>
+                            <TouchableOpacity
+                                style={styles.socialButton}
+                                onPress={handleGoogleLogin}
+                                disabled={loading}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                                <Text style={styles.socialButtonText}>Google</Text>
                             </TouchableOpacity>
                         </View>
+                    </View>
+
+                    {/* Footer */}
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>Don't have an account? </Text>
+                        <TouchableOpacity onPress={() => router.replace('/signup')}>
+                            <Text style={styles.footerLink}>Sign Up</Text>
+                        </TouchableOpacity>
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -187,51 +181,100 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        padding: SPACING.lg,
-        paddingTop: SPACING.xxl + SPACING.lg, // Extra top padding
-    },
-    header: {
-        marginBottom: SPACING.xxl,
+        paddingHorizontal: 28,
+        paddingTop: 80,
+        paddingBottom: 40,
     },
     logoContainer: {
-        marginBottom: SPACING.lg,
+        alignItems: 'center',
+        marginBottom: 24,
     },
     logoCircle: {
         width: 64,
         height: 64,
-        borderRadius: RADIUS.full,
+        borderRadius: 32,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         justifyContent: 'center',
         alignItems: 'center',
-        ...SHADOWS.medium,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.3)',
     },
-    logoText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: '700',
-        letterSpacing: 0.5,
+    logoInnerCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    logoDiamond: {
+        width: 16,
+        height: 16,
+        backgroundColor: '#FFFFFF',
+        transform: [{ rotate: '45deg' }],
+        borderRadius: 3,
     },
     title: {
-        ...TYPOGRAPHY.headline,
-        marginBottom: SPACING.sm,
-    },
-    subtitle: {
-        ...TYPOGRAPHY.body,
-        opacity: 0.85,
+        fontSize: 28,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        textAlign: 'center',
+        marginBottom: 32,
+        letterSpacing: 0.3,
     },
     form: {
         flex: 1,
-        justifyContent: 'center',
     },
-    button: {
-        marginTop: SPACING.lg,
-        borderRadius: RADIUS.md,
+    optionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 4,
+        marginBottom: 24,
+    },
+    checkboxRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    checkbox: {
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
+        marginRight: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    checkboxChecked: {
+        backgroundColor: 'transparent',
+        borderColor: '#FFFFFF',
+    },
+    checkboxLabel: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontWeight: '400',
+    },
+    forgotText: {
+        fontSize: 14,
+        color: '#FFFFFF',
+        fontWeight: '500',
+    },
+    loginButton: {
+        borderRadius: 10,
         overflow: 'hidden',
-        ...SHADOWS.primaryGlow,
+        marginBottom: 24,
     },
     buttonGradient: {
-        paddingVertical: SPACING.md,
+        paddingVertical: 16,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    loginButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        letterSpacing: 0.3,
     },
     buttonPressed: {
         opacity: 0.9,
@@ -240,57 +283,55 @@ const styles = StyleSheet.create({
     buttonDisabled: {
         opacity: 0.5,
     },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 17,
-        fontWeight: '600',
-        letterSpacing: 0.3,
-    },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: SPACING.lg,
+        marginBottom: 24,
     },
     dividerLine: {
         flex: 1,
         height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     dividerText: {
-        marginHorizontal: SPACING.md,
+        marginHorizontal: 16,
         fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.7)',
         fontWeight: '500',
     },
-    googleButton: {
+    socialRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 32,
+    },
+    socialButton: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: SPACING.md,
-        borderRadius: RADIUS.md,
-        borderWidth: 1.5,
-        ...SHADOWS.small,
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        paddingVertical: 14,
+        borderRadius: 10,
+        gap: 8,
     },
-    googleButtonPressed: {
-        opacity: 0.8,
-        transform: [{ scale: 0.98 }],
-    },
-    googleIcon: {
-        marginRight: SPACING.sm,
-    },
-    googleButtonText: {
-        fontSize: 16,
+    socialButtonText: {
+        fontSize: 15,
         fontWeight: '600',
+        color: '#FFFFFF',
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: SPACING.xl,
-        paddingBottom: SPACING.lg,
+        alignItems: 'center',
+        paddingTop: 16,
     },
     footerText: {
-        fontSize: 15,
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.8)',
     },
-    link: {
-        fontSize: 15,
+    footerLink: {
+        fontSize: 14,
+        color: '#FFFFFF',
         fontWeight: '600',
     },
 });
