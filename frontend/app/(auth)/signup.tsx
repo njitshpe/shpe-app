@@ -9,6 +9,7 @@ import {
     Platform,
     ScrollView,
     Pressable,
+    useColorScheme,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,42 @@ export default function SignupScreen() {
     const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const { signUp, signInWithGoogle } = useAuth();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+    const backgroundColors = isDark
+        ? ['#001e55', '#001339', '#00030a']
+        : ['#F7FAFF', '#E9F0FF', '#DDE8FF'];
+    const palette = isDark
+        ? {
+            text: '#F5F8FF',
+            subtext: 'rgba(229, 239, 255, 0.85)',
+            muted: 'rgba(229, 239, 255, 0.7)',
+            logoBg: 'rgba(255, 255, 255, 0.12)',
+            logoBorder: 'rgba(255, 255, 255, 0.25)',
+            logoInner: 'rgba(255, 255, 255, 0.18)',
+            logoDiamond: '#FFFFFF',
+            checkboxBorder: 'rgba(191, 215, 255, 0.55)',
+            checkboxActive: '#FFFFFF',
+            divider: 'rgba(255, 255, 255, 0.16)',
+            socialBg: 'rgba(255, 255, 255, 0.12)',
+            socialBorder: 'rgba(255, 255, 255, 0.2)',
+            link: '#CFE0FF',
+        }
+        : {
+            text: '#0B1630',
+            subtext: 'rgba(22, 39, 74, 0.75)',
+            muted: 'rgba(22, 39, 74, 0.6)',
+            logoBg: 'rgba(11, 22, 48, 0.08)',
+            logoBorder: 'rgba(11, 22, 48, 0.18)',
+            logoInner: 'rgba(11, 22, 48, 0.12)',
+            logoDiamond: '#0B1630',
+            checkboxBorder: 'rgba(11, 22, 48, 0.35)',
+            checkboxActive: '#0B1630',
+            divider: 'rgba(11, 22, 48, 0.15)',
+            socialBg: 'rgba(255, 255, 255, 0.7)',
+            socialBorder: 'rgba(11, 22, 48, 0.12)',
+            link: '#2D4E9D',
+        };
 
     const handleSignup = async () => {
         if (!email) {
@@ -84,7 +121,7 @@ export default function SignupScreen() {
 
     return (
         <LinearGradient
-            colors={['#4A3B6E', '#2A2550', '#1E1B3B']}
+            colors={backgroundColors}
             style={styles.gradient}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
@@ -100,15 +137,15 @@ export default function SignupScreen() {
                 >
                     {/* Logo */}
                     <View style={styles.logoContainer}>
-                        <View style={styles.logoCircle}>
-                            <View style={styles.logoInnerCircle}>
-                                <View style={styles.logoDiamond} />
+                        <View style={[styles.logoCircle, { backgroundColor: palette.logoBg, borderColor: palette.logoBorder }]}>
+                            <View style={[styles.logoInnerCircle, { backgroundColor: palette.logoInner }]}>
+                                <View style={[styles.logoDiamond, { backgroundColor: palette.logoDiamond }]} />
                             </View>
                         </View>
                     </View>
 
                     {/* Title */}
-                    <Text style={styles.title}>Sign up Account</Text>
+                    <Text style={[styles.title, { color: palette.text }]}>Sign up Account</Text>
 
                     {/* Form */}
                     <View style={styles.form}>
@@ -144,12 +181,18 @@ export default function SignupScreen() {
                                 onPress={() => setAgreeToTerms(!agreeToTerms)}
                                 activeOpacity={0.7}
                             >
-                                <View style={[styles.checkbox, agreeToTerms && styles.checkboxChecked]}>
+                                <View
+                                    style={[
+                                        styles.checkbox,
+                                        { borderColor: palette.checkboxBorder },
+                                        agreeToTerms && { borderColor: palette.checkboxActive },
+                                    ]}
+                                >
                                     {agreeToTerms && (
-                                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                                        <Ionicons name="checkmark" size={14} color={palette.checkboxActive} />
                                     )}
                                 </View>
-                                <Text style={styles.checkboxLabel}>Agree to Terms & Privacy</Text>
+                                <Text style={[styles.checkboxLabel, { color: palette.subtext }]}>Agree to Terms & Privacy</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -164,7 +207,7 @@ export default function SignupScreen() {
                             ]}
                         >
                             <LinearGradient
-                                colors={['#8B7FD6', '#B895D9', '#FFA86E']}
+                                colors={['#7FB3FF', '#5C8DFF', '#3B6BFF']}
                                 style={styles.buttonGradient}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
@@ -177,39 +220,33 @@ export default function SignupScreen() {
 
                         {/* Divider */}
                         <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>Or</Text>
-                            <View style={styles.dividerLine} />
+                            <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                            <Text style={[styles.dividerText, { color: palette.muted }]}>Or</Text>
+                            <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
                         </View>
 
                         {/* Social Buttons */}
                         <View style={styles.socialRow}>
                             <TouchableOpacity
-                                style={styles.socialButton}
+                                style={[
+                                    styles.socialButton,
+                                    { backgroundColor: palette.socialBg, borderColor: palette.socialBorder },
+                                ]}
                                 onPress={handleGoogleSignup}
                                 disabled={loading}
                                 activeOpacity={0.7}
                             >
-                                <Ionicons name="logo-google" size={20} color="#FFFFFF" />
-                                <Text style={styles.socialButtonText}>Google</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.socialButton}
-                                disabled={loading}
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                                <Text style={styles.socialButtonText}>Apple</Text>
+                                <Ionicons name="logo-google" size={20} color={palette.text} />
+                                <Text style={[styles.socialButtonText, { color: palette.text }]}>Google</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
 
                     {/* Footer */}
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Already have an account? </Text>
+                        <Text style={[styles.footerText, { color: palette.muted }]}>Already have an account? </Text>
                         <TouchableOpacity onPress={() => router.replace('/login')}>
-                            <Text style={styles.footerLink}>Log In</Text>
+                            <Text style={[styles.footerLink, { color: palette.link }]}>Log In</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
@@ -239,17 +276,17 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderColor: 'rgba(255, 255, 255, 0.25)',
     },
     logoInnerCircle: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -263,7 +300,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: '#F5F8FF',
         textAlign: 'center',
         marginBottom: 32,
         letterSpacing: 0.3,
@@ -284,18 +321,12 @@ const styles = StyleSheet.create({
         height: 18,
         borderRadius: 4,
         borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.5)',
         marginRight: 8,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    checkboxChecked: {
-        backgroundColor: 'transparent',
-        borderColor: '#FFFFFF',
-    },
     checkboxLabel: {
         fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.9)',
         fontWeight: '400',
     },
     signupButton: {
@@ -329,12 +360,10 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     dividerText: {
         marginHorizontal: 16,
         fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.7)',
         fontWeight: '500',
     },
     socialRow: {
@@ -347,7 +376,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
         paddingVertical: 14,
         borderRadius: 10,
         gap: 8,
@@ -355,7 +383,6 @@ const styles = StyleSheet.create({
     socialButtonText: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#FFFFFF',
     },
     footer: {
         flexDirection: 'row',
@@ -365,11 +392,9 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.8)',
     },
     footerLink: {
         fontSize: 14,
-        color: '#FFFFFF',
         fontWeight: '600',
     },
 });

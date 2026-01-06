@@ -203,11 +203,11 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
 
   // Dynamic colors based on theme
   const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    surface: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
-    border: isDark ? '#334155' : '#E5E7EB',
+    background: isDark ? '#001339' : '#F7FAFF',
+    surface: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.75)',
+    text: isDark ? '#F5F8FF' : '#0B1630',
+    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
+    border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
     borderGlow: isDark ? '#14B8A6' : '#0D9488',
     primary: '#0D9488',
     error: '#DC2626',
@@ -237,7 +237,7 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
             {data.profilePhoto ? (
               <Image source={{ uri: data.profilePhoto.uri }} style={[styles.profileImage, { borderColor: colors.borderGlow }]} />
             ) : (
-              <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow }]}>
+              <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow, backgroundColor: colors.surface }]}>
                 <Text style={styles.photoIcon}>📸</Text>
                 <Text style={[styles.photoText, { color: colors.textSecondary }]}>Add Photo</Text>
               </View>
@@ -432,7 +432,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
   },
   photoIcon: {
     fontSize: 32,

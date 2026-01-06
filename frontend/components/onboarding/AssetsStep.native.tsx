@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
@@ -123,8 +124,12 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-        {/* Skip Button - Top Right */}
-        <View style={styles.skipContainer}>
+        {/* Top Row: Back Arrow + Skip */}
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
+            <Ionicons name="chevron-back" size={22} color={theme.text} />
+          </TouchableOpacity>
+          <View style={styles.topRowSpacer} />
           <TouchableOpacity onPress={handleSkip}>
             <Text style={[styles.skipText, { color: theme.subtext }]}>Skip for now</Text>
           </TouchableOpacity>
@@ -209,28 +214,28 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
             />
           </View>
           {/* Bottom line indicator */}
-          <MotiView
-            animate={{
-              width: focusedInput === 'linkedin' ? '100%' : '0%',
-              backgroundColor: SHPE_COLORS.sunsetOrange,
-            }}
-            transition={{ type: 'timing', duration: 200 }}
-            style={styles.focusIndicator}
-          />
+              <MotiView
+                animate={{
+                  width: focusedInput === 'linkedin' ? '100%' : '0%',
+                  backgroundColor: SHPE_COLORS.accentBlueBright,
+                }}
+                transition={{ type: 'timing', duration: 200 }}
+                style={styles.focusIndicator}
+              />
         </View>
 
         {/* Bio Section - Filled Style */}
         <View style={styles.fieldContainer}>
           <View style={styles.bioHeader}>
             <Text style={[styles.label, { color: theme.text }]}>Professional Bio (Optional)</Text>
-            <TouchableOpacity
+              <TouchableOpacity
               onPress={handleAutoGenerateBio}
               style={[
                 styles.aiButton,
-                { backgroundColor: isDark ? 'rgba(229, 90, 43, 0.15)' : 'rgba(255, 95, 5, 0.1)' }
+                { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.18)' : 'rgba(92, 141, 255, 0.12)' }
               ]}
             >
-              <Text style={[styles.aiButtonText, { color: SHPE_COLORS.sunsetOrange }]}>✨ Auto-generate</Text>
+              <Text style={[styles.aiButtonText, { color: SHPE_COLORS.accentBlueBright }]}>✨ Auto-generate</Text>
             </TouchableOpacity>
           </View>
           <View style={[
@@ -256,7 +261,7 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
           <MotiView
             animate={{
               width: focusedInput === 'bio' ? '100%' : '0%',
-              backgroundColor: SHPE_COLORS.sunsetOrange,
+              backgroundColor: SHPE_COLORS.accentBlueBright,
             }}
             transition={{ type: 'timing', duration: 200 }}
             style={styles.focusIndicator}
@@ -265,18 +270,9 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
 
         {/* Navigation Buttons */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity
-            onPress={onBack}
-            style={[
-              styles.backButton,
-              { borderColor: theme.border, backgroundColor: theme.card },
-            ]}
-          >
-            <Text style={[styles.backButtonText, { color: theme.text }]}>Back</Text>
-          </TouchableOpacity>
           <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
             <LinearGradient
-              colors={GRADIENTS.primaryButton}
+              colors={GRADIENTS.accentButton}
               style={styles.nextButton}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -307,9 +303,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: SPACING.md,
   },
-  skipContainer: {
-    alignItems: 'flex-end',
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: SPACING.sm,
+  },
+  backIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topRowSpacer: {
+    flex: 1,
   },
   skipText: {
     fontSize: 14,
@@ -417,26 +424,15 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
     marginTop: SPACING.sm,
   },
-  backButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   nextButton: {
-    flex: 2,
-    borderRadius: RADIUS.md,
+    flex: 1,
+    borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
+    minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.primaryGlow,
+    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

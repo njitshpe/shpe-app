@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AnimatePresence, MotiView } from 'moti';
@@ -21,11 +21,11 @@ interface GuestOnboardingFormData {
   major: string; // Will be used for "Role/Major" in affiliation
   graduationYear: string; // Not used for guests, but required by IdentityStep
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Affiliation (NEW)
-  university: string;
-  // Step 3: Interests (reuse existing)
+  // Step 2: Interests (reuse existing)
   interests: string[];
   phoneNumber: string;
+  // Step 3: Affiliation (NEW)
+  university: string;
 }
 
 export default function GuestOnboardingWizard() {
@@ -46,16 +46,34 @@ export default function GuestOnboardingWizard() {
     graduationYear: '2025', // Dummy value for guests
     profilePhoto: null,
     // Step 2
-    university: '',
-    // Step 3
     interests: [],
     phoneNumber: '',
+    // Step 3
+    university: '',
   });
 
   // Helper function to merge partial data into main state
   const updateFormData = (fields: Partial<GuestOnboardingFormData>) => {
     setFormData((prev) => ({ ...prev, ...fields }));
   };
+
+  useEffect(() => {
+    if (!user) return;
+    const userType = user.user_metadata?.user_type;
+    if (!userType) {
+      router.replace('/role-selection');
+      return;
+    }
+    if (userType !== 'guest') {
+      const fallback =
+        userType === 'student'
+          ? '/onboarding'
+          : userType === 'alumni'
+            ? '/alumni-onboarding'
+            : '/role-selection';
+      router.replace(fallback);
+    }
+  }, [user, router]);
 
   // Navigation helpers
   const nextStep = () => {
@@ -175,11 +193,11 @@ export default function GuestOnboardingWizard() {
 
   // Dynamic colors based on theme
   const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    progressTrack: isDark ? '#1E293B' : '#F3F4F6',
+    background: isDark ? '#001339' : '#F7FAFF',
+    progressTrack: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(11, 22, 48, 0.12)',
     progressFill: isDark ? '#8B5CF6' : '#7C3AED', // Purple for guests
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
+    text: isDark ? '#F5F8FF' : '#0B1630',
+    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
   };
 
   return (
@@ -235,10 +253,10 @@ export default function GuestOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <GuestAffiliationStep
+                <InterestsStep
                   data={{
-                    university: formData.university,
-                    major: formData.major,
+                    interests: formData.interests,
+                    phoneNumber: formData.phoneNumber,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
@@ -256,10 +274,10 @@ export default function GuestOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <InterestsStep
+                <GuestAffiliationStep
                   data={{
-                    interests: formData.interests,
-                    phoneNumber: formData.phoneNumber,
+                    university: formData.university,
+                    major: formData.major,
                   }}
                   update={updateFormData}
                   onNext={handleFinish}
@@ -272,8 +290,18 @@ export default function GuestOnboardingWizard() {
 
         {/* Loading Overlay */}
         {isSaving && (
-          <View style={styles.loadingOverlay}>
-            <View style={styles.loadingCard}>
+          <View
+            style={[
+              styles.loadingOverlay,
+              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+            ]}
+          >
+            <View
+              style={[
+                styles.loadingCard,
+                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
+              ]}
+            >
               <Text style={[styles.loadingText, { color: colors.text }]}>
                 Saving your profile...
               </Text>
@@ -349,13 +377,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
   },
   loadingCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',
