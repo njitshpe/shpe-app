@@ -1,42 +1,3 @@
-/**
- * ============================================================================
- * AUTH CONTEXT - SHPE APP AUTHENTICATION FLOW
- * ============================================================================
- *
- * This context manages authentication state and profile loading with proper
- * error handling to prevent infinite loading spinners.
- *
- * CRITICAL SAFETY RULES:
- * 1. Loading states MUST always clear in finally blocks
- * 2. Profile fetch failures should set profile=null, NOT throw errors
- * 3. UI should proceed to onboarding if session exists but profile is null
- *
- * EXPECTED FLOWS:
- * ----------------
- * A) Valid session + profile exists:
- *    → Bootstrap loads both → Traffic Cop routes to /home
- *
- * B) Valid session + NO profile:
- *    → Bootstrap finds session but profile=null → Traffic Cop routes to onboarding
- *
- * C) No session:
- *    → Bootstrap clears loading → Traffic Cop routes to /login
- *
- * D) OAuth flow (Google):
- *    → Redirect to shpe-app:// → Extract tokens → Set session → Load profile
- *    → If profile missing, route to /role-selection
- *
- * OAUTH CONFIGURATION CHECKLIST:
- * ------------------------------
- * - app.json scheme: "shpe-app"
- * - AUTH_CONFIG.REDIRECT_URI: "shpe-app://"
- * - Supabase Dashboard → Authentication → URL Configuration:
- *   - Add "shpe-app://" to Redirect URLs
- *   - Add "shpe-app://" to Site URL (optional but recommended)
- *
- * ============================================================================
- */
-
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
@@ -63,11 +24,11 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
-  isBootstrapping: boolean; // True while checking session AND profile
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: AppError | null }>;
   profile: UserProfile | null;
   loadProfile: (userId: string) => Promise<void>;
   updateUserMetadata: (metadata: Record<string, any>) => Promise<void>;
@@ -80,104 +41,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-  // Load profile when session exists
   useEffect(() => {
-    const bootstrapAuth = async () => {
-      console.log('[AuthContext] Bootstrapping auth...');
-      setIsBootstrapping(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    });
 
-      try {
-        // Get initial session
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        // If we have a session, load the profile
-        if (session?.user) {
-          console.log('[AuthContext] Session found, loading profile for user:', session.user.id);
-          await loadProfileInternal(session.user.id);
-        } else {
-          console.log('[AuthContext] No session found');
-        }
-      } catch (error) {
-        console.error('[AuthContext] Bootstrap error:', error);
-      } finally {
-        setIsLoading(false);
-        setIsBootstrapping(false);
-        console.log('[AuthContext] Bootstrapping complete');
-      }
-    };
-
-    bootstrapAuth();
-  }, []);
-
-  // Listen for auth state changes
-  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('[AuthContext] Auth state changed:', event);
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-
-        // ========================================================================
-        // SAFETY VALVE: Always clear loading states in finally block
-        // This prevents infinite spinner if profile fetch fails
-        // ========================================================================
-        try {
-          // Load profile when user signs in
-          if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-            console.log('[AuthContext] User signed in, loading profile');
-            setIsBootstrapping(true);
-            setIsLoading(true);
-            await loadProfileInternal(session.user.id);
-          }
-
-          // Clear profile when user signs out
-          if (event === 'SIGNED_OUT') {
-            console.log('[AuthContext] User signed out, clearing profile');
-            setProfile(null);
-          }
-        } catch (error) {
-          console.error('[AuthContext] Auth state change error:', error);
-          // Don't throw - allow UI to proceed even if profile fetch fails
-        } finally {
-          // CRITICAL: Always clear loading states, even on error
-          setIsLoading(false);
-          setIsBootstrapping(false);
-          console.log('[AuthContext] Auth state change complete, loading states cleared');
-        }
+        setIsLoading(false);
       }
     );
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Internal profile loader (doesn't modify loading states)
-  // SAFETY: This function NEVER throws - always sets profile to data or null
-  const loadProfileInternal = async (userId: string) => {
-    try {
-      console.log('[AuthContext] Fetching profile from database for user:', userId);
-      const result = await profileService.getProfile(userId);
-
-      if (result.success && result.data) {
-        console.log('[AuthContext] ✅ Profile loaded successfully:', {
-          userType: result.data.user_type,
-          hasUniversity: !!result.data.university,
-        });
-        setProfile(result.data);
-      } else {
-        console.log('[AuthContext] ⚠️ No profile found in database - user needs onboarding');
-        setProfile(null);
-      }
-    } catch (error) {
-      console.error('[AuthContext] ❌ Error loading profile:', error);
-      console.error('[AuthContext] Setting profile to null and allowing UI to proceed');
-      setProfile(null);
-      // IMPORTANT: Don't re-throw - let the app route to onboarding
-    }
-  };
 
   // Sign in with email and password
   // Validates input and provides user-friendly error messages
@@ -281,13 +162,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const redirectUri = AUTH_CONFIG.REDIRECT_URI;
 
-      // Verify redirect URI matches app scheme
-      console.log('[AuthContext] OAuth Configuration:', {
-        redirectUri,
-        expectedScheme: 'shpe-app://',
-        note: 'Ensure this matches Supabase OAuth redirect settings'
-      });
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: AUTH_CONFIG.OAUTH_PROVIDER,
         options: {
@@ -300,7 +174,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: mapSupabaseError(error) };
       }
 
-      console.log('[AuthContext] Opening OAuth browser session...');
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
         redirectUri
@@ -308,7 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result.type === 'success') {
         const url = result.url;
-        console.log('[AuthContext] OAuth redirect received:', url.substring(0, 50) + '...');
 
         // Extract tokens from URL fragment
         const hashParams = url.split(AUTH_CONFIG.URL_FRAGMENT_SEPARATOR)[1];
@@ -318,81 +190,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const refreshToken = params.get(AUTH_CONFIG.URL_PARAMS.REFRESH_TOKEN);
 
           if (accessToken && refreshToken) {
-            console.log('[AuthContext] Tokens extracted, setting session...');
-
-            // IMPORTANT: Manually set loading states before setting session
-            // This ensures the UI shows loading during profile fetch
-            setIsBootstrapping(true);
-            setIsLoading(true);
-
-            const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            const { error: sessionError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-
             if (sessionError) {
-              // Clear loading states on error
-              setIsBootstrapping(false);
-              setIsLoading(false);
               return { error: mapSupabaseError(sessionError) };
             }
-
-            console.log('[AuthContext] ✅ Session set successfully');
-
-            // Manually update session and user state immediately
-            // This ensures they're available before onAuthStateChange fires
-            if (sessionData.session) {
-              setSession(sessionData.session);
-              setUser(sessionData.session.user);
-
-              // Try to load profile
-              try {
-                await loadProfileInternal(sessionData.session.user.id);
-              } catch (error) {
-                console.error('[AuthContext] Error loading profile after OAuth:', error);
-                // Set profile to null so Traffic Cop can route to role-selection
-                setProfile(null);
-              } finally {
-                // CRITICAL: Always clear loading states
-                setIsBootstrapping(false);
-                setIsLoading(false);
-                console.log('[AuthContext] OAuth flow complete, loading states cleared');
-              }
-            }
-          } else {
-            console.error('[AuthContext] ❌ Missing tokens in OAuth redirect');
-            return {
-              error: createError(
-                'OAuth tokens missing. Please try again.',
-                'OAUTH_ERROR'
-              ),
-            };
           }
-        } else {
-          console.error('[AuthContext] ❌ No hash params in OAuth redirect URL');
-          return {
-            error: createError(
-              'OAuth redirect failed. Please try again.',
-              'OAUTH_ERROR'
-            ),
-          };
         }
       } else if (result.type === 'cancel') {
-        console.log('[AuthContext] OAuth cancelled by user');
         return {
           error: createError(
             'Google sign-in was cancelled.',
-            'OAUTH_CANCELLED'
+            'UNKNOWN_ERROR'
           ),
         };
       }
 
       return { error: null };
     } catch (error: any) {
-      console.error('[AuthContext] ❌ Google sign in error:', error);
-      // Clear loading states on error
-      setIsBootstrapping(false);
-      setIsLoading(false);
+      console.error('Google sign in error:', error);
       return {
         error: createError(
           'Unable to sign in with Google. Please try again.',
@@ -405,18 +223,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    console.log('[AuthContext] Signing out...');
-    setProfile(null);
     await supabase.auth.signOut();
   };
 
-  // Public profile loader (for manual refreshes)
+  // Reset password - sends a password reset email
+  const resetPassword = async (email: string) => {
+    try {
+      // Validate email format
+      if (!validators.isValidEmail(email)) {
+        return {
+          error: createError(
+            'Please enter a valid email address.',
+            'INVALID_EMAIL',
+            'email'
+          ),
+        };
+      }
+
+      // Send password reset email
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${AUTH_CONFIG.REDIRECT_URI}reset-password`,
+      });
+
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return {
+        error: createError(
+          'Unable to send reset email. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
+    }
+  };
+
   const loadProfile = async (userId: string) => {
-    await loadProfileInternal(userId);
+    const result = await profileService.getProfile(userId);
+    if (result.success && result.data) {
+      setProfile(result.data);
+    } else {
+      setProfile(null);
+    }
+    setIsLoading(false);
   };
 
   const updateUserMetadata = async (metadata: Record<string, any>) => {
-    console.log('[AuthContext] Updating user metadata:', metadata);
     const { data, error } = await supabase.auth.updateUser({
       data: metadata,
     });
@@ -435,11 +292,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     isLoading,
-    isBootstrapping,
     signIn,
     signUp,
     signInWithGoogle,
     signOut,
+    resetPassword,
     profile,
     loadProfile,
     updateUserMetadata,

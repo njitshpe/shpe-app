@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface AuthInputProps {
@@ -22,6 +22,25 @@ export function AuthInput({
   autoCapitalize = 'none',
 }: AuthInputProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const palette = isDark
+    ? {
+        label: 'rgba(229, 239, 255, 0.85)',
+        inputBg: 'rgba(255, 255, 255, 0.08)',
+        inputBorder: 'rgba(255, 255, 255, 0.18)',
+        inputText: '#F5F8FF',
+        placeholder: 'rgba(229, 239, 255, 0.5)',
+        icon: 'rgba(229, 239, 255, 0.7)',
+      }
+    : {
+        label: 'rgba(22, 39, 74, 0.8)',
+        inputBg: 'rgba(255, 255, 255, 0.7)',
+        inputBorder: 'rgba(11, 22, 48, 0.12)',
+        inputText: '#0B1630',
+        placeholder: 'rgba(22, 39, 74, 0.45)',
+        icon: 'rgba(11, 22, 48, 0.6)',
+      };
 
   // Get icon based on label
   const getIcon = () => {
@@ -39,20 +58,20 @@ export function AuthInput({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputWrapper}>
+      <Text style={[styles.label, { color: palette.label }]}>{label}</Text>
+      <View style={[styles.inputWrapper, { backgroundColor: palette.inputBg, borderColor: palette.inputBorder }]}>
         <Ionicons
           name={getIcon() as any}
           size={20}
-          color="rgba(255, 255, 255, 0.7)"
+          color={palette.icon}
           style={styles.icon}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: palette.inputText }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+          placeholderTextColor={palette.placeholder}
           secureTextEntry={actualSecureEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -64,14 +83,14 @@ export function AuthInput({
             style={styles.eyeIcon}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons
-              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
-              color="rgba(255, 255, 255, 0.7)"
-            />
-          </TouchableOpacity>
-        )}
-      </View>
+          <Ionicons
+            name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color={palette.icon}
+          />
+        </TouchableOpacity>
+      )}
+    </View>
     </View>
   );
 }
@@ -84,12 +103,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 8,
-    color: 'rgba(255, 255, 255, 0.9)',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderWidth: 1,
     borderRadius: 10,
     height: 52,
     paddingHorizontal: 16,
@@ -100,7 +118,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#FFFFFF',
     fontWeight: '400',
   },
   eyeIcon: {

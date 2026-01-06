@@ -18,6 +18,9 @@ export const SHPE_COLORS = {
     accentBlue: '#3B82F6',
     accentBlueLight: '#60A5FA',
     accentBlueDark: '#2563EB',
+    accentBlueSoft: '#7FB3FF',
+    accentBlueBright: '#5C8DFF',
+    accentBlueDeep: '#3B6BFF',
 
     // UI Colors (Legacy/Static)
     gray: '#F4F4F4',
@@ -63,15 +66,15 @@ export interface ThemeColors {
 }
 
 export const lightTheme: ThemeColors = {
-    primary: SHPE_COLORS.orange,
-    background: '#F2F2F7', // System gray 6 (iOS standard)
-    card: '#FFFFFF',
-    text: '#000000',
-    subtext: '#666666',
-    border: '#E5E5EA',
+    primary: SHPE_COLORS.sunsetOrange,
+    background: '#F7FAFF', // Soft airy blue (light mode)
+    card: 'rgba(255, 255, 255, 0.75)', // Glass surface
+    text: '#0B1630',
+    subtext: 'rgba(22, 39, 74, 0.75)',
+    border: 'rgba(11, 22, 48, 0.12)',
     success: '#34C759',
     error: '#FF3B30',
-    info: '#007AFF',
+    info: SHPE_COLORS.accentBlue,
     shadow: '#000000',
     calendarBackground: '#FFFFFF',
     calendarText: '#000000',
@@ -83,11 +86,11 @@ export const lightTheme: ThemeColors = {
 
 export const darkTheme: ThemeColors = {
     primary: SHPE_COLORS.sunsetOrange,
-    background: '#0A0F1E', // Deeper midnight blue for gradient base
-    card: '#1E293B', // Lighter surface (desaturated blue-grey)
-    text: '#FFFFFF',
-    subtext: 'rgba(255, 255, 255, 0.85)', // Soft white at 85% opacity
-    border: '#334155', // Subtle border for cards
+    background: '#001339', // Deeper midnight navy (dark mode)
+    card: 'rgba(255, 255, 255, 0.08)', // Glass surface
+    text: '#F5F8FF',
+    subtext: 'rgba(229, 239, 255, 0.85)', // Soft white at 85% opacity
+    border: 'rgba(255, 255, 255, 0.18)', // Subtle glass border
     success: '#30D158',
     error: '#FF453A',
     info: SHPE_COLORS.accentBlue,
@@ -103,12 +106,16 @@ export const darkTheme: ThemeColors = {
 // Modern UI Gradients for depth and visual hierarchy
 export const GRADIENTS = {
     // Background gradients (subtle vertical gradients)
-    darkBackground: ['#0A0F1E', '#0F172A'], // Midnight blue → deeper blue
-    lightBackground: ['#F8FAFC', '#E2E8F0'], // Soft grey gradient
+    darkBackground: ['#001e55', '#001339', '#00030a'], // Deep navy → night
+    lightBackground: ['#F7FAFF', '#E9F0FF', '#DDE8FF'], // Airy light blue
 
     // Primary button gradients (sunset orange)
     primaryButton: ['#F97316', '#E55A2B'], // Light → main sunset orange
     primaryButtonPressed: ['#E55A2B', '#C2410C'], // Main → dark (pressed state)
+
+    // Accent button gradients (login blue)
+    accentButton: ['#7FB3FF', '#5C8DFF', '#3B6BFF'],
+    accentButtonPressed: ['#5C8DFF', '#3B6BFF', '#2B4FD6'],
 
     // Card/Surface gradients (glass effect)
     darkCard: ['rgba(30, 41, 59, 0.8)', 'rgba(30, 41, 59, 0.6)'],
@@ -196,5 +203,11 @@ export const SHADOWS = {
         shadowRadius: 12,
         elevation: 6,
     },
+    accentGlow: {
+        shadowColor: SHPE_COLORS.accentBlueBright,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 6,
+    },
 } as const;
-

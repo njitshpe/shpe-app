@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -59,6 +60,12 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
+            <Ionicons name="chevron-back" size={22} color={theme.text} />
+          </TouchableOpacity>
+          <View style={styles.headerSpacer} />
+        </View>
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Almost there!</Text>
@@ -75,12 +82,12 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
         >
           <LinearGradient
             colors={isDark ? GRADIENTS.darkCard : GRADIENTS.lightCard}
-            style={[styles.heroCard, { borderColor: SHPE_COLORS.sunsetOrange }]}
+            style={[styles.heroCard, { borderColor: SHPE_COLORS.accentBlueBright }]}
           >
             {/* Profile Photo with Gradient Ring */}
             <View style={styles.photoContainer}>
               <LinearGradient
-                colors={GRADIENTS.primaryButton}
+                colors={GRADIENTS.accentButton}
                 style={styles.photoRing}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -88,8 +95,13 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
                 {data.profilePhoto ? (
                   <Image source={{ uri: data.profilePhoto.uri }} style={styles.profileImage} />
                 ) : (
-                  <View style={styles.placeholderImage}>
-                    <Text style={styles.placeholderText}>
+                  <View
+                    style={[
+                      styles.placeholderImage,
+                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(11, 22, 48, 0.08)' },
+                    ]}
+                  >
+                    <Text style={[styles.placeholderText, { color: isDark ? '#F5F8FF' : '#0B1630' }]}>
                       {data.firstName?.charAt(0)}{data.lastName?.charAt(0)}
                     </Text>
                   </View>
@@ -105,7 +117,7 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
               <Text style={[styles.major, { color: theme.subtext }]}>
                 {data.major}
               </Text>
-              <Text style={[styles.classYear, { color: SHPE_COLORS.sunsetOrange }]}>
+              <Text style={[styles.classYear, { color: SHPE_COLORS.accentBlueBright }]}>
                 Class of {data.graduationYear}
               </Text>
             </View>
@@ -118,8 +130,8 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Interests</Text>
               <View style={styles.interestsContainer}>
                 {data.interests.map((id) => (
-                  <View key={id} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(229, 90, 43, 0.2)' : '#FFF5F0' }]}>
-                    <Text style={[styles.interestText, { color: SHPE_COLORS.sunsetOrange }]}>
+                  <View key={id} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.2)' : 'rgba(92, 141, 255, 0.12)' }]}>
+                    <Text style={[styles.interestText, { color: SHPE_COLORS.accentBlueBright }]}>
                       {INTEREST_LABELS[id] || id}
                     </Text>
                   </View>
@@ -168,15 +180,9 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
 
         {/* Navigation Buttons */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity
-            onPress={onBack}
-            style={[styles.backButton, { borderColor: theme.border, backgroundColor: theme.card }]}
-          >
-            <Text style={[styles.backButtonText, { color: theme.text }]}>Back</Text>
-          </TouchableOpacity>
           <TouchableOpacity onPress={onNext} activeOpacity={0.8}>
             <LinearGradient
-              colors={GRADIENTS.primaryButton}
+              colors={GRADIENTS.accentButton}
               style={styles.confirmButton}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -206,6 +212,21 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  backIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    flex: 1,
   },
   header: {
     marginBottom: SPACING.lg,
@@ -247,14 +268,12 @@ const styles = StyleSheet.create({
     width: 112,
     height: 112,
     borderRadius: RADIUS.full,
-    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeholderText: {
     fontSize: 36,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   // Identity section
   identitySection: {
@@ -339,26 +358,15 @@ const styles = StyleSheet.create({
   // Buttons
   buttonRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
     marginBottom: SPACING.md,
   },
-  backButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   confirmButton: {
-    flex: 2,
-    borderRadius: RADIUS.md,
+    flex: 1,
+    borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
+    minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.primaryGlow,
+    ...SHADOWS.accentGlow,
   },
   confirmButtonText: {
     fontSize: 16,

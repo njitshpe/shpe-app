@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AnimatePresence, MotiView } from 'moti';
@@ -26,13 +26,13 @@ interface OnboardingFormData {
   major: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Assets
+  // Step 2: Interests + Phone
+  interests: string[];
+  phoneNumber: string;
+  // Step 3: Assets
   resumeFile: DocumentPicker.DocumentPickerAsset | null;
   linkedinUrl: string;
   bio: string;
-  // Step 3: Interests + Phone
-  interests: string[];
-  phoneNumber: string;
 }
 
 export default function OnboardingWizard() {
@@ -52,13 +52,31 @@ export default function OnboardingWizard() {
     graduationYear: '',
     profilePhoto: null,
     // Step 2
+    interests: [],
+    phoneNumber: '',
+    // Step 3
     resumeFile: null,
     linkedinUrl: '',
     bio: '',
-    // Step 3
-    interests: [],
-    phoneNumber: '',
   });
+
+  useEffect(() => {
+    if (!user) return;
+    const userType = user.user_metadata?.user_type;
+    if (!userType) {
+      router.replace('/role-selection');
+      return;
+    }
+    if (userType !== 'student') {
+      const fallback =
+        userType === 'alumni'
+          ? '/alumni-onboarding'
+          : userType === 'guest'
+            ? '/guest-onboarding'
+            : '/role-selection';
+      router.replace(fallback);
+    }
+  }, [user, router]);
 
   // Helper function to merge partial data into main state
   const updateFormData = (fields: Partial<OnboardingFormData>) => {
@@ -225,10 +243,10 @@ export default function OnboardingWizard() {
                   key={index}
                   animate={{
                     backgroundColor: index <= currentStep
-                      ? SHPE_COLORS.sunsetOrange
+                      ? SHPE_COLORS.accentBlueBright
                       : isDark
                         ? 'rgba(255, 255, 255, 0.2)'
-                        : 'rgba(0, 0, 0, 0.1)',
+                        : theme.border,
                   }}
                   transition={{ type: 'timing', duration: 400 }}
                   style={styles.progressSegment}
@@ -275,11 +293,10 @@ export default function OnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <AssetsStep
+                <InterestsStep
                   data={{
-                    resumeFile: formData.resumeFile,
-                    linkedinUrl: formData.linkedinUrl,
-                    bio: formData.bio,
+                    interests: formData.interests,
+                    phoneNumber: formData.phoneNumber,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
@@ -297,10 +314,11 @@ export default function OnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <InterestsStep
+                <AssetsStep
                   data={{
-                    interests: formData.interests,
-                    phoneNumber: formData.phoneNumber,
+                    resumeFile: formData.resumeFile,
+                    linkedinUrl: formData.linkedinUrl,
+                    bio: formData.bio,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
@@ -330,7 +348,12 @@ export default function OnboardingWizard() {
 
         {/* Loading Overlay */}
         {isSaving && (
-          <View style={styles.loadingOverlay}>
+          <View
+            style={[
+              styles.loadingOverlay,
+              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+            ]}
+          >
             <View style={[styles.loadingCard, { backgroundColor: theme.card }]}>
               <Text style={[styles.loadingText, { color: theme.text }]}>
                 Saving your profile...
@@ -411,7 +434,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,

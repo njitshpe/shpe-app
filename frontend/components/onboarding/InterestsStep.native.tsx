@@ -12,6 +12,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
@@ -164,6 +165,12 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
+              <Ionicons name="chevron-back" size={22} color={theme.text} />
+            </TouchableOpacity>
+            <View style={styles.headerSpacer} />
+          </View>
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]}>What interests you?</Text>
@@ -224,7 +231,7 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
                   >
                     {isActive ? (
                       <LinearGradient
-                        colors={GRADIENTS.primaryButton}
+                        colors={GRADIENTS.accentButton}
                         style={[styles.interestPill, styles.interestPillActive]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
@@ -274,7 +281,7 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
             <MotiView
               animate={{
                 width: focusedInput ? '100%' : '0%',
-                backgroundColor: SHPE_COLORS.sunsetOrange,
+                backgroundColor: SHPE_COLORS.accentBlueBright,
               }}
               transition={{ type: 'timing', duration: 200 }}
               style={styles.focusIndicator}
@@ -287,21 +294,12 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
           {/* Navigation Buttons */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              onPress={onBack}
-              style={[
-                styles.backButton,
-                { borderColor: theme.border, backgroundColor: theme.card },
-              ]}
-            >
-              <Text style={[styles.backButtonText, { color: theme.text }]}>Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               onPress={handleNext}
               disabled={isNextDisabled}
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.primaryButton}
+                colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
                 style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -331,6 +329,21 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  backIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    flex: 1,
   },
   header: {
     marginBottom: SPACING.lg,
@@ -377,7 +390,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   interestPillActive: {
-    ...SHADOWS.primaryGlow,
+    ...SHADOWS.accentGlow,
   },
   interestText: {
     fontSize: 14,
@@ -392,26 +405,15 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
     marginTop: SPACING.sm,
   },
-  backButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   nextButton: {
-    flex: 2,
-    borderRadius: RADIUS.md,
+    flex: 1,
+    borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
+    minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.primaryGlow,
+    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

@@ -79,11 +79,11 @@ export default function GuestAffiliationStep({
 
   // Dynamic colors
   const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    surface: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
-    border: isDark ? '#334155' : '#E5E7EB',
+    background: isDark ? '#001339' : '#F7FAFF',
+    surface: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.75)',
+    text: isDark ? '#F5F8FF' : '#0B1630',
+    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
+    border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
     primary: isDark ? '#8B5CF6' : '#7C3AED', // Purple for guests
     error: '#DC2626',
   };
@@ -106,6 +106,12 @@ export default function GuestAffiliationStep({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
+              <Ionicons name="chevron-back" size={22} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerSpacer} />
+          </View>
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Your Affiliation</Text>
@@ -179,13 +185,6 @@ export default function GuestAffiliationStep({
           {/* Navigation Buttons */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              onPress={onBack}
-              style={[styles.backButton, { borderColor: colors.border }]}
-            >
-              <Text style={[styles.backButtonText, { color: colors.text }]}>Back</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               onPress={handleNext}
               disabled={isNextDisabled}
               style={[
@@ -220,6 +219,21 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 120,
     flexGrow: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  backIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: {
+    flex: 1,
   },
   header: {
     marginBottom: 24,
@@ -285,22 +299,10 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
     marginTop: 8,
   },
-  backButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   nextButton: {
-    flex: 2,
+    flex: 1,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',

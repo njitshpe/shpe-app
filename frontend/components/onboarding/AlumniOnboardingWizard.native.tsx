@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { AnimatePresence, MotiView } from 'moti';
@@ -23,15 +23,15 @@ interface AlumniOnboardingFormData {
   graduationYear: string;
   major: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Professional Info
+  // Step 2: Assets
+  resumeFile: DocumentPicker.DocumentPickerAsset | null;
+  linkedinUrl: string;
+  bio: string;
+  // Step 3: Professional Info
   company: string;
   jobTitle: string;
   industry: string;
   phoneNumber: string;
-  // Step 3: Assets
-  resumeFile: DocumentPicker.DocumentPickerAsset | null;
-  linkedinUrl: string;
-  bio: string;
   // Step 4: Review (uses all above data)
   interests: string[];
 }
@@ -54,14 +54,14 @@ export default function AlumniOnboardingWizard() {
     major: '',
     profilePhoto: null,
     // Step 2
+    resumeFile: null,
+    linkedinUrl: '',
+    bio: '',
+    // Step 3
     company: '',
     jobTitle: '',
     industry: '',
     phoneNumber: '',
-    // Step 3
-    resumeFile: null,
-    linkedinUrl: '',
-    bio: '',
     // Default
     interests: [],
   });
@@ -70,6 +70,24 @@ export default function AlumniOnboardingWizard() {
   const updateFormData = (fields: Partial<AlumniOnboardingFormData>) => {
     setFormData((prev) => ({ ...prev, ...fields }));
   };
+
+  useEffect(() => {
+    if (!user) return;
+    const userType = user.user_metadata?.user_type;
+    if (!userType) {
+      router.replace('/role-selection');
+      return;
+    }
+    if (userType !== 'alumni') {
+      const fallback =
+        userType === 'student'
+          ? '/onboarding'
+          : userType === 'guest'
+            ? '/guest-onboarding'
+            : '/role-selection';
+      router.replace(fallback);
+    }
+  }, [user, router]);
 
   // Navigation helpers
   const nextStep = () => {
@@ -201,11 +219,11 @@ export default function AlumniOnboardingWizard() {
 
   // Dynamic colors based on theme
   const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    progressTrack: isDark ? '#1E293B' : '#F3F4F6',
+    background: isDark ? '#001339' : '#F7FAFF',
+    progressTrack: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(11, 22, 48, 0.12)',
     progressFill: '#0D9488', // Teal for alumni
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
+    text: isDark ? '#F5F8FF' : '#0B1630',
+    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
   };
 
   return (
@@ -261,12 +279,11 @@ export default function AlumniOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <AlumniProfessionalStep
+                <AssetsStep
                   data={{
-                    company: formData.company,
-                    jobTitle: formData.jobTitle,
-                    industry: formData.industry,
-                    phoneNumber: formData.phoneNumber,
+                    resumeFile: formData.resumeFile,
+                    linkedinUrl: formData.linkedinUrl,
+                    bio: formData.bio,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
@@ -284,11 +301,12 @@ export default function AlumniOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <AssetsStep
+                <AlumniProfessionalStep
                   data={{
-                    resumeFile: formData.resumeFile,
-                    linkedinUrl: formData.linkedinUrl,
-                    bio: formData.bio,
+                    company: formData.company,
+                    jobTitle: formData.jobTitle,
+                    industry: formData.industry,
+                    phoneNumber: formData.phoneNumber,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
@@ -318,8 +336,18 @@ export default function AlumniOnboardingWizard() {
 
         {/* Loading Overlay */}
         {isSaving && (
-          <View style={styles.loadingOverlay}>
-            <View style={styles.loadingCard}>
+          <View
+            style={[
+              styles.loadingOverlay,
+              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+            ]}
+          >
+            <View
+              style={[
+                styles.loadingCard,
+                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
+              ]}
+            >
               <Text style={[styles.loadingText, { color: colors.text }]}>
                 Saving your profile...
               </Text>
@@ -395,13 +423,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
   },
   loadingCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',

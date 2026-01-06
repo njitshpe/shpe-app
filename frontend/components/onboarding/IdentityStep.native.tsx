@@ -172,13 +172,13 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
 
   // Dynamic colors based on theme
   const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    surface: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
-    border: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-    borderGlow: SHPE_COLORS.sunsetOrange,
-    primary: SHPE_COLORS.sunsetOrange,
+    background: isDark ? '#001339' : '#F7FAFF',
+    surface: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.75)',
+    text: isDark ? '#F5F8FF' : '#0B1630',
+    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
+    border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
+    borderGlow: SHPE_COLORS.accentBlueBright,
+    primary: SHPE_COLORS.accentBlueBright,
     error: '#DC2626',
   };
 
@@ -206,7 +206,7 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
             {data.profilePhoto ? (
               <Image source={{ uri: data.profilePhoto.uri }} style={styles.profileImage} />
             ) : (
-              <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow }]}>
+              <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow, backgroundColor: colors.surface }]}>
                 <Text style={styles.photoIcon}>📸</Text>
                 <Text style={[styles.photoText, { color: colors.textSecondary }]}>Add Photo</Text>
               </View>
@@ -317,7 +317,7 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.primaryButton}
+            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
             style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
-    borderColor: SHPE_COLORS.sunsetOrange,
+    borderColor: SHPE_COLORS.accentBlueBright,
   },
   photoPlaceholder: {
     width: 120,
@@ -372,7 +372,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
   },
   photoIcon: {
     fontSize: 32,
@@ -441,11 +440,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nextButton: {
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
+    minHeight: 52,
     alignItems: 'center',
     marginTop: 8,
-    ...SHADOWS.primaryGlow,
+    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,
