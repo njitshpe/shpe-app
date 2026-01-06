@@ -1,4 +1,4 @@
-export type UserType = 'student' | 'alumni' | 'other';
+export type UserType = 'student' | 'alumni' | 'guest' | 'other';
 
 export type InterestType =
     | 'workshops'
@@ -24,6 +24,7 @@ export interface BaseProfile {
     last_name: string;
     bio: string;
     interests: InterestType[];
+    university?: string; // University affiliation (required for guests, defaults to NJIT for students/alumni)
     linkedin_url?: string;
     phone_number?: string;
     profile_picture_url?: string;
@@ -37,6 +38,7 @@ export interface StudentProfile extends BaseProfile {
     user_type: 'student';
     major: string;
     expected_graduation_year: number;
+    university: string; // Defaults to 'NJIT'
     ucid: string;
 }
 
@@ -44,8 +46,15 @@ export interface AlumniProfile extends BaseProfile {
     user_type: 'alumni';
     major: string;
     graduation_year: number;
+    university: string; // Defaults to 'NJIT'
     current_company?: string;
     current_position?: string;
+}
+
+export interface GuestProfile extends BaseProfile {
+    user_type: 'guest';
+    university: string; // Required - their home university/organization
+    major?: string; // Optional - their role or major
 }
 
 export interface OtherProfile extends BaseProfile {
@@ -55,4 +64,4 @@ export interface OtherProfile extends BaseProfile {
     reason_for_joining?: string;
 }
 
-export type UserProfile = StudentProfile | AlumniProfile | OtherProfile;
+export type UserProfile = StudentProfile | AlumniProfile | GuestProfile | OtherProfile;
