@@ -51,9 +51,13 @@ export function EventAutocomplete({ onSelect, initialEvent }: EventAutocompleteP
 
             if (!error && data) {
                 setSuggestions(data as any);
+            } else {
+                // Silent fail for autocomplete
+                setSuggestions([]);
             }
         } catch (e) {
-            console.error(e);
+            // detailed error handling not needed for autocomplete suggestions
+            setSuggestions([]);
         } finally {
             setIsLoading(false);
         }
