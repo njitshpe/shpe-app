@@ -178,14 +178,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    // color removed
     letterSpacing: -0.3,
   },
   sectionCount: {
     fontSize: 14,
     fontWeight: '600',
-    // color removed
-    // backgroundColor removed
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -204,13 +201,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    // color removed
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    // color removed
     textAlign: 'center',
     lineHeight: 20,
   },
