@@ -28,6 +28,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: AppError | null }>;
   profile: UserProfile | null;
   loadProfile: (userId: string) => Promise<void>;
   updateUserMetadata: (metadata: Record<string, any>) => Promise<void>;
@@ -225,6 +226,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // Reset password - sends a password reset email
+  const resetPassword = async (email: string) => {
+    try {
+      // Validate email format
+      if (!validators.isValidEmail(email)) {
+        return {
+          error: createError(
+            'Please enter a valid email address.',
+            'INVALID_EMAIL',
+            'email'
+          ),
+        };
+      }
+
+      // Send password reset email
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${AUTH_CONFIG.REDIRECT_URI}reset-password`,
+      });
+
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return {
+        error: createError(
+          'Unable to send reset email. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
+    }
+  };
+
   const loadProfile = async (userId: string) => {
     const result = await profileService.getProfile(userId);
     if (result.success && result.data) {
@@ -258,6 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signInWithGoogle,
     signOut,
+    resetPassword,
     profile,
     loadProfile,
     updateUserMetadata,

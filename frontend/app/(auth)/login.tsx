@@ -8,19 +8,59 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Pressable,
+    useColorScheme,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthInput } from '@/components/auth';
-import { useTheme } from '@/contexts/ThemeContext';
+import { AuthInput, ForgotPasswordModal } from '@/components/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
     const { signIn, signInWithGoogle } = useAuth();
-    const { theme, isDark } = useTheme();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+    const backgroundColors = isDark
+        ? ['#001e55', '#001339', '#00030a']
+        : ['#F7FAFF', '#E9F0FF', '#DDE8FF'];
+    const palette = isDark
+        ? {
+            text: '#F5F8FF',
+            subtext: 'rgba(229, 239, 255, 0.85)',
+            muted: 'rgba(229, 239, 255, 0.7)',
+            logoBg: 'rgba(255, 255, 255, 0.12)',
+            logoBorder: 'rgba(255, 255, 255, 0.25)',
+            logoInner: 'rgba(255, 255, 255, 0.18)',
+            logoDiamond: '#FFFFFF',
+            checkboxBorder: 'rgba(191, 215, 255, 0.55)',
+            checkboxActive: '#FFFFFF',
+            divider: 'rgba(255, 255, 255, 0.16)',
+            socialBg: 'rgba(255, 255, 255, 0.12)',
+            socialBorder: 'rgba(255, 255, 255, 0.2)',
+            link: '#CFE0FF',
+        }
+        : {
+            text: '#0B1630',
+            subtext: 'rgba(22, 39, 74, 0.75)',
+            muted: 'rgba(22, 39, 74, 0.6)',
+            logoBg: 'rgba(11, 22, 48, 0.08)',
+            logoBorder: 'rgba(11, 22, 48, 0.18)',
+            logoInner: 'rgba(11, 22, 48, 0.12)',
+            logoDiamond: '#0B1630',
+            checkboxBorder: 'rgba(11, 22, 48, 0.35)',
+            checkboxActive: '#0B1630',
+            divider: 'rgba(11, 22, 48, 0.15)',
+            socialBg: 'rgba(255, 255, 255, 0.7)',
+            socialBorder: 'rgba(11, 22, 48, 0.12)',
+            link: '#2D4E9D',
+        };
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -35,7 +75,6 @@ export default function LoginScreen() {
         if (error) {
             Alert.alert('Sign In Failed', error.message);
         }
-        // If successful, auth state change will trigger navigation in root layout
     };
 
     const handleGoogleLogin = async () => {
@@ -48,186 +87,290 @@ export default function LoginScreen() {
         }
     };
 
-    const dynamicStyles = {
-        container: { backgroundColor: theme.background },
-        title: { color: theme.text },
-        subtitle: { color: theme.subtext },
-        googleButton: {
-            backgroundColor: theme.card,
-            borderColor: theme.border,
-        },
-        googleButtonText: { color: theme.text },
-        dividerLine: { backgroundColor: theme.border },
-        dividerText: { color: theme.subtext },
-        footerText: { color: theme.subtext },
-    };
-
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, dynamicStyles.container]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <LinearGradient
+            colors={backgroundColors}
+            style={styles.gradient}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
         >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <View style={styles.header}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>SHPE</Text>
-                    </View>
-                    <Text style={[styles.title, dynamicStyles.title]}>Welcome Back</Text>
-                    <Text style={[styles.subtitle, dynamicStyles.subtitle]}>Sign in to your SHPE NJIT account</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <TouchableOpacity
-                        style={[styles.googleButton, dynamicStyles.googleButton, loading && styles.buttonDisabled]}
-                        onPress={handleGoogleLogin}
-                        disabled={loading}
-                    >
-                        <Text style={[styles.googleButtonText, dynamicStyles.googleButtonText]}>Continue with Google</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.divider}>
-                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
-                        <Text style={[styles.dividerText, dynamicStyles.dividerText]}>or</Text>
-                        <View style={[styles.dividerLine, dynamicStyles.dividerLine]} />
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Logo */}
+                    <View style={styles.logoContainer}>
+                        <View style={[styles.logoCircle, { backgroundColor: palette.logoBg, borderColor: palette.logoBorder }]}>
+                            <View style={[styles.logoInnerCircle, { backgroundColor: palette.logoInner }]}>
+                                <View style={[styles.logoDiamond, { backgroundColor: palette.logoDiamond }]} />
+                            </View>
+                        </View>
                     </View>
 
-                    <AuthInput
-                        label="Email"
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="you@email.com"
-                        keyboardType="email-address"
-                    />
+                    {/* Title */}
+                    <Text style={[styles.title, { color: palette.text }]}>Welcome to NJIT SHPE</Text>
 
-                    <AuthInput
-                        label="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="Enter your password"
-                        secureTextEntry
-                    />
+                    {/* Form */}
+                    <View style={styles.form}>
+                        <AuthInput
+                            label="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="Enter your email"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
 
-                    <TouchableOpacity
-                        style={[styles.button, loading && styles.buttonDisabled]}
-                        onPress={handleLogin}
-                        disabled={loading}
-                    >
-                        <Text style={styles.buttonText}>
-                            {loading ? 'Signing in...' : 'Sign In'}
-                        </Text>
-                    </TouchableOpacity>
+                        <AuthInput
+                            label="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="Enter your Password"
+                            secureTextEntry
+                        />
 
+                        {/* Remember Me & Forgot Password */}
+                        <View style={styles.optionsRow}>
+                            <TouchableOpacity
+                                style={styles.checkboxRow}
+                                onPress={() => setRememberMe(!rememberMe)}
+                                activeOpacity={0.7}
+                            >
+                                <View
+                                    style={[
+                                        styles.checkbox,
+                                        { borderColor: palette.checkboxBorder },
+                                        rememberMe && { borderColor: palette.checkboxActive },
+                                    ]}
+                                >
+                                    {rememberMe && (
+                                        <Ionicons name="checkmark" size={14} color={palette.checkboxActive} />
+                                    )}
+                                </View>
+                                <Text style={[styles.checkboxLabel, { color: palette.subtext }]}>Remember me</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={() => setShowForgotPasswordModal(true)}>
+                                <Text style={[styles.forgotText, { color: palette.text }]}>Forgot Password?</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Login Button */}
+                        <Pressable
+                            onPress={handleLogin}
+                            disabled={loading}
+                            style={({ pressed }) => [
+                                styles.loginButton,
+                                loading && styles.buttonDisabled,
+                                pressed && styles.buttonPressed,
+                            ]}
+                        >
+                            <LinearGradient
+                                colors={['#7FB3FF', '#5C8DFF', '#3B6BFF']}
+                                style={styles.buttonGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                <Text style={styles.loginButtonText}>
+                                    {loading ? 'Logging in...' : 'Log In'}
+                                </Text>
+                            </LinearGradient>
+                        </Pressable>
+
+                        {/* Divider */}
+                        <View style={styles.divider}>
+                            <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                            <Text style={[styles.dividerText, { color: palette.muted }]}>Or</Text>
+                            <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                        </View>
+
+                        {/* Social Buttons */}
+                        <View style={styles.socialRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.socialButton,
+                                    { backgroundColor: palette.socialBg, borderColor: palette.socialBorder },
+                                ]}
+                                onPress={handleGoogleLogin}
+                                disabled={loading}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="logo-google" size={20} color={palette.text} />
+                                <Text style={[styles.socialButtonText, { color: palette.text }]}>Google</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Footer */}
                     <View style={styles.footer}>
-                        <Text style={[styles.footerText, dynamicStyles.footerText]}>Don't have an account? </Text>
+                        <Text style={[styles.footerText, { color: palette.muted }]}>Don't have an account? </Text>
                         <TouchableOpacity onPress={() => router.replace('/signup')}>
-                            <Text style={styles.link}>Sign Up</Text>
+                            <Text style={[styles.footerLink, { color: palette.link }]}>Sign Up</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            {/* Forgot Password Modal */}
+            <ForgotPasswordModal
+                visible={showForgotPasswordModal}
+                onClose={() => setShowForgotPasswordModal(false)}
+            />
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
+    gradient: {
+        flex: 1,
+    },
     container: {
         flex: 1,
-        // backgroundColor removed
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
-        padding: 24,
+        paddingHorizontal: 28,
+        paddingTop: 80,
+        paddingBottom: 40,
     },
-    header: {
+    logoContainer: {
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: 24,
     },
-    logoPlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#D35400',
+    logoCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.25)',
     },
-    logoText: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: 'bold',
+    logoInnerCircle: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    logoDiamond: {
+        width: 16,
+        height: 16,
+        backgroundColor: '#FFFFFF',
+        transform: [{ rotate: '45deg' }],
+        borderRadius: 3,
     },
     title: {
         fontSize: 28,
-        fontWeight: 'bold',
-        // color removed
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        // color removed
+        fontWeight: '700',
+        color: '#F5F8FF',
+        textAlign: 'center',
+        marginBottom: 32,
+        letterSpacing: 0.3,
     },
     form: {
-        width: '100%',
+        flex: 1,
     },
-    googleButton: {
-        // backgroundColor removed
-        borderWidth: 1,
-        // borderColor removed
-        padding: 16,
-        borderRadius: 8,
-        marginBottom: 20,
+    optionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 4,
+        marginBottom: 24,
     },
-    googleButtonText: {
-        // color removed
-        textAlign: 'center',
-        fontWeight: '600',
+    checkboxRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    checkbox: {
+        width: 18,
+        height: 18,
+        borderRadius: 4,
+        borderWidth: 2,
+        marginRight: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    checkboxLabel: {
+        fontSize: 14,
+        fontWeight: '400',
+    },
+    forgotText: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    loginButton: {
+        borderRadius: 10,
+        overflow: 'hidden',
+        marginBottom: 24,
+    },
+    buttonGradient: {
+        paddingVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loginButtonText: {
         fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        letterSpacing: 0.3,
+    },
+    buttonPressed: {
+        opacity: 0.9,
+        transform: [{ scale: 0.98 }],
+    },
+    buttonDisabled: {
+        opacity: 0.5,
     },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
     dividerLine: {
         flex: 1,
         height: 1,
-        // backgroundColor removed
     },
     dividerText: {
         marginHorizontal: 16,
-        // color removed
         fontSize: 14,
+        fontWeight: '500',
     },
-    button: {
-        backgroundColor: '#D35400',
-        padding: 16,
-        borderRadius: 8,
-        marginTop: 8,
+    socialRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 32,
     },
-    buttonDisabled: {
-        opacity: 0.6,
+    socialButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 10,
+        gap: 8,
     },
-    buttonText: {
-        color: '#fff',
-        textAlign: 'center',
+    socialButtonText: {
+        fontSize: 15,
         fontWeight: '600',
-        fontSize: 16,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 24,
+        alignItems: 'center',
+        paddingTop: 16,
     },
     footerText: {
-        // color removed
         fontSize: 14,
     },
-    link: {
-        color: '#D35400',
+    footerLink: {
         fontSize: 14,
         fontWeight: '600',
     },

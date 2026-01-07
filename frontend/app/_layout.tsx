@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Slot, useSegments, useRouter } from 'expo-router';
 
@@ -9,64 +9,90 @@ import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/shared';
 
-// Services
-import { eventNotificationHelper } from '@/services/eventNotification.helper';
-import { notificationService } from '@/services/notification.service';
-
 /**
  * Auth Guard Component
  * Handles redirects based on authentication state
- * AND manages notification subscriptions
  */
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, user } = useAuth();
+  const { session, isLoading, isBootstrapping, user, profile } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
-  // 1. NAVIGATION REDIRECTS
-  useEffect(() => {
-    if (isLoading) return;
+  React.useEffect(() => {
+    if (isLoading || isBootstrapping) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
-    const onboardingCompleted = user?.user_metadata?.onboarding_completed;
+    const inAlumniOnboarding = segments[0] === 'alumni-onboarding';
+    const inGuestOnboarding = segments[0] === 'guest-onboarding';
+    const inRoleSelection = segments[0] === 'role-selection';
+    const inApp = segments[0] === '(app)' || segments.includes('(tabs)');
 
+    const userType = user?.user_metadata?.user_type;
+    const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
+
+    // Rule 1: No session → redirect to login
     if (!session && !inAuthGroup) {
-      // Not logged in, redirect to login
       router.replace('/login');
-    } else if (session && !onboardingCompleted && !inOnboarding) {
-      // Logged in but onboarding not complete
-      router.replace('/onboarding');
-    } else if (session && onboardingCompleted && (inAuthGroup || inOnboarding)) {
-      // Logged in and onboarded, but in auth/onboarding routes
+      return;
+    }
+
+    // Rule 2: Has session but NO profile + no user_type → must select role first
+    if (session && !profile && !userType && !inRoleSelection) {
+      router.replace('/role-selection');
+      return;
+    }
+
+    // Rule 3: Has session + user_type but NO profile → route to appropriate onboarding
+    if (session && !profile && userType) {
+      if (userType === 'student' && !inOnboarding) {
+        router.replace('/onboarding');
+        return;
+      } else if (userType === 'alumni' && !inAlumniOnboarding) {
+        router.replace('/alumni-onboarding');
+        return;
+      } else if (userType === 'guest' && !inGuestOnboarding) {
+        router.replace('/guest-onboarding');
+        return;
+      }
+      // Already on correct onboarding page
+      return;
+    }
+
+    // Rule 4: Has session + profile but onboarding NOT complete → route to onboarding
+    if (session && profile && !onboardingCompleted) {
+      const profileType = userType ?? profile.user_type;
+      if (profileType === 'student' && !inOnboarding) {
+        router.replace('/onboarding');
+        return;
+      } else if (profileType === 'alumni' && !inAlumniOnboarding) {
+        router.replace('/alumni-onboarding');
+        return;
+      } else if (profileType === 'guest' && !inGuestOnboarding) {
+        router.replace('/guest-onboarding');
+        return;
+      } else if (!profileType && !inRoleSelection) {
+        router.replace('/role-selection');
+        return;
+      }
+      return;
+    }
+
+    // Rule 5: Has session + onboarding completed → should be in app
+    if (session && onboardingCompleted && (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection)) {
       router.replace('/home');
-    }
-  }, [session, isLoading, segments, user]);
-
-  // 2. NOTIFICATION SETUP
-  useEffect(() => {
-    if (!isLoading && session) {
-      // --- USER IS LOGGED IN ---
-      
-      // A. Start the "Walkie-Talkie" (In-App updates via Supabase Realtime)
-      eventNotificationHelper.startListening();
-
-      // B. Save the "Address" (Push Token) to Supabase for background alerts
-      notificationService.registerForPushNotificationsAsync();
-
-    } else if (!session) {
-      // --- USER LOGGED OUT ---
-      eventNotificationHelper.stopListening();
+      return;
     }
 
-    // Cleanup when component unmounts
-    return () => {
-      eventNotificationHelper.stopListening();
-    };
-  }, [session, isLoading]);
+    // Rule 6: Session + onboarding completed + not in app → go home
+    if (session && onboardingCompleted && !inApp) {
+      router.replace('/home');
+      return;
+    }
+  }, [session, isLoading, isBootstrapping, segments, user, profile]);
 
   // Loading State
-  if (isLoading) {
+  if (isLoading || isBootstrapping) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
         <ActivityIndicator size="large" color="#D35400" />
@@ -80,12 +106,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 /**
  * Root Layout
  * Wraps the app with all necessary providers
- * ThemeProvider is at the very top to prevent ErrorBoundary crashes
+ * EventsProvider is at the top level so it's always available
  */
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <ThemeProvider>
         <AuthProvider>
           <NotificationProvider>
             <EventsProvider>
@@ -95,7 +121,7 @@ export default function RootLayout() {
             </EventsProvider>
           </NotificationProvider>
         </AuthProvider>
-      </ErrorBoundary>
-    </ThemeProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
