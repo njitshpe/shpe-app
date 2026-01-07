@@ -47,6 +47,15 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
+                name="feed/index"
+                options={{
+                    title: 'Feed',
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="newspaper" size={size} color={color} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="profile/index"
                 options={{
                     title: 'Profile',
