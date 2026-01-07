@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal } from
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { profileService } from '@/services/profile.service';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
@@ -11,7 +12,7 @@ import { CompactEventCard } from '@/components/events/CompactEventCard';
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { user, signOut, updateUserMetadata, profile } = useAuth();
+    const { user, signOut, updateUserMetadata, profile, loadProfile } = useAuth();
     const { theme, isDark } = useTheme();
     const { events } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);

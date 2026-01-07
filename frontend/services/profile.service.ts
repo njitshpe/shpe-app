@@ -86,6 +86,28 @@ class ProfileService {
             };
         }
     }
+
+    // Delete a user profile (used for dev-only reset flows)
+    async deleteProfile(userId: string): Promise<ServiceResponse<null>> {
+        try {
+            const { error } = await supabase
+                .from('user_profiles')
+                .delete()
+                .eq('id', userId);
+
+            return handleSupabaseError(null, error);
+        } catch (error) {
+            return {
+                success: false,
+                error: createError(
+                    'Failed to delete profile',
+                    'UNKNOWN_ERROR',
+                    undefined,
+                    error instanceof Error ? error.message : 'Unknown error'
+                ),
+            };
+        }
+    }
 }
 
 export const profileService = new ProfileService();
