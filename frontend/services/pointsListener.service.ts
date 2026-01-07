@@ -47,10 +47,6 @@ class PointsListener {
     console.log('[PointsListener] Started - listening for events');
   }
 
-  /**
-   * Stop listening for events.
-   * Call this for cleanup if needed.
-   */
   stop(): void {
     if (this.unsubscribe) {
       this.unsubscribe();
