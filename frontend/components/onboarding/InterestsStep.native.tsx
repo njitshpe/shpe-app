@@ -54,10 +54,9 @@ interface InterestsStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  onBack: () => void;
 }
 
-export default function InterestsStep({ data, update, onNext, onBack }: InterestsStepProps) {
+export default function InterestsStep({ data, update, onNext }: InterestsStepProps) {
   const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
@@ -168,12 +167,6 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
-              <Ionicons name="chevron-back" size={22} color={theme.text} />
-            </TouchableOpacity>
-            <View style={styles.headerSpacer} />
-          </View>
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]}>What interests you?</Text>
@@ -347,21 +340,6 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     width: '100%',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  backIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
   },
   header: {
     marginBottom: SPACING.lg,
