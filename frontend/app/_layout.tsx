@@ -108,46 +108,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       // If we are already in (app)/(tabs), do nothing.
       return;
     }
-<<<<<<< HEAD
-
-    // Rule 6: Session + onboarding completed + not in app → go home
-    if (session && onboardingCompleted && !inApp) {
-      router.replace('/home');
-      return;
-    }
-  }, [session, isLoading, isBootstrapping, segments, user, profile]);
-    }
-  }, [session, isLoading, segments, user]);
-
-  // 2. NOTIFICATION SETUP & POINTS LISTENER
-  useEffect(() => {
-    if (!isLoading && session) {
-      // --- USER IS LOGGED IN ---
-      
-      // A. Start the "Walkie-Talkie" (In-App updates via Supabase Realtime)
-      eventNotificationHelper.startListening();
-
-      // B. Save the "Address" (Push Token) to Supabase for background alerts
-      notificationService.registerForPushNotificationsAsync();
-
-      // C. Start listening for events to award points
-      pointsListener.start();
-
-    } else if (!session) {
-      // --- USER LOGGED OUT ---
-      eventNotificationHelper.stopListening();
-      pointsListener.stop();
-    }
-
-    // Cleanup when component unmounts
-    return () => {
-      eventNotificationHelper.stopListening();
-      pointsListener.stop();
-    };
-  }, [session, isLoading]);
-=======
   }, [session, isLoading, segments, user, profile]);
->>>>>>> a364ee2 (fix: infinite redirect loop in auth guard from onboarding screens)
 
   // 2. POINTS LISTENER (Notification logic is now in Context)
   useEffect(() => {
