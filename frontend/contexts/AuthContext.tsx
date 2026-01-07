@@ -24,6 +24,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
@@ -36,23 +37,133 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to add timeout to profile loading
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Profile fetch timeout')), timeoutMs)
+    ),
+  ]);
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Track if we're currently loading a profile to avoid concurrent requests
+  const loadingProfileRef = React.useRef(false);
+  // Track the current user ID to detect user changes
+  const currentUserIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    // Load initial session and profile
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        const onboardingCompleted = session?.user?.user_metadata?.onboarding_completed === true;
+        // Load profile only after onboarding is complete
+        if (session?.user?.id && onboardingCompleted) {
+          currentUserIdRef.current = session.user.id;
+          setProfileLoading(true);
+          try {
+            if (__DEV__) {
+              console.log('[AuthContext] Loading profile for user:', session.user.id);
+            }
+            const result = await withTimeout(
+              profileService.getProfile(session.user.id),
+              15000 // Increased to 15 second timeout for slower networks
+            );
+            if (result.success && result.data) {
+              setProfile(result.data);
+              if (__DEV__) {
+                console.log('[AuthContext] Profile loaded successfully');
+              }
+            } else {
+              setProfile(null);
+              if (__DEV__) {
+                console.warn('[AuthContext] Profile fetch returned no data:', result.error);
+              }
+            }
+          } catch (error) {
+            if (__DEV__) {
+              console.warn('[AuthContext] Failed to load profile on startup (may be normal during onboarding):', error);
+            }
+            setProfile(null);
+          } finally {
+            setProfileLoading(false);
+          }
+        } else {
+          // No session, ensure profileLoading is false
+          setProfileLoading(false);
+          currentUserIdRef.current = null;
+        }
+
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('Failed to get session:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setIsLoading(false);
+        setProfileLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+
+        const onboardingCompleted = session?.user?.user_metadata?.onboarding_completed === true;
+        // Load profile when auth state changes (only after onboarding is complete)
+        if (session?.user?.id && onboardingCompleted) {
+          // Skip if we're already loading a profile for the same user
+          if (loadingProfileRef.current && currentUserIdRef.current === session.user.id) {
+            if (__DEV__) {
+              console.log('[AuthContext] Skipping profile load - already in progress for this user');
+            }
+            setIsLoading(false);
+            return;
+          }
+
+          // If user changed, allow new load even if one is in progress
+          currentUserIdRef.current = session.user.id;
+          loadingProfileRef.current = true;
+          setProfileLoading(true);
+          try {
+            const result = await withTimeout(
+              profileService.getProfile(session.user.id),
+              15000 // Increased to 15 second timeout for slower networks
+            );
+            if (result.success && result.data) {
+              setProfile(result.data);
+            } else {
+              setProfile(null);
+            }
+          } catch (error) {
+            // Only log if it's not a timeout during onboarding
+            if (__DEV__) {
+              console.warn('[AuthContext] Profile load failed (may be normal during onboarding):', error);
+            }
+            setProfile(null);
+          } finally {
+            setProfileLoading(false);
+            loadingProfileRef.current = false;
+          }
+        } else {
+          // Clear profile when logged out or onboarding incomplete
+          setProfile(null);
+          setProfileLoading(false);
+          loadingProfileRef.current = false;
+          currentUserIdRef.current = session?.user?.id ?? null;
+        }
+
         setIsLoading(false);
       }
     );
@@ -264,13 +375,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadProfile = async (userId: string) => {
-    const result = await profileService.getProfile(userId);
-    if (result.success && result.data) {
-      setProfile(result.data);
-    } else {
+    currentUserIdRef.current = userId;
+    setProfileLoading(true);
+    try {
+      const result = await withTimeout(
+        profileService.getProfile(userId),
+        15000 // Increased to 15 second timeout for slower networks
+      );
+      if (result.success && result.data) {
+        setProfile(result.data);
+      } else {
+        setProfile(null);
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[AuthContext] Failed to load profile:', error);
+      }
       setProfile(null);
+    } finally {
+      setProfileLoading(false);
     }
-    setIsLoading(false);
   };
 
   const updateUserMetadata = async (metadata: Record<string, any>) => {
@@ -292,6 +416,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     isLoading,
+    profileLoading,
     signIn,
     signUp,
     signInWithGoogle,
