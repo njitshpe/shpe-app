@@ -19,7 +19,8 @@ export async function fetchFeedPosts(
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url)
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        event:events(id, name)
       `)
             .eq('is_active', true)
             .order('created_at', { ascending: false })
@@ -33,7 +34,6 @@ export async function fetchFeedPosts(
                     code: 'DATABASE_ERROR',
                     message: 'Failed to fetch feed posts',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -87,7 +87,6 @@ export async function fetchFeedPosts(
                 code: 'UNKNOWN_ERROR',
                 message: 'An unexpected error occurred',
                 details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
             },
         };
     }
@@ -112,7 +111,7 @@ export async function fetchUserPosts(
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
-        event:shpe_events(id, name)
+        event:events(id, name)
       `)
             .eq('user_id', userId)
             .eq('is_active', true)
@@ -126,7 +125,6 @@ export async function fetchUserPosts(
                     code: 'DATABASE_ERROR',
                     message: 'Failed to fetch user posts',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -159,7 +157,6 @@ export async function fetchUserPosts(
                 code: 'UNKNOWN_ERROR',
                 message: 'An unexpected error occurred',
                 details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
             },
         };
     }
@@ -182,7 +179,6 @@ export async function createPost(
                 error: {
                     code: 'VALIDATION_ERROR',
                     message: validationError,
-                    severity: 'warning',
                 },
             };
         }
@@ -195,7 +191,6 @@ export async function createPost(
                 error: {
                     code: 'UNAUTHORIZED',
                     message: 'You must be logged in to create a post',
-                    severity: 'error',
                 },
             };
         }
@@ -222,7 +217,6 @@ export async function createPost(
                     code: 'DATABASE_ERROR',
                     message: 'Failed to create post',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -253,7 +247,7 @@ export async function createPost(
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
-        event:shpe_events(id, name)
+        event:events(id, name)
       `)
             .eq('id', post.id)
             .single();
@@ -268,7 +262,6 @@ export async function createPost(
                 code: 'UNKNOWN_ERROR',
                 message: 'An unexpected error occurred',
                 details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
             },
         };
     }
@@ -286,16 +279,44 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
                 error: {
                     code: 'UNAUTHORIZED',
                     message: 'You must be logged in to delete a post',
-                    severity: 'error',
+                },
+            };
+        }
+
+        // Debug: Fetch post first to verify existence and ownership
+        const { data: existingPost, error: fetchError } = await supabase
+            .from('feed_posts')
+            .select('id, user_id, is_active')
+            .eq('id', postId)
+            .single();
+
+        if (fetchError || !existingPost) {
+            console.error('Delete Debug: Post not found', fetchError);
+            return {
+                success: false,
+                error: {
+                    code: 'NOT_FOUND',
+                    message: 'Post not found',
+                },
+            };
+        }
+
+
+
+        if (existingPost.user_id !== user.id) {
+            return {
+                success: false,
+                error: {
+                    code: 'UNAUTHORIZED',
+                    message: 'You can only delete your own posts',
                 },
             };
         }
 
         const { error } = await supabase
             .from('feed_posts')
-            .update({ is_active: false })
-            .eq('id', postId)
-            .eq('user_id', user.id);
+            .delete()
+            .eq('id', postId);
 
         if (error) {
             return {
@@ -304,7 +325,6 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
                     code: 'DATABASE_ERROR',
                     message: 'Failed to delete post',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -317,7 +337,6 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
                 code: 'UNKNOWN_ERROR',
                 message: 'An unexpected error occurred',
                 details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
             },
         };
     }
@@ -335,7 +354,6 @@ export async function likePost(postId: string): Promise<ServiceResponse<void>> {
                 error: {
                     code: 'UNAUTHORIZED',
                     message: 'You must be logged in to like a post',
-                    severity: 'error',
                 },
             };
         }
@@ -353,9 +371,8 @@ export async function likePost(postId: string): Promise<ServiceResponse<void>> {
                 return {
                     success: false,
                     error: {
-                        code: 'DUPLICATE_ERROR',
+                        code: 'ALREADY_EXISTS',
                         message: 'You have already liked this post',
-                        severity: 'warning',
                     },
                 };
             }
@@ -366,7 +383,6 @@ export async function likePost(postId: string): Promise<ServiceResponse<void>> {
                     code: 'DATABASE_ERROR',
                     message: 'Failed to like post',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -379,7 +395,6 @@ export async function likePost(postId: string): Promise<ServiceResponse<void>> {
                 code: 'UNKNOWN_ERROR',
                 message: 'An unexpected error occurred',
                 details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
             },
         };
     }
@@ -397,7 +412,6 @@ export async function unlikePost(postId: string): Promise<ServiceResponse<void>>
                 error: {
                     code: 'UNAUTHORIZED',
                     message: 'You must be logged in to unlike a post',
-                    severity: 'error',
                 },
             };
         }
@@ -415,7 +429,6 @@ export async function unlikePost(postId: string): Promise<ServiceResponse<void>>
                     code: 'DATABASE_ERROR',
                     message: 'Failed to unlike post',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -428,7 +441,6 @@ export async function unlikePost(postId: string): Promise<ServiceResponse<void>>
                 code: 'UNKNOWN_ERROR',
                 message: 'An unexpected error occurred',
                 details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
             },
         };
     }
@@ -456,7 +468,6 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
                     code: 'DATABASE_ERROR',
                     message: 'Failed to fetch comments',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -494,7 +505,6 @@ export async function createComment(
                 error: {
                     code: 'VALIDATION_ERROR',
                     message: validationError,
-                    severity: 'warning',
                 },
             };
         }
@@ -506,7 +516,6 @@ export async function createComment(
                 error: {
                     code: 'UNAUTHORIZED',
                     message: 'You must be logged in to comment',
-                    severity: 'error',
                 },
             };
         }
@@ -531,7 +540,6 @@ export async function createComment(
                     code: 'DATABASE_ERROR',
                     message: 'Failed to create comment',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -564,7 +572,6 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
                 error: {
                     code: 'UNAUTHORIZED',
                     message: 'You must be logged in to delete a comment',
-                    severity: 'error',
                 },
             };
         }
@@ -582,7 +589,6 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
                     code: 'DATABASE_ERROR',
                     message: 'Failed to delete comment',
                     details: error.message,
-                    severity: 'error',
                 },
             };
         }
@@ -676,3 +682,89 @@ async function compressImage(uri: string): Promise<string> {
     );
     return result.uri;
 }
+
+/**
+ * Updates a post
+ */
+export async function updatePost(
+    postId: string,
+    content: string,
+    eventId?: string
+): Promise<ServiceResponse<FeedPostUI>> {
+    try {
+        const user = (await supabase.auth.getUser()).data.user;
+        if (!user) {
+            return {
+                success: false,
+                error: {
+                    code: 'UNAUTHORIZED',
+                    message: 'You must be logged in to update a post',
+                },
+            };
+        }
+
+        // Validate content
+        const validationError = validatePostContent(content);
+        if (validationError) {
+            return {
+                success: false,
+                error: {
+                    code: 'VALIDATION_ERROR',
+                    message: validationError,
+                },
+            };
+        }
+
+        const { data: post, error } = await supabase
+            .from('feed_posts')
+            .update({
+                content,
+                event_id: eventId || null,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', postId)
+            .eq('user_id', user.id)
+            .select()
+            .single();
+
+        if (error) {
+            return {
+                success: false,
+                error: {
+                    code: 'DATABASE_ERROR',
+                    message: 'Failed to update post',
+                    details: error.message,
+                },
+            };
+        }
+
+        // Fetch the complete post with joined data
+        const { data: completePost } = await supabase
+            .from('feed_posts')
+            .select(`
+        *,
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        likes:feed_likes(count),
+        comments:feed_comments(count),
+        tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
+        event:events(id, name)
+      `)
+            .eq('id', post.id)
+            .single();
+
+        const postUI = mapFeedPostDBToUI({ ...completePost, is_liked_by_current_user: false }); // User like status might need refresh, but fine for now
+
+        return { success: true, data: postUI };
+    } catch (error) {
+        return {
+            success: false,
+            error: {
+                code: 'UNKNOWN_ERROR',
+                message: 'An unexpected error occurred',
+                details: error instanceof Error ? error.message : 'Unknown error',
+                severity: 'error',
+            },
+        };
+    }
+}
+

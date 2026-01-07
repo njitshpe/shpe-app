@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { createPost, deletePost } from '../../lib/feedService';
+import { createPost, deletePost, updatePost } from '../../lib/feedService';
 import type { CreatePostRequest, FeedPostUI } from '../../types/feed';
 
 export function usePost() {
@@ -37,9 +37,25 @@ export function usePost() {
         }
     };
 
+    const update = async (postId: string, content: string, eventId?: string): Promise<FeedPostUI | null> => {
+        setIsCreating(true); // Reuse creating state for loading
+
+        const response = await updatePost(postId, content, eventId);
+
+        setIsCreating(false);
+
+        if (response.success && response.data) {
+            return response.data;
+        } else {
+            Alert.alert('Error', response.error?.message || 'Failed to update post');
+            return null;
+        }
+    };
+
     return {
         create,
         remove,
+        update,
         isCreating,
         isDeleting,
     };
