@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
+import WizardBackButton from './WizardBackButton.native';
 import IdentityStep from './IdentityStep.native';
 import GuestAffiliationStep from './GuestAffiliationStep.native';
 import InterestsStep from './InterestsStep.native';
@@ -84,6 +85,27 @@ export default function GuestOnboardingWizard() {
 
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  // Handle back button press
+  const handleBack = () => {
+    if (currentStep === 0) {
+      // Exit to role selection
+      router.replace('/role-selection');
+    } else {
+      // Go to previous step
+      prevStep();
+    }
+  };
+
+  // Check if user has entered any data
+  const hasFormData = () => {
+    return (
+      formData.firstName.trim() !== '' ||
+      formData.lastName.trim() !== '' ||
+      formData.major.trim() !== '' ||
+      formData.profilePhoto !== null
+    );
   };
 
   // Handle badge celebration completion
@@ -206,6 +228,15 @@ export default function GuestOnboardingWizard() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.container}>
+        {/* Back Button */}
+        <View style={styles.headerContainer}>
+          <WizardBackButton
+            onPress={handleBack}
+            hasFormData={hasFormData()}
+            showConfirmation={currentStep === 0}
+          />
+        </View>
+
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={[styles.progressTrack, { backgroundColor: colors.progressTrack }]}>
@@ -262,7 +293,6 @@ export default function GuestOnboardingWizard() {
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -283,7 +313,6 @@ export default function GuestOnboardingWizard() {
                   }}
                   update={updateFormData}
                   onNext={handleFinish}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -342,6 +371,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  headerContainer: {
+    width: '100%',
+    maxWidth: 448,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
   progressContainer: {
     width: '100%',

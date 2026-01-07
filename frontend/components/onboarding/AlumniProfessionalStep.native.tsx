@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
-import { z } from 'zod';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
+import MentorshipInterstitial from './MentorshipInterstitial.native';
 
 const INDUSTRIES = [
   'Aerospace',
@@ -32,57 +34,34 @@ const INDUSTRIES = [
   'Other',
 ];
 
-const professionalSchema = z.object({
-  company: z.string().trim().min(1, 'Company name is required'),
-  jobTitle: z.string().trim().min(1, 'Job title is required'),
-  industry: z.string().trim().min(1, 'Industry is required'),
-  phoneNumber: z
-    .string()
-    .optional()
-    .refine(
-      (val) => {
-        if (!val) return true;
-        const cleaned = val.replace(/\D/g, '');
-        return cleaned.length === 10;
-      },
-      { message: 'Phone number must be 10 digits' }
-    ),
-});
 
 export interface FormData {
   company: string;
   jobTitle: string;
   industry: string;
-  phoneNumber: string;
+  mentorshipAvailable: boolean;
+  mentorshipWays: string[];
 }
 
 interface AlumniProfessionalStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  onBack: () => void;
 }
 
 export default function AlumniProfessionalStep({
   data,
   update,
   onNext,
-  onBack,
 }: AlumniProfessionalStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-
-  const companyRef = useRef<TextInput>(null);
-  const jobTitleRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedIndustry, setSelectedIndustry] = useState(data.industry ?? '');
 
-  useEffect(() => {
-    setTimeout(() => companyRef.current?.focus(), 100);
-  }, []);
+  const [selectedIndustry, setSelectedIndustry] = useState(data.industry ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [showInterstitial, setShowInterstitial] = useState(false);
 
   const handleIndustrySelect = (industry: string) => {
     setSelectedIndustry(industry);
@@ -90,53 +69,51 @@ export default function AlumniProfessionalStep({
     setError(null);
   };
 
-  const handlePhoneChange = (text: string) => {
-    // Remove all non-digits
-    const cleaned = text.replace(/\D/g, '');
-
-    // Format as (XXX) XXX-XXXX
-    let formatted = cleaned;
-    if (cleaned.length >= 6) {
-      formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-    } else if (cleaned.length >= 3) {
-      formatted = `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    } else if (cleaned.length > 0) {
-      formatted = `(${cleaned}`;
-    }
-
-    update({ phoneNumber: formatted });
-    setError(null);
-  };
-
-  const handleNext = () => {
-    const payload = {
-      company: data.company?.trim() ?? '',
-      jobTitle: data.jobTitle?.trim() ?? '',
-      industry: selectedIndustry?.trim() ?? '',
-      phoneNumber: data.phoneNumber?.replace(/\D/g, '') ?? '',
-    };
-
-    const result = professionalSchema.safeParse(payload);
-    if (!result.success) {
-      setError(result.error.issues[0]?.message ?? 'Please complete all required fields.');
-      return;
-    }
-
-    update(payload);
-    setError(null);
+  const handleMentorshipDecline = () => {
+    setShowInterstitial(false);
+    update({
+      mentorshipAvailable: false,
+      mentorshipWays: [],
+    });
     onNext();
   };
 
-  const isNextDisabled =
-    !data.company?.trim() ||
-    !data.jobTitle?.trim() ||
-    !selectedIndustry?.trim();
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+  const handleMentorshipAccept = (selectedWays: string[]) => {
+    setShowInterstitial(false);
+    update({
+      mentorshipAvailable: true,
+      mentorshipWays: selectedWays,
+    });
+    onNext();
   };
+
+  const handleNext = () => {
+    // Validate required fields
+    if (!data.company?.trim()) {
+      setError('Company name is required');
+      return;
+    }
+    if (!data.jobTitle?.trim()) {
+      setError('Job title is required');
+      return;
+    }
+    if (!selectedIndustry?.trim()) {
+      setError('Please select an industry');
+      return;
+    }
+
+    update({
+      company: data.company?.trim(),
+      jobTitle: data.jobTitle?.trim(),
+      industry: selectedIndustry,
+    });
+    setError(null);
+
+    // Show mentorship interstitial instead of navigating directly
+    setShowInterstitial(true);
+  };
+
+  const isNextDisabled = !data.company?.trim() || !data.jobTitle?.trim() || !selectedIndustry?.trim();
 
   // Dynamic colors
   const colors = {
@@ -145,10 +122,11 @@ export default function AlumniProfessionalStep({
     text: isDark ? '#F5F8FF' : '#0B1630',
     textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
     border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
-    primary: '#0D9488',
+    borderGlow: SHPE_COLORS.accentBlueBright,
+    primary: SHPE_COLORS.accentBlueBright,
     error: '#DC2626',
     pill: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
-    pillActive: '#0D9488',
+    pillActive: SHPE_COLORS.accentBlueBright,
   };
 
   return (
@@ -170,64 +148,65 @@ export default function AlumniProfessionalStep({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
-              <Ionicons name="chevron-back" size={22} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerSpacer} />
-          </View>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Your Professional Info</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Professional Details</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Tell us about your current role.
+              Tell us about your current role and expertise.
             </Text>
           </View>
 
           {/* Error Message */}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? (
+            <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2', borderColor: isDark ? '#7F1D1D' : '#FCA5A5' }]}>
+              <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>⚠️ {error}</Text>
+            </View>
+          ) : null}
 
-          {/* Company */}
+          {/* Company Input */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.label, { color: colors.text }]}>Company</Text>
-            <TextInput
-              ref={companyRef}
-              value={data.company ?? ''}
-              onChangeText={(text) => {
-                update({ company: text });
-                setError(null);
-              }}
-              placeholder="e.g., Google, Tesla, Self-Employed"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              returnKeyType="next"
-              onSubmitEditing={() => jobTitleRef.current?.focus()}
-              blurOnSubmit={false}
-            />
+            <View style={[styles.inputContainer, { backgroundColor: colors.pill, borderColor: colors.border }]}>
+              <Text style={styles.inputIcon}>🏢</Text>
+              <TextInput
+                value={data.company ?? ''}
+                onChangeText={(text) => {
+                  update({ company: text });
+                  setError(null);
+                }}
+                placeholder="e.g., Google, Tesla, Self-Employed"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.input, { color: colors.text }]}
+                returnKeyType="next"
+              />
+            </View>
           </View>
 
-          {/* Job Title */}
+          {/* Job Title Input */}
           <View style={styles.fieldContainer}>
             <Text style={[styles.label, { color: colors.text }]}>Job Title</Text>
-            <TextInput
-              ref={jobTitleRef}
-              value={data.jobTitle ?? ''}
-              onChangeText={(text) => {
-                update({ jobTitle: text });
-                setError(null);
-              }}
-              placeholder="e.g., Software Engineer, Project Manager"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              returnKeyType="next"
-              onSubmitEditing={() => phoneRef.current?.focus()}
-              blurOnSubmit={false}
-            />
+            <View style={[styles.inputContainer, { backgroundColor: colors.pill, borderColor: colors.border }]}>
+              <Text style={styles.inputIcon}>💼</Text>
+              <TextInput
+                value={data.jobTitle ?? ''}
+                onChangeText={(text) => {
+                  update({ jobTitle: text });
+                  setError(null);
+                }}
+                placeholder="e.g., Software Engineer, Project Manager"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.input, { color: colors.text }]}
+                returnKeyType="next"
+              />
+            </View>
           </View>
 
-          {/* Industry Selection */}
+          {/* Industry Tags (Expertise) */}
           <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Industry</Text>
+            <Text style={[styles.label, { color: colors.text }]}>Your Industry Expertise</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Select the industry that best describes your professional experience
+            </Text>
             <View style={styles.pillsContainer}>
               {INDUSTRIES.map((industry) => {
                 const isSelected = selectedIndustry === industry;
@@ -237,14 +216,14 @@ export default function AlumniProfessionalStep({
                     onPress={() => handleIndustrySelect(industry)}
                     style={[
                       styles.pill,
-                      { backgroundColor: colors.pill },
-                      isSelected && { backgroundColor: colors.pillActive },
+                      { backgroundColor: colors.pill, borderColor: colors.border },
+                      isSelected && { backgroundColor: colors.pillActive, borderColor: colors.pillActive },
                     ]}
                   >
                     <Text
                       style={[
                         styles.pillText,
-                        { color: colors.textSecondary },
+                        { color: colors.text },
                         isSelected && styles.pillTextActive,
                       ]}
                     >
@@ -256,46 +235,35 @@ export default function AlumniProfessionalStep({
             </View>
           </View>
 
-          {/* Phone Number (Optional) */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>
-              Phone Number <Text style={[styles.optional, { color: colors.textSecondary }]}>(optional)</Text>
-            </Text>
-            <TextInput
-              ref={phoneRef}
-              value={data.phoneNumber ?? ''}
-              onChangeText={handlePhoneChange}
-              onFocus={scrollToBottom}
-              placeholder="(XXX) XXX-XXXX"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              keyboardType="phone-pad"
-              returnKeyType="done"
-              maxLength={14}
-            />
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              For networking purposes
-            </Text>
-          </View>
-
         </ScrollView>
         </KeyboardAvoidingView>
       </MotiView>
 
       {/* Fixed Next Button - Outside KeyboardAvoidingView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || 16 }]}>
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
           onPress={handleNext}
           disabled={isNextDisabled}
-          style={[
-            styles.nextButton,
-            { backgroundColor: colors.primary },
-            isNextDisabled && styles.nextButtonDisabled,
-          ]}
+          activeOpacity={0.8}
+          style={styles.buttonWrapper}
         >
-          <Text style={styles.nextButtonText}>Next</Text>
+          <LinearGradient
+            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
+            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Mentorship Interstitial */}
+      <MentorshipInterstitial
+        visible={showInterstitial}
+        onDecline={handleMentorshipDecline}
+        onAccept={handleMentorshipAccept}
+      />
     </View>
   );
 }
@@ -323,23 +291,11 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: SPACING.md,
     backgroundColor: 'transparent',
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  backIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
+  buttonWrapper: {
+    width: '100%',
   },
   header: {
     marginBottom: 24,
@@ -352,10 +308,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
   },
+  errorContainer: {
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
   errorText: {
     fontSize: 14,
-    color: '#DC2626',
-    marginBottom: 16,
   },
   fieldContainer: {
     marginBottom: 24,
@@ -365,15 +325,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 8,
   },
-  optional: {
-    fontWeight: '400',
-    fontSize: 12,
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+  },
+  inputIcon: {
+    fontSize: 20,
+    marginRight: SPACING.sm,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flex: 1,
+    paddingVertical: SPACING.md,
     fontSize: 16,
   },
   helperText: {
@@ -383,27 +348,28 @@ const styles = StyleSheet.create({
   pillsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
+    marginTop: 12,
   },
   pill: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
   },
   pillText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   pillTextActive: {
     color: '#FFFFFF',
   },
   nextButton: {
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    minHeight: 52,
     alignItems: 'center',
-  },
-  nextButtonDisabled: {
-    opacity: 0.5,
+    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

@@ -13,6 +13,7 @@ import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
 import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
+import WizardBackButton from './WizardBackButton.native';
 import IdentityStep from './IdentityStep.native';
 import InterestsStep from './InterestsStep.native';
 import AssetsStep from './AssetsStep.native';
@@ -32,6 +33,7 @@ interface OnboardingFormData {
   // Step 3: Assets
   resumeFile: DocumentPicker.DocumentPickerAsset | null;
   linkedinUrl: string;
+  portfolioUrl: string;
   bio: string;
 }
 
@@ -57,6 +59,7 @@ export default function OnboardingWizard() {
     // Step 3
     resumeFile: null,
     linkedinUrl: '',
+    portfolioUrl: '',
     bio: '',
   });
 
@@ -90,6 +93,28 @@ export default function OnboardingWizard() {
 
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  // Handle back button press
+  const handleBack = () => {
+    if (currentStep === 0) {
+      // Exit to role selection
+      router.replace('/role-selection');
+    } else {
+      // Go to previous step
+      prevStep();
+    }
+  };
+
+  // Check if user has entered any data
+  const hasFormData = () => {
+    return (
+      formData.firstName.trim() !== '' ||
+      formData.lastName.trim() !== '' ||
+      formData.major.trim() !== '' ||
+      formData.graduationYear.trim() !== '' ||
+      formData.profilePhoto !== null
+    );
   };
 
   // Handle badge celebration completion
@@ -182,6 +207,7 @@ export default function OnboardingWizard() {
         bio: formData.bio?.trim() || '',
         interests: mappedInterests,
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
+        website_url: formData.portfolioUrl?.trim() || undefined,
         phone_number: formData.phoneNumber?.trim() || undefined,
         profile_picture_url: profilePictureUrl,
         resume_url: resumeUrl,
@@ -235,6 +261,15 @@ export default function OnboardingWizard() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.container}>
+          {/* Back Button + Progress Container */}
+          <View style={styles.headerContainer}>
+            <WizardBackButton
+              onPress={handleBack}
+              hasFormData={hasFormData()}
+              showConfirmation={currentStep === 0}
+            />
+          </View>
+
           {/* Segmented Progress Indicator */}
           <View style={styles.progressContainer}>
             <View style={styles.segmentedProgress}>
@@ -300,7 +335,6 @@ export default function OnboardingWizard() {
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -318,11 +352,11 @@ export default function OnboardingWizard() {
                   data={{
                     resumeFile: formData.resumeFile,
                     linkedinUrl: formData.linkedinUrl,
+                    portfolioUrl: formData.portfolioUrl,
                     bio: formData.bio,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -339,7 +373,6 @@ export default function OnboardingWizard() {
                 <ReviewStep
                   data={formData}
                   onNext={handleFinish}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -397,6 +430,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: SPACING.md,
+  },
+  headerContainer: {
+    width: '100%',
+    maxWidth: 448,
+    alignSelf: 'center',
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   progressContainer: {
     width: '100%',
