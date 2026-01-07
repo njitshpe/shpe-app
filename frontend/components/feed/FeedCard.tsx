@@ -140,7 +140,6 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
             {post.imageUrls.length > 0 && (
                 <View style={styles.imagesContainer}>
                     {post.imageUrls.slice(0, compact ? 1 : 4).map((url, index) => {
-                        console.log('Rendering image:', url);
                         return (
                             <Image
                                 key={index}
@@ -151,8 +150,6 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                                     post.imageUrls.length > 1 && styles.multiImage,
                                 ]}
                                 resizeMode="cover"
-                                onError={(error) => console.error('Image load error:', error.nativeEvent.error, 'URL:', url)}
-                                onLoad={() => console.log('Image loaded successfully:', url)}
                             />
                         );
                     })}

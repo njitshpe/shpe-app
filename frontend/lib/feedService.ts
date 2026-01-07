@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import * as ImageManipulator from 'expo-image-manipulator';
 import type { FeedPostUI, FeedCommentUI, CreatePostRequest, CreateCommentRequest } from '../types/feed';
 import type { ServiceResponse } from '../types/errors';
+import { createError, mapSupabaseError } from '../types/errors';
 import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent } from '../utils/feed';
 
 /**
@@ -28,17 +29,8 @@ export async function fetchFeedPosts(
 
         if (error) {
             console.error('Feed fetch error:', error);
-            return {
-                success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to fetch feed posts',
-                    details: error.message,
-                },
-            };
+            return { success: false, error: mapSupabaseError(error) };
         }
-
-        console.log('Fetched posts:', data?.length);
 
         // Get counts separately for each post
         const postsWithCounts = await Promise.all(
@@ -119,14 +111,7 @@ export async function fetchUserPosts(
             .range(page * limit, (page + 1) * limit - 1);
 
         if (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to fetch user posts',
-                    details: error.message,
-                },
-            };
+            return { success: false, error: mapSupabaseError(error) };
         }
 
         // Check if current user liked each post
@@ -151,14 +136,7 @@ export async function fetchUserPosts(
 
         return { success: true, data: posts };
     } catch (error) {
-        return {
-            success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-        };
+        return { success: false, error: mapSupabaseError(error) };
     }
 }
 
@@ -188,10 +166,7 @@ export async function createPost(
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to create a post',
-                },
+                error: createError('You must be logged in to create a post', 'UNAUTHORIZED'),
             };
         }
 
@@ -213,11 +188,7 @@ export async function createPost(
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to create post',
-                    details: error.message,
-                },
+                error: createError('Failed to create post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -256,14 +227,7 @@ export async function createPost(
 
         return { success: true, data: postUI };
     } catch (error) {
-        return {
-            success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            },
-        };
+        return { success: false, error: mapSupabaseError(error) };
     }
 }
 
@@ -276,10 +240,7 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to delete a post',
-                },
+                error: createError('You must be logged in to delete a post', 'UNAUTHORIZED'),
             };
         }
 
@@ -291,13 +252,9 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
             .single();
 
         if (fetchError || !existingPost) {
-            console.error('Delete Debug: Post not found', fetchError);
             return {
                 success: false,
-                error: {
-                    code: 'NOT_FOUND',
-                    message: 'Post not found',
-                },
+                error: createError('Post not found', 'NOT_FOUND'),
             };
         }
 
@@ -306,10 +263,7 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
         if (existingPost.user_id !== user.id) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You can only delete your own posts',
-                },
+                error: createError('You can only delete your own posts', 'UNAUTHORIZED'),
             };
         }
 
@@ -321,11 +275,7 @@ export async function deletePost(postId: string): Promise<ServiceResponse<void>>
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to delete post',
-                    details: error.message,
-                },
+                error: createError('Failed to delete post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -351,10 +301,7 @@ export async function likePost(postId: string): Promise<ServiceResponse<void>> {
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to like a post',
-                },
+                error: createError('You must be logged in to like a post', 'UNAUTHORIZED'),
             };
         }
 
@@ -370,20 +317,13 @@ export async function likePost(postId: string): Promise<ServiceResponse<void>> {
             if (error.code === '23505') {
                 return {
                     success: false,
-                    error: {
-                        code: 'ALREADY_EXISTS',
-                        message: 'You have already liked this post',
-                    },
+                    error: createError('You have already liked this post', 'ALREADY_EXISTS'),
                 };
             }
 
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to like post',
-                    details: error.message,
-                },
+                error: createError('Failed to like post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -409,10 +349,7 @@ export async function unlikePost(postId: string): Promise<ServiceResponse<void>>
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to unlike a post',
-                },
+                error: createError('You must be logged in to unlike a post', 'UNAUTHORIZED'),
             };
         }
 
@@ -425,11 +362,7 @@ export async function unlikePost(postId: string): Promise<ServiceResponse<void>>
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to unlike post',
-                    details: error.message,
-                },
+                error: createError('Failed to unlike post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -464,11 +397,7 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to fetch comments',
-                    details: error.message,
-                },
+                error: createError('Failed to fetch comments', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -513,10 +442,7 @@ export async function createComment(
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to comment',
-                },
+                error: createError('You must be logged in to comment', 'UNAUTHORIZED'),
             };
         }
 
@@ -536,11 +462,7 @@ export async function createComment(
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to create comment',
-                    details: error.message,
-                },
+                error: createError('Failed to create comment', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -569,10 +491,7 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to delete a comment',
-                },
+                error: createError('You must be logged in to delete a comment', 'UNAUTHORIZED'),
             };
         }
 
@@ -585,11 +504,7 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to delete comment',
-                    details: error.message,
-                },
+                error: createError('Failed to delete comment', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
@@ -616,16 +531,12 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
     try {
         const uploadPromises = imageUris.map(async (uri, index) => {
             try {
-                console.log('Compressing image:', uri);
                 // Compress image
                 const compressedImage = await compressImage(uri);
-                console.log('Compressed:', compressedImage);
 
                 // Generate unique path
                 const timestamp = Date.now();
                 const path = `${userId}/${timestamp}_${index}.webp`;
-
-                console.log('Uploading to path:', path);
 
                 // For React Native, we need to use the file URI directly
                 const formData = new FormData();
@@ -653,7 +564,6 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
                     .from('feed-images')
                     .getPublicUrl(path);
 
-                console.log('Upload success:', urlData.publicUrl);
                 return urlData.publicUrl;
             } catch (err) {
                 console.error('Image upload failed:', err);
@@ -696,10 +606,7 @@ export async function updatePost(
         if (!user) {
             return {
                 success: false,
-                error: {
-                    code: 'UNAUTHORIZED',
-                    message: 'You must be logged in to update a post',
-                },
+                error: createError('You must be logged in to update a post', 'UNAUTHORIZED'),
             };
         }
 
@@ -730,11 +637,7 @@ export async function updatePost(
         if (error) {
             return {
                 success: false,
-                error: {
-                    code: 'DATABASE_ERROR',
-                    message: 'Failed to update post',
-                    details: error.message,
-                },
+                error: createError('Failed to update post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
 
