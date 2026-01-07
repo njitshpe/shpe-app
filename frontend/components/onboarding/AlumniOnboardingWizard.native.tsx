@@ -10,30 +10,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
+import WizardBackButton from './WizardBackButton.native';
 import AlumniIdentityStep from './AlumniIdentityStep.native';
+import AlumniSocialStep from './AlumniSocialStep.native';
 import AlumniProfessionalStep from './AlumniProfessionalStep.native';
-import AssetsStep from './AssetsStep.native';
-import ReviewStep from './ReviewStep.native';
+import AlumniReviewStep from './AlumniReviewStep.native';
 
 // Alumni-specific FormData interface
 interface AlumniOnboardingFormData {
   // Step 1: Identity
   firstName: string;
   lastName: string;
-  graduationYear: string;
   major: string;
+  customMajor?: string;
+  degreeType: string;
+  graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Assets
-  resumeFile: DocumentPicker.DocumentPickerAsset | null;
+  // Step 2: Social & Professional Snapshot
   linkedinUrl: string;
-  bio: string;
-  // Step 3: Professional Info
+  professionalBio: string;
+  // Step 3: Professional Details
   company: string;
   jobTitle: string;
   industry: string;
-  phoneNumber: string;
+  mentorshipAvailable: boolean;
+  mentorshipWays: string[];
   // Step 4: Review (uses all above data)
-  interests: string[];
 }
 
 export default function AlumniOnboardingWizard() {
@@ -47,23 +49,23 @@ export default function AlumniOnboardingWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
   const [formData, setFormData] = useState<AlumniOnboardingFormData>({
-    // Step 1
+    // Step 1: Identity
     firstName: '',
     lastName: '',
-    graduationYear: '',
     major: '',
+    customMajor: '',
+    degreeType: '',
+    graduationYear: '',
     profilePhoto: null,
-    // Step 2
-    resumeFile: null,
+    // Step 2: Social & Professional Snapshot
     linkedinUrl: '',
-    bio: '',
-    // Step 3
+    professionalBio: '',
+    // Step 3: Professional Details
     company: '',
     jobTitle: '',
     industry: '',
-    phoneNumber: '',
-    // Default
-    interests: [],
+    mentorshipAvailable: false,
+    mentorshipWays: [],
   });
 
   // Helper function to merge partial data into main state
@@ -98,6 +100,28 @@ export default function AlumniOnboardingWizard() {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
+  // Handle back button press
+  const handleBack = () => {
+    if (currentStep === 0) {
+      // Exit to role selection
+      router.replace('/role-selection');
+    } else {
+      // Go to previous step
+      prevStep();
+    }
+  };
+
+  // Check if user has entered any data
+  const hasFormData = () => {
+    return (
+      formData.firstName.trim() !== '' ||
+      formData.lastName.trim() !== '' ||
+      formData.major.trim() !== '' ||
+      formData.graduationYear.trim() !== '' ||
+      formData.profilePhoto !== null
+    );
+  };
+
   // Handle badge celebration completion
   const handleBadgeCelebrationComplete = () => {
     setShowBadgeCelebration(false);
@@ -120,8 +144,6 @@ export default function AlumniOnboardingWizard() {
 
     try {
       let profilePictureUrl: string | undefined;
-      let resumeUrl: string | undefined;
-      let resumeName: string | undefined;
 
       // Upload profile photo if provided
       if (formData.profilePhoto) {
@@ -141,43 +163,23 @@ export default function AlumniOnboardingWizard() {
         }
       }
 
-      // Upload resume if provided
-      if (formData.resumeFile) {
-        const uploadResult = await storageService.uploadResume(
-          user.id,
-          formData.resumeFile
-        );
-
-        if (uploadResult.success) {
-          resumeUrl = uploadResult.data.url;
-          resumeName = uploadResult.data.originalName;
-        } else {
-          Alert.alert(
-            'Resume Upload Failed',
-            'Your resume could not be uploaded. You can add it later in settings.',
-            [{ text: 'OK' }]
-          );
-        }
-      }
-
       // Create profile data object for alumni
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         major: formData.major.trim() || undefined,
+        degree_type: formData.degreeType.trim() || undefined,
         expected_graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
         university: 'NJIT', // Default university for NJIT alumni
-        bio: formData.bio?.trim() || '',
         company: formData.company?.trim() || undefined,
         job_title: formData.jobTitle?.trim() || undefined,
         industry: formData.industry?.trim() || undefined,
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
-        phone_number: formData.phoneNumber?.trim() || undefined,
+        bio: formData.professionalBio?.trim() || undefined,
+        mentorship_available: formData.mentorshipAvailable || false,
+        mentorship_ways: formData.mentorshipWays || [],
         profile_picture_url: profilePictureUrl,
-        resume_url: resumeUrl,
-        resume_name: resumeName,
         user_type: 'alumni' as const,
-        interests: formData.interests,
       };
 
       // Try to create the profile (will fail if exists, then we update)
@@ -230,6 +232,15 @@ export default function AlumniOnboardingWizard() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={styles.container}>
+        {/* Back Button */}
+        <View style={styles.headerContainer}>
+          <WizardBackButton
+            onPress={handleBack}
+            hasFormData={hasFormData()}
+            showConfirmation={currentStep === 0}
+          />
+        </View>
+
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={[styles.progressTrack, { backgroundColor: colors.progressTrack }]}>
@@ -261,6 +272,8 @@ export default function AlumniOnboardingWizard() {
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     major: formData.major,
+                    customMajor: formData.customMajor,
+                    degreeType: formData.degreeType,
                     graduationYear: formData.graduationYear,
                     profilePhoto: formData.profilePhoto,
                   }}
@@ -279,15 +292,13 @@ export default function AlumniOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <AssetsStep
+                <AlumniSocialStep
                   data={{
-                    resumeFile: formData.resumeFile,
                     linkedinUrl: formData.linkedinUrl,
-                    bio: formData.bio,
+                    professionalBio: formData.professionalBio,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -306,11 +317,11 @@ export default function AlumniOnboardingWizard() {
                     company: formData.company,
                     jobTitle: formData.jobTitle,
                     industry: formData.industry,
-                    phoneNumber: formData.phoneNumber,
+                    mentorshipAvailable: formData.mentorshipAvailable,
+                    mentorshipWays: formData.mentorshipWays,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -324,10 +335,9 @@ export default function AlumniOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <ReviewStep
+                <AlumniReviewStep
                   data={formData}
                   onNext={handleFinish}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -386,6 +396,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  headerContainer: {
+    width: '100%',
+    maxWidth: 448,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
   progressContainer: {
     width: '100%',

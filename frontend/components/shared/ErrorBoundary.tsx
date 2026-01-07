@@ -1,6 +1,5 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/contexts/ThemeContext';
 
 interface ErrorBoundaryProps {
     children: ReactNode;
@@ -71,38 +70,24 @@ interface ErrorFallbackProps {
 }
 
 function ErrorFallback({ error, onReset }: ErrorFallbackProps) {
-    const { theme, isDark } = useTheme();
-
-    const dynamicStyles = {
-        container: { backgroundColor: theme.background },
-        content: { backgroundColor: theme.card, shadowColor: theme.shadow },
-        title: { color: theme.text },
-        message: { color: theme.subtext },
-        errorDetails: { backgroundColor: isDark ? '#330000' : '#FFF3F3', borderColor: theme.primary },
-        errorTitle: { color: '#D32F2F' },
-        errorText: { color: theme.subtext },
-        button: { backgroundColor: theme.primary },
-        buttonText: { color: '#FFFFFF' },
-    };
-
     return (
-        <View style={[styles.container, dynamicStyles.container]}>
-            <View style={[styles.content, dynamicStyles.content]}>
+        <View style={styles.container}>
+            <View style={styles.content}>
                 <Text style={styles.emoji}>⚠️</Text>
-                <Text style={[styles.title, dynamicStyles.title]}>Oops! Something went wrong</Text>
-                <Text style={[styles.message, dynamicStyles.message]}>
+                <Text style={styles.title}>Oops! Something went wrong</Text>
+                <Text style={styles.message}>
                     We encountered an unexpected error. Don't worry, your data is safe.
                 </Text>
 
                 {__DEV__ && error && (
-                    <View style={[styles.errorDetails, dynamicStyles.errorDetails]}>
-                        <Text style={[styles.errorTitle, dynamicStyles.errorTitle]}>Error Details (Dev Only):</Text>
-                        <Text style={[styles.errorText, dynamicStyles.errorText]}>{error.message}</Text>
+                    <View style={styles.errorDetails}>
+                        <Text style={styles.errorTitle}>Error Details (Dev Only):</Text>
+                        <Text style={styles.errorText}>{error.message}</Text>
                     </View>
                 )}
 
-                <TouchableOpacity style={[styles.button, dynamicStyles.button]} onPress={onReset}>
-                    <Text style={[styles.buttonText, dynamicStyles.buttonText]}>Try Again</Text>
+                <TouchableOpacity style={styles.button} onPress={onReset}>
+                    <Text style={styles.buttonText}>Try Again</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -115,6 +100,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+        backgroundColor: '#000000',
     },
     content: {
         borderRadius: 16,
@@ -122,6 +108,7 @@ const styles = StyleSheet.create({
         maxWidth: 400,
         width: '100%',
         alignItems: 'center',
+        backgroundColor: '#111111',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -136,12 +123,14 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 12,
         textAlign: 'center',
+        color: '#FFFFFF',
     },
     message: {
         fontSize: 16,
         textAlign: 'center',
         marginBottom: 24,
         lineHeight: 24,
+        color: '#FFFFFF',
     },
     errorDetails: {
         borderRadius: 8,
@@ -149,15 +138,19 @@ const styles = StyleSheet.create({
         marginBottom: 24,
         width: '100%',
         borderLeftWidth: 4,
+        borderColor: '#444444',
+        backgroundColor: '#1A1A1A',
     },
     errorTitle: {
         fontSize: 14,
         fontWeight: '600',
         marginBottom: 8,
+        color: '#FFFFFF',
     },
     errorText: {
         fontSize: 12,
         fontFamily: 'monospace',
+        color: '#FFFFFF',
     },
     button: {
         paddingVertical: 14,
@@ -165,9 +158,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         minWidth: 150,
         alignItems: 'center',
+        backgroundColor: '#222222',
     },
     buttonText: {
         fontSize: 16,
         fontWeight: '600',
+        color: '#FFFFFF',
     },
 });
