@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -34,7 +34,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     const { theme, isDark } = useTheme();
     const { ongoingEvents, upcomingEvents, pastEvents } = useOngoingEvents(events);
 
-    const sections: EventSection[] = [
+    const sections: EventSection[] = useMemo(() => [
         {
             key: 'ongoing' as const,
             title: 'Happening Now',
@@ -50,7 +50,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
             title: 'Past Events',
             data: pastEvents,
         },
-    ].filter((section) => section.data.length > 0); // Only show sections with events
+    ].filter((section) => section.data.length > 0), [ongoingEvents, upcomingEvents, pastEvents]);
 
     const handleEventPress = useCallback(
         (eventId: string) => {
