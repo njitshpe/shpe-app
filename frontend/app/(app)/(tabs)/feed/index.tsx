@@ -8,11 +8,13 @@ import {
     Text,
     Modal,
     SafeAreaView,
+    Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFeed } from '@/hooks/feed';
+import { deletePost } from '@/lib/feedService';
 import { FeedCard, CommentList } from '@/components/feed';
 import type { FeedPostUI } from '@/types/feed';
 
@@ -34,6 +36,15 @@ export default function FeedScreen() {
         <FeedCard
             post={item}
             onCommentPress={handleCommentPress}
+            onEdit={(post) => router.push({ pathname: '/feed/create', params: { id: post.id } })}
+            onDelete={async (postId) => {
+                const result = await deletePost(postId);
+                if (result.success) {
+                    refresh();
+                } else {
+                    Alert.alert('Error', result.error?.message || 'Failed to delete post');
+                }
+            }}
         />
     );
 
