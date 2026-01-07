@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { Slot, useSegments, useRouter } from 'expo-router';
+import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
 
 // Providers
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, isLoading, isBootstrapping, user, profile } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const pathname = usePathname();
 
   React.useEffect(() => {
     if (isLoading || isBootstrapping) return;
@@ -31,28 +32,34 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     const userType = user?.user_metadata?.user_type;
     const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
 
+    const replaceIfNeeded = (target: string) => {
+      if (pathname !== target) {
+        router.replace(target);
+      }
+    };
+
     // Rule 1: No session → redirect to login
     if (!session && !inAuthGroup) {
-      router.replace('/login');
+      replaceIfNeeded('/login');
       return;
     }
 
     // Rule 2: Has session but NO profile + no user_type → must select role first
     if (session && !profile && !userType && !inRoleSelection) {
-      router.replace('/role-selection');
+      replaceIfNeeded('/role-selection');
       return;
     }
 
     // Rule 3: Has session + user_type but NO profile → route to appropriate onboarding
     if (session && !profile && userType) {
       if (userType === 'student' && !inOnboarding) {
-        router.replace('/onboarding');
+        replaceIfNeeded('/onboarding');
         return;
       } else if (userType === 'alumni' && !inAlumniOnboarding) {
-        router.replace('/alumni-onboarding');
+        replaceIfNeeded('/alumni-onboarding');
         return;
       } else if (userType === 'guest' && !inGuestOnboarding) {
-        router.replace('/guest-onboarding');
+        replaceIfNeeded('/guest-onboarding');
         return;
       }
       // Already on correct onboarding page
@@ -63,16 +70,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (session && profile && !onboardingCompleted) {
       const profileType = userType ?? profile.user_type;
       if (profileType === 'student' && !inOnboarding) {
-        router.replace('/onboarding');
+        replaceIfNeeded('/onboarding');
         return;
       } else if (profileType === 'alumni' && !inAlumniOnboarding) {
-        router.replace('/alumni-onboarding');
+        replaceIfNeeded('/alumni-onboarding');
         return;
       } else if (profileType === 'guest' && !inGuestOnboarding) {
-        router.replace('/guest-onboarding');
+        replaceIfNeeded('/guest-onboarding');
         return;
       } else if (!profileType && !inRoleSelection) {
-        router.replace('/role-selection');
+        replaceIfNeeded('/role-selection');
         return;
       }
       return;
@@ -80,16 +87,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Rule 5: Has session + onboarding completed → should be in app
     if (session && onboardingCompleted && (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection)) {
-      router.replace('/home');
+      replaceIfNeeded('/home');
       return;
     }
 
     // Rule 6: Session + onboarding completed + not in app → go home
     if (session && onboardingCompleted && !inApp) {
-      router.replace('/home');
+      replaceIfNeeded('/home');
       return;
     }
-  }, [session, isLoading, isBootstrapping, segments, user, profile]);
+  }, [session, isLoading, isBootstrapping, segments, user, profile, pathname, router]);
 
   // Loading State
   if (isLoading || isBootstrapping) {

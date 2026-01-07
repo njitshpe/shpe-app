@@ -31,14 +31,12 @@ interface GuestAffiliationStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  onBack: () => void;
 }
 
 export default function GuestAffiliationStep({
   data,
   update,
   onNext,
-  onBack,
 }: GuestAffiliationStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -109,12 +107,6 @@ export default function GuestAffiliationStep({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
-              <Ionicons name="chevron-back" size={22} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerSpacer} />
-          </View>
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Your Affiliation</Text>
@@ -232,21 +224,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     backgroundColor: 'transparent',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  backIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
   },
   header: {
     marginBottom: 24,

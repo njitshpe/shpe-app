@@ -22,34 +22,48 @@ import SearchableSelectionModal from '../shared/SearchableSelectionModal';
 import { NJIT_MAJORS } from '@/constants/majors';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
 
+const DEGREE_TYPES = ['B.S.', 'M.S.', 'Ph.D.'] as const;
+
+const majorOptions = [...NJIT_MAJORS, 'Other'];
+
 const identitySchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
-  major: z
-    .string()
-    .trim()
-    .refine(
-      (value) =>
-        NJIT_MAJORS.includes(value as any),
-      { message: 'Select a major from the list' }
-    ),
+  major: z.string().trim().min(1, 'Major is required'),
+  customMajor: z.string().optional(),
+  degreeType: z.string().trim().min(1, 'Degree type is required'),
   graduationYear: z
     .string()
-    .optional()
+    .trim()
+    .min(1, 'Graduation year is required')
+    .regex(/^\d{4}$/, 'Graduation year must be 4 digits')
     .refine(
       (year) => {
-        if (!year) return true; // Optional field
         const numYear = parseInt(year, 10);
         return numYear >= 1980 && numYear <= 2030;
       },
       { message: 'Graduation year must be between 1980 and 2030' }
     ),
-});
+}).refine(
+  (data) => {
+    // If "Other" is selected, customMajor must be provided
+    if (data.major === 'Other') {
+      return !!data.customMajor?.trim();
+    }
+    return true;
+  },
+  {
+    message: 'Please specify your major',
+    path: ['customMajor'],
+  }
+);
 
 export interface FormData {
   firstName: string;
   lastName: string;
   major: string;
+  customMajor?: string;
+  degreeType: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
 }
@@ -80,6 +94,10 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
   const handleMajorSelect = (major: string) => {
     update({ major });
     setError(null);
+    // Clear customMajor if user switches away from "Other"
+    if (major !== 'Other') {
+      update({ customMajor: '' });
+    }
   };
 
   const handlePickProfilePhoto = async () => {
@@ -146,17 +164,21 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
     const payload = {
       firstName: data.firstName?.trim() ?? '',
       lastName: data.lastName?.trim() ?? '',
-      major: data.major?.trim(),
-      graduationYear: data.graduationYear?.trim(),
+      major: data.major?.trim() ?? '',
+      customMajor: data.customMajor?.trim() ?? '',
+      degreeType: data.degreeType?.trim() ?? '',
+      graduationYear: data.graduationYear?.trim() ?? '',
     };
 
     const result = identitySchema.safeParse(payload);
     if (!result.success) {
-      setError(result.error.issues[0]?.message ?? 'Please complete required fields.');
+      setError(result.error.issues[0]?.message ?? 'Please complete all required fields.');
       return;
     }
 
-    update(payload);
+    // If "Other" is selected, use the custom major value
+    const finalMajor = payload.major === 'Other' ? payload.customMajor : payload.major;
+    update({ ...payload, major: finalMajor });
     setError(null);
     onNext();
   };
@@ -164,7 +186,10 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
   const isNextDisabled =
     !data.firstName?.trim() ||
     !data.lastName?.trim() ||
-    !data.major?.trim();
+    !data.major?.trim() ||
+    (data.major === 'Other' && !data.customMajor?.trim()) ||
+    !data.degreeType?.trim() ||
+    !data.graduationYear?.trim();
 
   // Dynamic colors based on theme
   const colors = {
@@ -274,18 +299,71 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
           visible={isMajorModalVisible}
           onClose={() => setIsMajorModalVisible(false)}
           onSelect={handleMajorSelect}
-          options={NJIT_MAJORS}
+          options={majorOptions}
           selectedValue={data.major}
           title="Select Your Major"
           placeholder="Search majors (e.g., Comp Sci)"
           emptyMessage="No majors found"
         />
 
-        {/* Graduation Year (Optional) */}
+        {/* Custom Major Input - Show if "Other" is selected */}
+        {data.major === 'Other' && (
+          <View style={styles.fieldContainer}>
+            <Text style={[styles.label, { color: colors.text }]}>Specify Your Major</Text>
+            <TextInput
+              value={data.customMajor ?? ''}
+              onChangeText={(text) => {
+                update({ customMajor: text });
+                setError(null);
+              }}
+              placeholder="Enter your major"
+              placeholderTextColor={colors.textSecondary}
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              returnKeyType="done"
+            />
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Please enter the name of your major
+            </Text>
+          </View>
+        )}
+
+        {/* Degree Type Selection */}
         <View style={styles.fieldContainer}>
-          <Text style={[styles.label, { color: colors.text }]}>
-            Graduation Year <Text style={[styles.optional, { color: colors.textSecondary }]}>(optional)</Text>
-          </Text>
+          <Text style={[styles.label, { color: colors.text }]}>Degree Type</Text>
+          <View style={styles.pillsContainer}>
+            {DEGREE_TYPES.map((degree) => {
+              const isSelected = data.degreeType === degree;
+              return (
+                <TouchableOpacity
+                  key={degree}
+                  onPress={() => {
+                    update({ degreeType: degree });
+                    setError(null);
+                  }}
+                  style={[
+                    styles.pill,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      { color: colors.text },
+                      isSelected && styles.pillTextActive,
+                    ]}
+                  >
+                    {degree}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Graduation Year (Required) */}
+        <View style={styles.fieldContainer}>
+          <Text style={[styles.label, { color: colors.text }]}>Graduation Year</Text>
           <TextInput
             ref={graduationYearRef}
             value={data.graduationYear ?? ''}
@@ -302,9 +380,6 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
             returnKeyType="done"
             maxLength={4}
           />
-          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-            Year you graduated from NJIT
-          </Text>
         </View>
 
         </ScrollView>
@@ -451,6 +526,24 @@ const styles = StyleSheet.create({
   selectInputText: {
     fontSize: 16,
     flex: 1,
+  },
+  pillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  pill: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+  },
+  pillText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  pillTextActive: {
+    color: '#FFFFFF',
   },
   nextButton: {
     borderRadius: RADIUS.lg,
