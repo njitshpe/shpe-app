@@ -149,6 +149,20 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [session, isLoading, segments, user, profile]);
 >>>>>>> a364ee2 (fix: infinite redirect loop in auth guard from onboarding screens)
 
+  // 2. POINTS LISTENER (Notification logic is now in Context)
+  useEffect(() => {
+    if (!isLoading && session) {
+      // Start listening for events to award points
+      pointsListener.start();
+    } else if (!session) {
+      pointsListener.stop();
+    }
+
+    return () => {
+      pointsListener.stop();
+    };
+  }, [session, isLoading]);
+
   // Loading State
   if (isLoading) {
     return (
