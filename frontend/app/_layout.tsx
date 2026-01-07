@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Slot, useSegments, useRouter } from 'expo-router';
 
@@ -19,12 +19,12 @@ import { pointsListener } from '@/services/pointsListener.service';
  * Handles redirects based on authentication state
  */
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, isBootstrapping, user, profile } = useAuth();
+  const { session, isLoading, user, profile } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   React.useEffect(() => {
-    if (isLoading || isBootstrapping) return;
+    if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
@@ -36,6 +36,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     const userType = user?.user_metadata?.user_type;
     const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
 
+    console.log('[AuthGuard] Debug:', {
+      hasSession: !!session,
+      inAuthGroup,
+      inApp,
+      segment: segments[0],
+      onboardingCompleted,
+      userType
+    });
+
     // Rule 1: No session → redirect to login
     if (!session && !inAuthGroup) {
       router.replace('/login');
@@ -43,7 +52,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Rule 2: Has session but NO profile + no user_type → must select role first
-    if (session && !profile && !userType && !inRoleSelection) {
+    // FIX: Only force role selection if onboarding is NOT complete.
+    if (session && !profile && !userType && !inRoleSelection && !onboardingCompleted) {
       router.replace('/role-selection');
       return;
     }
@@ -84,10 +94,21 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Rule 5: Has session + onboarding completed → should be in app
-    if (session && onboardingCompleted && (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection)) {
-      router.replace('/home');
+    // FIX: Ensure we don't redirect if we are already in the app/tabs
+    if (session && onboardingCompleted) {
+      if (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection) {
+        router.replace('/home');
+        return;
+      }
+      // If we are not in app (e.g. root), go to home
+      if (!inApp) {
+        router.replace('/home');
+        return;
+      }
+      // If we are already in (app)/(tabs), do nothing.
       return;
     }
+<<<<<<< HEAD
 
     // Rule 6: Session + onboarding completed + not in app → go home
     if (session && onboardingCompleted && !inApp) {
@@ -124,9 +145,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       pointsListener.stop();
     };
   }, [session, isLoading]);
+=======
+  }, [session, isLoading, segments, user, profile]);
+>>>>>>> a364ee2 (fix: infinite redirect loop in auth guard from onboarding screens)
 
   // Loading State
-  if (isLoading || isBootstrapping) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
         <ActivityIndicator size="large" color="#D35400" />
@@ -140,12 +164,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 /**
  * Root Layout
  * Wraps the app with all necessary providers
- * EventsProvider is at the top level so it's always available
+ * ThemeProvide  is at the top level so it prevents crashing.
  */
 export default function RootLayout() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
+    <ThemeProvider>
+      <ErrorBoundary>
         <AuthProvider>
           <NotificationProvider>
             <EventsProvider>
@@ -155,7 +179,7 @@ export default function RootLayout() {
             </EventsProvider>
           </NotificationProvider>
         </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
