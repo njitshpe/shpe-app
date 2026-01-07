@@ -14,6 +14,7 @@ import {
 import { MotiView } from 'moti';
 import { z } from 'zod';
 import * as Notifications from 'expo-notifications';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const connectionSchema = z.object({
   phoneNumber: z
@@ -40,6 +41,7 @@ interface ConnectionStepProps {
 export default function ConnectionStep({ data, update, onNext, onBack }: ConnectionStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
   const [showPermissionPrime, setShowPermissionPrime] = useState(false);
 
@@ -129,16 +131,17 @@ export default function ConnectionStep({ data, update, onNext, onBack }: Connect
   };
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -216,16 +219,6 @@ export default function ConnectionStep({ data, update, onNext, onBack }: Connect
           </TouchableOpacity>
         </View>
 
-        {/* Navigation Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleNext} style={styles.finishButton}>
-            <Text style={styles.finishButtonText}>Complete & Launch 🚀</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Completion Message */}
         <Text style={[styles.completionText, { color: colors.textSecondary }]}>
           You're one step away from unlocking exclusive opportunities.
@@ -262,12 +255,28 @@ export default function ConnectionStep({ data, update, onNext, onBack }: Connect
           </View>
         )}
         </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Navigation Buttons - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || 16 }]}>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleNext} style={styles.finishButton}>
+            <Text style={styles.finishButtonText}>Complete & Launch 🚀</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -282,6 +291,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 16,
+  },
+  buttonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    backgroundColor: 'transparent',
   },
   header: {
     marginBottom: 24,
@@ -416,7 +431,6 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 8,
   },
   backButton: {
     flex: 1,

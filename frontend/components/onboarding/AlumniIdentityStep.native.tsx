@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Image,
@@ -14,30 +13,26 @@ import {
   useColorScheme,
 } from 'react-native';
 import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
-
-const MAJORS = [
-  'Mechanical Engineering',
-  'Computer Science',
-  'Civil Engineering',
-  'Biomedical Engineering',
-  'Electrical Engineering',
-  'Chemical Engineering',
-  'Industrial Engineering',
-  'Computer Engineering',
-  'Information Systems',
-  'Data Science',
-  'Business Administration',
-  'Architecture',
-  'Mathematics',
-  'Other',
-];
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SearchableSelectionModal from '../shared/SearchableSelectionModal';
+import { NJIT_MAJORS } from '@/constants/majors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
 
 const identitySchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
-  major: z.string().optional(),
+  major: z
+    .string()
+    .trim()
+    .refine(
+      (value) =>
+        NJIT_MAJORS.includes(value as any),
+      { message: 'Select a major from the list' }
+    ),
   graduationYear: z
     .string()
     .optional()
@@ -68,14 +63,13 @@ interface AlumniIdentityStepProps {
 export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdentityStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
 
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
-  const majorRef = useRef<TextInput>(null);
   const graduationYearRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const [majorQuery, setMajorQuery] = useState(data.major ?? '');
-  const [isMajorOpen, setIsMajorOpen] = useState(false);
+  const [isMajorModalVisible, setIsMajorModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,33 +77,9 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
     setTimeout(() => firstNameRef.current?.focus(), 100);
   }, []);
 
-  useEffect(() => {
-    setMajorQuery(data.major ?? '');
-  }, [data.major]);
-
-  const filteredMajors = useMemo(() => {
-    const query = majorQuery.trim().toLowerCase();
-    if (!query) {
-      return MAJORS;
-    }
-    return MAJORS.filter((major) => major.toLowerCase().includes(query));
-  }, [majorQuery]);
-
-  const handleMajorChange = (value: string) => {
-    setMajorQuery(value);
-    const matchedMajor = MAJORS.find(
-      (major) => major.toLowerCase() === value.trim().toLowerCase()
-    );
-    update({ major: matchedMajor ?? value });
-    setError(null);
-  };
-
   const handleMajorSelect = (major: string) => {
-    setMajorQuery(major);
     update({ major });
-    setIsMajorOpen(false);
     setError(null);
-    Keyboard.dismiss();
   };
 
   const handlePickProfilePhoto = async () => {
@@ -193,13 +163,8 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
 
   const isNextDisabled =
     !data.firstName?.trim() ||
-    !data.lastName?.trim();
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
+    !data.lastName?.trim() ||
+    !data.major?.trim();
 
   // Dynamic colors based on theme
   const colors = {
@@ -208,23 +173,24 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
     text: isDark ? '#F5F8FF' : '#0B1630',
     textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
     border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
-    borderGlow: isDark ? '#14B8A6' : '#0D9488',
-    primary: '#0D9488',
+    borderGlow: SHPE_COLORS.accentBlueBright,
+    primary: SHPE_COLORS.accentBlueBright,
     error: '#DC2626',
   };
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          style={styles.keyboardView}
+        >
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
@@ -283,73 +249,37 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
               placeholder="Last Name"
               placeholderTextColor={colors.textSecondary}
               style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              returnKeyType="next"
-              onSubmitEditing={() => majorRef.current?.focus()}
+              returnKeyType="done"
               blurOnSubmit={false}
             />
           </View>
         </View>
 
-        {/* Major Input (Optional) */}
+        {/* Major Selection */}
         <View style={styles.fieldContainer}>
-          <Text style={[styles.label, { color: colors.text }]}>
-            Major <Text style={[styles.optional, { color: colors.textSecondary }]}>(optional)</Text>
-          </Text>
-          <TextInput
-            ref={majorRef}
-            value={majorQuery}
-            onChangeText={handleMajorChange}
-            onFocus={() => {
-              setIsMajorOpen(true);
-              scrollToBottom();
-            }}
-            onBlur={() => setTimeout(() => setIsMajorOpen(false), 150)}
-            placeholder="What did you study?"
-            placeholderTextColor={colors.textSecondary}
-            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-            returnKeyType="done"
-          />
-          {isMajorOpen && (
-            <View style={[styles.dropdown, { backgroundColor: colors.surface, borderColor: colors.borderGlow }]}>
-              <ScrollView
-                style={styles.dropdownScroll}
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-              >
-                {filteredMajors.length === 0 ? (
-                  <Text style={[styles.dropdownEmpty, { color: colors.textSecondary }]}>No matches found.</Text>
-                ) : (
-                  filteredMajors.map((major) => (
-                    <TouchableOpacity
-                      key={major}
-                      onPress={() => handleMajorSelect(major)}
-                      style={[
-                        styles.dropdownItem,
-                        data.major === major && styles.dropdownItemSelected,
-                      ]}
-                    >
-                      <MotiView
-                        from={{ opacity: 0.5, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: 'timing', duration: 150 }}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownItemText,
-                            { color: colors.text },
-                            data.major === major && styles.dropdownItemTextSelected,
-                          ]}
-                        >
-                          {major}
-                        </Text>
-                      </MotiView>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </ScrollView>
-            </View>
-          )}
+          <Text style={[styles.label, { color: colors.text }]}>Major</Text>
+          <TouchableOpacity
+            onPress={() => setIsMajorModalVisible(true)}
+            style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Text style={[styles.selectInputText, { color: data.major ? colors.text : colors.textSecondary }]}>
+              {data.major || 'Select your major'}
+            </Text>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
+
+        {/* Major Selection Modal */}
+        <SearchableSelectionModal
+          visible={isMajorModalVisible}
+          onClose={() => setIsMajorModalVisible(false)}
+          onSelect={handleMajorSelect}
+          options={NJIT_MAJORS}
+          selectedValue={data.major}
+          title="Select Your Major"
+          placeholder="Search majors (e.g., Comp Sci)"
+          emptyMessage="No majors found"
+        />
 
         {/* Graduation Year (Optional) */}
         <View style={styles.fieldContainer}>
@@ -365,7 +295,6 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
               update({ graduationYear: cleaned });
               setError(null);
             }}
-            onFocus={scrollToBottom}
             placeholder="e.g., 2015"
             placeholderTextColor={colors.textSecondary}
             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
@@ -378,21 +307,36 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
           </Text>
         </View>
 
-        {/* Next Button */}
+        </ScrollView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
           onPress={handleNext}
           disabled={isNextDisabled}
-          style={[styles.nextButton, { backgroundColor: colors.primary }, isNextDisabled && styles.nextButtonDisabled]}
+          activeOpacity={0.8}
+          style={styles.buttonWrapper}
         >
-          <Text style={styles.nextButtonText}>Next</Text>
+          <LinearGradient
+            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
+            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+          </LinearGradient>
         </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -407,8 +351,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 16,
     flexGrow: 1,
+  },
+  buttonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
+  },
+  buttonWrapper: {
+    width: '100%',
   },
   photoContainer: {
     alignItems: 'center',
@@ -423,6 +375,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 3,
+    borderColor: SHPE_COLORS.accentBlueBright,
   },
   photoPlaceholder: {
     width: 120,
@@ -466,10 +419,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
     fontSize: 16,
   },
   fieldContainer: {
@@ -480,57 +434,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 8,
   },
-  optional: {
-    fontWeight: '400',
-    fontSize: 12,
-  },
   helperText: {
     fontSize: 12,
     marginTop: 4,
   },
-  dropdown: {
-    position: 'absolute',
-    top: 72,
-    left: 0,
-    right: 0,
-    maxHeight: 192,
-    borderWidth: 1,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 1000,
+  selectInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
   },
-  dropdownScroll: {
-    maxHeight: 192,
-  },
-  dropdownEmpty: {
-    padding: 12,
-    fontSize: 14,
-  },
-  dropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  dropdownItemSelected: {
-    backgroundColor: '#D1FAE5',
-  },
-  dropdownItemText: {
-    fontSize: 14,
-  },
-  dropdownItemTextSelected: {
-    color: '#065F46',
+  selectInputText: {
+    fontSize: 16,
+    flex: 1,
   },
   nextButton: {
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    minHeight: 52,
     alignItems: 'center',
-    marginTop: 8,
-  },
-  nextButtonDisabled: {
-    opacity: 0.5,
+    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,
