@@ -7,14 +7,32 @@ class ProfileService {
     // Get user profile by user ID
     async getProfile(userId: string): Promise<ServiceResponse<UserProfile>> {
         try {
+            if (__DEV__) {
+                console.log('[ProfileService] Fetching profile for user:', userId);
+            }
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle(); // Use maybeSingle() instead of single() to handle missing profiles gracefully
+
+            if (__DEV__) {
+                console.log('[ProfileService] Profile fetch result:', { hasData: !!data, error: error?.message });
+            }
+
+            // If no profile exists (data is null and no error), return success with null data
+            if (!data && !error) {
+                return {
+                    success: true,
+                    data: null as any, // Profile doesn't exist yet (e.g., during onboarding)
+                };
+            }
 
             return handleSupabaseError(data, error);
         } catch (error) {
+            if (__DEV__) {
+                console.error('[ProfileService] Exception in getProfile:', error);
+            }
             return {
                 success: false,
                 error: createError(
