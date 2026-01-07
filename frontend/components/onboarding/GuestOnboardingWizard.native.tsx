@@ -13,6 +13,8 @@ import IdentityStep from './IdentityStep.native';
 import GuestAffiliationStep from './GuestAffiliationStep.native';
 import InterestsStep from './InterestsStep.native';
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 // Guest-specific FormData interface
 interface GuestOnboardingFormData {
   // Step 1: Identity (reuse existing)
@@ -43,7 +45,7 @@ export default function GuestOnboardingWizard() {
     firstName: '',
     lastName: '',
     major: '', // Role/Major from affiliation step
-    graduationYear: '2025', // Dummy value for guests
+    graduationYear: String(CURRENT_YEAR), // Dummy value for guests
     profilePhoto: null,
     // Step 2
     interests: [],

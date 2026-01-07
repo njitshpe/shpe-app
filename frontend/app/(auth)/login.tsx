@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -13,12 +13,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthInput, ForgotPasswordModal } from '@/components/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
@@ -61,6 +62,12 @@ export default function LoginScreen() {
             socialBorder: 'rgba(11, 22, 48, 0.12)',
             link: '#2D4E9D',
         };
+
+    useEffect(() => {
+        if (typeof emailParam === 'string' && emailParam.trim().length > 0) {
+            setEmail(emailParam);
+        }
+    }, [emailParam]);
 
     const handleLogin = async () => {
         if (!email || !password) {
