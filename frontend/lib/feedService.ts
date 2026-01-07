@@ -20,7 +20,7 @@ export async function fetchFeedPosts(
             .select(`
         *,
         author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
-        event:events(id, name)
+        event:events(id, event_id, name)
       `)
             .eq('is_active', true)
             .order('created_at', { ascending: false })

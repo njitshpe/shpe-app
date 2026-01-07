@@ -34,7 +34,7 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
 
     const handleEventPress = () => {
         if (post.event) {
-            router.push(`/event/${post.event.id}`);
+            router.push(`/event/${post.event.publicId || post.event.id}`);
         }
     };
 
