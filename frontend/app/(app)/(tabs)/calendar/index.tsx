@@ -12,21 +12,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '@/contexts/EventsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EventsFeed } from '@/components/events/EventsFeed';
-import { CalendarSheet } from '@/components/calendar';
+import { CalendarView } from '@/components/calendar';
+
+type ViewMode = 'calendar' | 'feed';
 
 export default function EventsScreen() {
     const { events, isLoading, error, refetchEvents } = useEvents();
     const { theme } = useTheme();
     const router = useRouter();
-    const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>('calendar');
     const [selectedDate, setSelectedDate] = useState(new Date());
 
     const handleQRScanPress = () => {
         router.push('/check-in');
     };
 
-    const handleCalendarToggle = () => {
-        setIsCalendarVisible(!isCalendarVisible);
+    const toggleViewMode = () => {
+        setViewMode((prev) => (prev === 'calendar' ? 'feed' : 'calendar'));
     };
 
     const handleDateSelect = (date: Date) => {
@@ -39,11 +41,15 @@ export default function EventsScreen() {
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <Text style={[styles.headerTitle, { color: theme.text }]}>Events</Text>
                 <Pressable
-                    onPress={handleCalendarToggle}
+                    onPress={toggleViewMode}
                     style={styles.calendarButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    <Ionicons name="calendar-outline" size={24} color={theme.text} />
+                    <Ionicons
+                        name={viewMode === 'calendar' ? 'list-outline' : 'calendar-outline'}
+                        size={24}
+                        color={theme.text}
+                    />
                 </Pressable>
             </View>
 
@@ -60,11 +66,21 @@ export default function EventsScreen() {
                     <Text style={[styles.errorSubtext, { color: theme.subtext }]}>{error}</Text>
                 </View>
             ) : (
-                <EventsFeed
-                    events={events}
-                    isRefreshing={isLoading}
-                    onRefresh={refetchEvents}
-                />
+                <>
+                    {viewMode === 'feed' ? (
+                        <EventsFeed
+                            events={events}
+                            isRefreshing={isLoading}
+                            onRefresh={refetchEvents}
+                        />
+                    ) : (
+                        <CalendarView
+                            events={events}
+                            selectedDate={selectedDate}
+                            onDateSelect={handleDateSelect}
+                        />
+                    )}
+                </>
             )}
 
             {/* QR Scanner FAB */}
@@ -74,15 +90,6 @@ export default function EventsScreen() {
             >
                 <Ionicons name="qr-code-outline" size={28} color={theme.fabIcon} />
             </Pressable>
-
-            {/* Calendar Sheet Modal */}
-            <CalendarSheet
-                visible={isCalendarVisible}
-                onClose={() => setIsCalendarVisible(false)}
-                events={events}
-                selectedDate={selectedDate}
-                onDateSelect={handleDateSelect}
-            />
         </SafeAreaView>
     );
 }

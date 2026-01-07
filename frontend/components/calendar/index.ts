@@ -12,3 +12,4 @@ export { EventsSheet } from './EventsSheet';
 export { WeeklyEventGrid } from './WeeklyEventGrid';
 export { PastEventsList } from './PastEventsList';
 export { CalendarSheet } from './CalendarSheet';
+export { CalendarView } from './CalendarView';
