@@ -9,6 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
 import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from '@/components/events/CompactEventCard';
+import { rankService, UserRankData, RankActionType } from '@/services/rank.service';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -17,6 +18,37 @@ export default function HomeScreen() {
     const { events } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
+    const [rankData, setRankData] = useState<UserRankData | null>(null);
+
+    React.useEffect(() => {
+        loadRank();
+    }, []);
+
+    const loadRank = async () => {
+        const response = await rankService.getMyRank();
+        if (response.success && response.data) {
+            setRankData(response.data);
+        }
+    };
+
+    const handleAwardPoints = async (action: RankActionType) => {
+        try {
+            const response = await rankService.awardForAction(action, {
+                event_id: relevantEvent?.id // simple fallback
+            });
+            if (response.success && response.data) {
+                Alert.alert('Success', `Awarded! New Balance: ${response.data.newBalance}`);
+                setRankData({
+                    rank_points: response.data.newBalance,
+                    rank: response.data.rank
+                });
+            } else {
+                Alert.alert('Error', response.error?.message || 'Failed to award');
+            }
+        } catch (e: any) {
+            Alert.alert('Error', e.message);
+        }
+    };
 
     // Determine relevant event to show
     const relevantEvent = ongoingEvents.length > 0
@@ -121,6 +153,31 @@ export default function HomeScreen() {
                                     <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
                                 </TouchableOpacity>
                             </View>
+
+                            <Text style={[styles.debugTitle, { marginTop: 16 }]}>Points System</Text>
+                            <Text style={[styles.debugText, dynamicStyles.text]}>
+                                Rank: {rankData?.rank || '...'} ({rankData?.rank_points || 0} pts)
+                            </Text>
+                            <View style={styles.debugActions}>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={() => handleAwardPoints('attendance')}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Attend (10)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={() => handleAwardPoints('rsvp')}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP (3)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={loadRank}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     )}
 
@@ -143,7 +200,7 @@ export default function HomeScreen() {
                 <Ionicons name="log-out-outline" size={20} color={theme.subtext} />
                 <Text style={[styles.signOutText, dynamicStyles.subtext]}>Sign Out</Text>
             </TouchableOpacity>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
