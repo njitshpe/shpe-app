@@ -28,7 +28,6 @@ export async function fetchFeedPosts(
             .range(page * limit, (page + 1) * limit - 1);
 
         if (error) {
-            console.error('Feed fetch error:', error);
             return { success: false, error: mapSupabaseError(error) };
         }
 
@@ -140,9 +139,7 @@ export async function fetchUserPosts(
     }
 }
 
-/**
- * Creates a new feed post
- */
+// Creates a new feed post
 export async function createPost(
     request: CreatePostRequest
 ): Promise<ServiceResponse<FeedPostUI>> {
@@ -231,9 +228,7 @@ export async function createPost(
     }
 }
 
-/**
- * Deletes a post (soft delete)
- */
+// Deletes a post (hard delete)
 export async function deletePost(postId: string): Promise<ServiceResponse<void>> {
     try {
         const user = (await supabase.auth.getUser()).data.user;
@@ -482,9 +477,7 @@ export async function createComment(
     }
 }
 
-/**
- * Deletes a comment (soft delete)
- */
+// Deletes a comment (soft delete)
 export async function deleteComment(commentId: string): Promise<ServiceResponse<void>> {
     try {
         const user = (await supabase.auth.getUser()).data.user;
@@ -522,9 +515,7 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
     }
 }
 
-/**
- * Compresses and uploads images to Supabase Storage
- */
+// Compresses and uploads images to Supabase Storage
 async function uploadImages(userId: string, imageUris: string[]): Promise<string[]> {
     if (imageUris.length === 0) return [];
 
@@ -578,9 +569,7 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
     }
 }
 
-/**
- * Compresses an image using expo-image-manipulator
- */
+// Compresses an image using expo-image-manipulator
 async function compressImage(uri: string): Promise<string> {
     const result = await ImageManipulator.manipulateAsync(
         uri,
@@ -593,9 +582,7 @@ async function compressImage(uri: string): Promise<string> {
     return result.uri;
 }
 
-/**
- * Updates a post
- */
+// Updates a post
 export async function updatePost(
     postId: string,
     content: string,
@@ -670,4 +657,3 @@ export async function updatePost(
         };
     }
 }
-
