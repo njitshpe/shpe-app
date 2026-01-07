@@ -90,10 +90,9 @@ class RankService {
         return user.id;
       }
     } catch (error) {
-      console.log('Auth not available, using stub user ID');
+      console.log('Auth check failed:', error);
     }
-    // Stub user for development - remove in production
-    return 'dev-user-001';
+    return null;
   }
 
   /**
@@ -150,7 +149,7 @@ class RankService {
             data.error || 'Failed to award points.',
             (data.code as any) || 'RANK_UPDATE_FAILED',
             undefined,
-            data.error
+            data.debug || data.error
           ),
         };
       }
