@@ -8,6 +8,7 @@ import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
+import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile } = useAuth();
@@ -21,6 +22,7 @@ export default function ProfileScreen() {
     }, [user, profile]);
 
     const [showEditProfile, setShowEditProfile] = useState(false);
+    const [showResumeViewer, setShowResumeViewer] = useState(false);
 
     // --- SECURE RESUME HOOK ---
     // This converts the storage path (e.g. "123/resume.pdf") into a viewable link
@@ -53,7 +55,7 @@ export default function ProfileScreen() {
         return profile.affiliation || "Member";
     };
 
-    const handleOpenResume = async () => {
+    const handleOpenResume = () => {
         if (!signedUrl) {
             if (resumeLoading) {
                 Alert.alert("Please wait", "Secure link is generating...");
@@ -63,16 +65,8 @@ export default function ProfileScreen() {
             return;
         }
 
-        try {
-            const supported = await Linking.canOpenURL(signedUrl);
-            if (supported) {
-                await Linking.openURL(signedUrl);
-            } else {
-                Alert.alert("Error", "Cannot open this file type on this device.");
-            }
-        } catch (err) {
-            Alert.alert("Error", "Something went wrong trying to open the resume.");
-        }
+        // Open the in-app PDF viewer modal
+        setShowResumeViewer(true);
     };
 
     // Check if resume is an image (for preview rendering)
@@ -220,6 +214,15 @@ export default function ProfileScreen() {
                     </View>
                 )}
             </Modal>
+
+            {/* Resume Viewer Modal */}
+            {signedUrl && (
+                <ResumeViewerModal
+                    visible={showResumeViewer}
+                    onClose={() => setShowResumeViewer(false)}
+                    resumeUrl={signedUrl}
+                />
+            )}
         </SafeAreaView>
     );
 }
