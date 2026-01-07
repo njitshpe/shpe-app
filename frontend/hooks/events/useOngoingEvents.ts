@@ -23,6 +23,9 @@ export function useOngoingEvents(events: Event[]): UseOngoingEventsResult {
             const startTime = new Date(event.startTimeISO);
             const endTime = new Date(event.endTimeISO);
 
+            // Skip invalid dates
+            if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return;
+
             // Check if event is currently happening
             if (isWithinInterval(now, { start: startTime, end: endTime })) {
                 ongoing.push(event);
