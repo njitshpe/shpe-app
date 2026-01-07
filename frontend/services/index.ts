@@ -15,3 +15,8 @@ export type {
   UserRankData,
   PhotoType,
 } from './rank.service';
+
+// Event-driven points system
+export { eventBus } from './eventBus.service';
+export { pointsListener } from './pointsListener.service';
+export type { ActionType, ActionEvent } from './eventBus.service';
