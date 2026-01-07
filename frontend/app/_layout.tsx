@@ -9,6 +9,11 @@ import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/shared';
 
+// Services
+import { eventNotificationHelper } from '@/services/eventNotification.helper';
+import { notificationService } from '@/services/notification.service';
+import { pointsListener } from '@/services/pointsListener.service';
+
 /**
  * Auth Guard Component
  * Handles redirects based on authentication state
@@ -90,6 +95,35 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
   }, [session, isLoading, isBootstrapping, segments, user, profile]);
+    }
+  }, [session, isLoading, segments, user]);
+
+  // 2. NOTIFICATION SETUP & POINTS LISTENER
+  useEffect(() => {
+    if (!isLoading && session) {
+      // --- USER IS LOGGED IN ---
+      
+      // A. Start the "Walkie-Talkie" (In-App updates via Supabase Realtime)
+      eventNotificationHelper.startListening();
+
+      // B. Save the "Address" (Push Token) to Supabase for background alerts
+      notificationService.registerForPushNotificationsAsync();
+
+      // C. Start listening for events to award points
+      pointsListener.start();
+
+    } else if (!session) {
+      // --- USER LOGGED OUT ---
+      eventNotificationHelper.stopListening();
+      pointsListener.stop();
+    }
+
+    // Cleanup when component unmounts
+    return () => {
+      eventNotificationHelper.stopListening();
+      pointsListener.stop();
+    };
+  }, [session, isLoading]);
 
   // Loading State
   if (isLoading || isBootstrapping) {
