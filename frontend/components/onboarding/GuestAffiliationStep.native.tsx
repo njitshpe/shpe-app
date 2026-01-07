@@ -13,6 +13,7 @@ import {
 import { MotiView } from 'moti';
 import { z } from 'zod';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchableSelectionModal from '../shared/SearchableSelectionModal';
 import { UNIVERSITIES } from '@/constants/universities';
 
@@ -41,6 +42,7 @@ export default function GuestAffiliationStep({
 }: GuestAffiliationStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const insets = useSafeAreaInsets();
 
   const majorRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -89,17 +91,18 @@ export default function GuestAffiliationStep({
   };
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          style={styles.keyboardView}
+        >
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
@@ -182,27 +185,32 @@ export default function GuestAffiliationStep({
             </Text>
           </View>
 
-          {/* Navigation Buttons */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              onPress={handleNext}
-              disabled={isNextDisabled}
-              style={[
-                styles.nextButton,
-                { backgroundColor: colors.primary },
-                isNextDisabled && styles.nextButtonDisabled,
-              ]}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || 16 }]}>
+        <TouchableOpacity
+          onPress={handleNext}
+          disabled={isNextDisabled}
+          style={[
+            styles.nextButton,
+            { backgroundColor: colors.primary },
+            isNextDisabled && styles.nextButtonDisabled,
+          ]}
+        >
+          <Text style={styles.nextButtonText}>Next</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -217,8 +225,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 16,
     flexGrow: 1,
+  },
+  buttonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    backgroundColor: 'transparent',
   },
   headerRow: {
     flexDirection: 'row',
@@ -297,12 +310,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
   nextButton: {
-    flex: 1,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',

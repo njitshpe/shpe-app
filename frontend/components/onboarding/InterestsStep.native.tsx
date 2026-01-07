@@ -17,6 +17,7 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as Notifications from 'expo-notifications';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
 
@@ -58,6 +59,7 @@ interface InterestsStepProps {
 
 export default function InterestsStep({ data, update, onNext, onBack }: InterestsStepProps) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
   const [maxLimitWarning, setMaxLimitWarning] = useState(false);
   const [focusedInput, setFocusedInput] = useState(false);
@@ -150,16 +152,17 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
   const isNextDisabled = !data.interests || data.interests.length === 0;
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -291,30 +294,36 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
             </Text>
           </View>
 
-          {/* Navigation Buttons */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              onPress={handleNext}
-              disabled={isNextDisabled}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
-                style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.nextButtonText}>Next</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
+        <TouchableOpacity
+          onPress={handleNext}
+          disabled={isNextDisabled}
+          activeOpacity={0.8}
+          style={styles.buttonWrapper}
+        >
+          <LinearGradient
+            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
+            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -329,6 +338,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  buttonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
+  },
+  buttonWrapper: {
+    width: '100%',
   },
   headerRow: {
     flexDirection: 'row',
@@ -403,12 +421,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: SPACING.sm,
-  },
   nextButton: {
-    flex: 1,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
     minHeight: 52,

@@ -68,7 +68,7 @@ export interface ThemeColors {
 export const lightTheme: ThemeColors = {
     primary: SHPE_COLORS.sunsetOrange,
     background: '#F7FAFF', // Soft airy blue (light mode)
-    card: 'rgba(255, 255, 255, 0.75)', // Glass surface
+    card: 'rgba(255, 255, 255, 1)', // Glass surface
     text: '#0B1630',
     subtext: 'rgba(22, 39, 74, 0.75)',
     border: 'rgba(11, 22, 48, 0.12)',
@@ -86,8 +86,8 @@ export const lightTheme: ThemeColors = {
 
 export const darkTheme: ThemeColors = {
     primary: SHPE_COLORS.sunsetOrange,
-    background: '#001339', // Deeper midnight navy (dark mode)
-    card: 'rgba(255, 255, 255, 0.08)', // Glass surface
+    background: '#001339ff', // Deeper midnight navy (dark mode)
+    card: 'rgba(0, 19, 57, 1)', // Glass surface
     text: '#F5F8FF',
     subtext: 'rgba(229, 239, 255, 0.85)', // Soft white at 85% opacity
     border: 'rgba(255, 255, 255, 0.18)', // Subtle glass border
