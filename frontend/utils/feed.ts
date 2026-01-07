@@ -24,7 +24,10 @@ export function mapFeedPostDBToUI(db: any): FeedPostUI {
         commentCount: db.comment_count || 0,
         isLikedByCurrentUser: db.is_liked_by_current_user || false,
         taggedUsers: [],
-        event: undefined,
+        event: db.event ? {
+            id: db.event.id,
+            name: db.event.name,
+        } : undefined,
     };
 }
 
