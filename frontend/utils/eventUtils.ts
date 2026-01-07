@@ -5,7 +5,7 @@ import { SHPE_COLORS, NEON_COLORS } from '@/constants/colors';
 export const EVENT_GRADIENTS = {
     social: ['transparent', 'rgba(255, 95, 5, 0.4)', 'rgba(255, 95, 5, 0.95)'], // SHPE Orange
     workshop: ['transparent', 'rgba(0, 163, 224, 0.4)', 'rgba(0, 163, 224, 0.95)'], // SHPE Light Blue
-    general: ['transparent', 'rgba(0, 40, 85, 0.4)', 'rgba(0, 40, 85, 0.95)'], // SHPE Dark Blue
+    general: ['transparent', 'rgba(0, 122, 255, 0.4)', 'rgba(0, 122, 255, 0.95)'], // System Blue (Brighter for Dark Mode)
     corporate: ['transparent', 'rgba(103, 58, 183, 0.4)', 'rgba(103, 58, 183, 0.95)'], // Purple
     default: ['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.9)'], // Standard Dark
 };
