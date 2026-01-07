@@ -15,6 +15,7 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as DocumentPicker from 'expo-document-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
 import ResumePreview from '@/components/shared/ResumePreview';
@@ -48,6 +49,7 @@ interface AssetsStepProps {
 
 export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepProps) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
@@ -109,16 +111,17 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
   };
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -268,26 +271,31 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
           />
         </View>
 
-        {/* Navigation Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
-            <LinearGradient
-              colors={GRADIENTS.accentButton}
-              style={styles.nextButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
+        <TouchableOpacity onPress={handleNext} activeOpacity={0.8} style={styles.buttonWrapper}>
+          <LinearGradient
+            colors={GRADIENTS.accentButton}
+            style={styles.nextButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -302,6 +310,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  buttonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
+  },
+  buttonWrapper: {
+    width: '100%',
   },
   topRow: {
     flexDirection: 'row',
@@ -422,12 +439,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 100,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: SPACING.sm,
-  },
   nextButton: {
-    flex: 1,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
     minHeight: 52,
