@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import * as Notifications from 'expo-notifications';
 import { notificationService } from '../services/notification.service';
+import { eventNotificationHelper } from '../services/eventNotification.helper';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type {
@@ -29,7 +30,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
 };
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, session, isLoading: authLoading } = useAuth();
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermissionStatus>({
     granted: false,
@@ -62,6 +63,30 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setPreferences(DEFAULT_PREFERENCES);
     }
   }, [user]);
+
+  // Manage Real-time Notifications & Push Tokens
+  useEffect(() => {
+    if (!authLoading && session) {
+      // --- USER IS LOGGED IN ---
+
+      // A. Start the "Walkie-Talkie" (In-App updates via Supabase Realtime)
+      eventNotificationHelper.startListening();
+
+      // B. Save the "Address" (Push Token) to Supabase for background alerts
+      notificationService.registerForPushNotificationsAsync();
+
+    } else if (!session) {
+      // --- USER LOGGED OUT ---
+      eventNotificationHelper.stopListening();
+    }
+
+    // Cleanup when component unmounts
+    return () => {
+      eventNotificationHelper.stopListening();
+    };
+  }, [session, authLoading]);
+
+
 
   // Initialize notification system
   const initializeNotifications = async () => {
