@@ -24,7 +24,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  React.useEffect(() => {
+  useEffect(() => {
+    // Wait for auth to finish loading
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
@@ -65,7 +66,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Rule 3: Has session + user_type but NO profile → route to appropriate onboarding
-    if (session && !profile && userType) {
+    // BUT only if onboarding is NOT already completed
+    if (session && !profile && userType && !onboardingCompleted) {
       if (userType === 'student' && !inOnboarding) {
         replaceIfNeeded('/onboarding');
         return;
@@ -127,7 +129,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     };
   }, [session, isLoading]);
 
-  // Loading State
+  // Loading State - wait for auth to load
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
