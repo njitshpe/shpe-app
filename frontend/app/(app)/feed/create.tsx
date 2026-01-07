@@ -11,20 +11,58 @@ import {
     SafeAreaView,
     ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { useTheme } from '@/contexts/ThemeContext';
 import { usePost } from '@/hooks/feed';
 import { validatePostContent } from '@/utils/feed';
+import { SuccessToast } from '@/components/ui/SuccessToast';
+import { EventAutocomplete } from '@/components/feed';
+import { supabase } from '@/lib/supabase';
 
 export default function CreatePostScreen() {
     const { theme } = useTheme();
     const router = useRouter();
-    const { create, isCreating } = usePost();
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const { create, update, isCreating } = usePost();
 
     const [content, setContent] = useState('');
     const [imageUris, setImageUris] = useState<string[]>([]);
+    const [selectedEvent, setSelectedEvent] = useState<{ id: string; name: string } | null>(null);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [isLoadingPost, setIsLoadingPost] = useState(false);
+
+    React.useEffect(() => {
+        if (id) {
+            fetchPostDetails(id);
+        }
+    }, [id]);
+
+    const fetchPostDetails = async (postId: string) => {
+        setIsLoadingPost(true);
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select(`
+                content,
+                image_urls,
+                event:events(id, name)
+            `)
+            .eq('id', postId)
+            .single();
+
+        if (data) {
+            setContent(data.content);
+            setImageUris(data.image_urls || []);
+            if (data.event) {
+                // @ts-ignore
+                setSelectedEvent(data.event);
+            }
+        }
+        setIsLoadingPost(false);
+    };
 
     const handlePickImages = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -58,19 +96,39 @@ export default function CreatePostScreen() {
             return;
         }
 
-        const post = await create({
-            content,
-            imageUris,
-        });
-
-        if (post) {
-            Alert.alert('Success', 'Post created successfully!', [
-                {
-                    text: 'OK',
-                    onPress: () => router.back(),
-                },
-            ]);
+        let result;
+        if (id) {
+            result = await update(id, content, selectedEvent?.id);
+        } else {
+            result = await create({
+                content,
+                imageUris,
+                eventId: selectedEvent?.id,
+            });
         }
+
+        if (result) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await playSuccessSound();
+            setShowSuccess(true);
+        }
+    };
+
+    const playSuccessSound = async () => {
+        try {
+            const { sound } = await Audio.Sound.createAsync(
+                require('@/assets/sounds/success.mp3')
+            );
+            await sound.playAsync();
+        } catch (error) {
+            // Fallback to system sound if file missing, or just ignore
+            console.log('Error playing sound', error);
+        }
+    };
+
+    const handleSuccessHide = () => {
+        setShowSuccess(false);
+        router.back();
     };
 
     const canSubmit = content.trim().length > 0 && !isCreating;
@@ -82,7 +140,9 @@ export default function CreatePostScreen() {
                 <TouchableOpacity onPress={() => router.back()}>
                     <Ionicons name="close" size={28} color={theme.text} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>Create Post</Text>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>
+                    {id ? 'Edit Post' : 'Create Post'}
+                </Text>
                 <TouchableOpacity
                     onPress={handleSubmit}
                     disabled={!canSubmit}
@@ -94,64 +154,86 @@ export default function CreatePostScreen() {
                     {isCreating ? (
                         <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                        <Text style={styles.postButtonText}>Post</Text>
+                        <Text style={styles.postButtonText}>{id ? 'Update' : 'Post'}</Text>
                     )}
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                {/* Text Input */}
-                <TextInput
-                    style={[styles.input, { color: theme.text }]}
-                    placeholder="What's on your mind?"
-                    placeholderTextColor={theme.subtext}
-                    value={content}
-                    onChangeText={setContent}
-                    multiline
-                    maxLength={5000}
-                    autoFocus
-                />
+            {isLoadingPost ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={theme.primary} />
+                </View>
+            ) : (
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={styles.contentContainer}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Event Tagging */}
+                    <EventAutocomplete
+                        onSelect={setSelectedEvent}
+                        initialEvent={selectedEvent}
+                    />
 
-                {/* Character Count */}
-                <Text style={[styles.charCount, { color: theme.subtext }]}>
-                    {content.length} / 5000
-                </Text>
+                    {/* Text Input */}
+                    <TextInput
+                        style={[styles.input, { color: theme.text }]}
+                        placeholder="What's on your mind?"
+                        placeholderTextColor={theme.subtext}
+                        value={content}
+                        onChangeText={setContent}
+                        multiline
+                        maxLength={5000}
+                        autoFocus
+                    />
 
-                {/* Image Preview */}
-                {imageUris.length > 0 && (
-                    <View style={styles.imagesContainer}>
-                        {imageUris.map((uri, index) => (
-                            <View key={index} style={styles.imageWrapper}>
-                                <Image source={{ uri }} style={styles.image} />
-                                <TouchableOpacity
-                                    style={[styles.removeButton, { backgroundColor: theme.error }]}
-                                    onPress={() => handleRemoveImage(index)}
-                                >
-                                    <Ionicons name="close" size={16} color="#FFFFFF" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                    </View>
-                )}
+                    {/* Character Count */}
+                    <Text style={[styles.charCount, { color: theme.subtext }]}>
+                        {content.length} / 5000
+                    </Text>
 
-                {/* Add Images Button */}
-                {imageUris.length < 5 && (
-                    <TouchableOpacity
-                        style={[styles.addButton, { borderColor: theme.border }]}
-                        onPress={handlePickImages}
-                    >
-                        <Ionicons name="image-outline" size={24} color={theme.primary} />
-                        <Text style={[styles.addButtonText, { color: theme.text }]}>
-                            Add Images ({imageUris.length}/5)
-                        </Text>
-                    </TouchableOpacity>
-                )}
+                    {/* Image Preview */}
+                    {imageUris.length > 0 && (
+                        <View style={styles.imagesContainer}>
+                            {imageUris.map((uri, index) => (
+                                <View key={index} style={styles.imageWrapper}>
+                                    <Image source={{ uri }} style={styles.image} />
+                                    <TouchableOpacity
+                                        style={[styles.removeButton, { backgroundColor: theme.error }]}
+                                        onPress={() => handleRemoveImage(index)}
+                                    >
+                                        <Ionicons name="close" size={16} color="#FFFFFF" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
-                {/* Info Text */}
-                <Text style={[styles.infoText, { color: theme.subtext }]}>
-                    Images will be compressed to optimize storage and loading times.
-                </Text>
-            </ScrollView>
+                    {/* Add Images Button */}
+                    {imageUris.length < 5 && (
+                        <TouchableOpacity
+                            style={[styles.addButton, { borderColor: theme.border }]}
+                            onPress={handlePickImages}
+                        >
+                            <Ionicons name="image-outline" size={24} color={theme.primary} />
+                            <Text style={[styles.addButtonText, { color: theme.text }]}>
+                                Add Images ({imageUris.length}/5)
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Info Text */}
+                    <Text style={[styles.infoText, { color: theme.subtext }]}>
+                        Images will be compressed to optimize storage and loading times.
+                    </Text>
+                </ScrollView>
+            )}
+
+            <SuccessToast
+                visible={showSuccess}
+                message={id ? "Post updated!" : "Posted successfully!"}
+                onHide={handleSuccessHide}
+            />
         </SafeAreaView>
     );
 }
@@ -247,5 +329,11 @@ const styles = StyleSheet.create({
         fontSize: 12,
         textAlign: 'center',
         fontStyle: 'italic',
+        marginBottom: 20,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

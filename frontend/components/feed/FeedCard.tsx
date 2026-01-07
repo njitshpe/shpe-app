@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActionSheetIOS, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLikes } from '@/hooks/feed';
 import { formatRelativeTime } from '@/utils/feed';
 import type { FeedPostUI } from '@/types/feed';
@@ -10,13 +12,16 @@ import type { FeedPostUI } from '@/types/feed';
 interface FeedCardProps {
     post: FeedPostUI;
     onDelete?: (postId: string) => void;
+    onEdit?: (post: FeedPostUI) => void;
     onCommentPress?: (postId: string) => void;
     compact?: boolean;
 }
 
-export function FeedCard({ post, onDelete, onCommentPress, compact = false }: FeedCardProps) {
-    const { theme } = useTheme();
+export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = false }: FeedCardProps) {
+    const { theme, isDark } = useTheme();
+    const { user } = useAuth();
     const router = useRouter();
+    const isAuthor = user?.id === post.userId;
     const { isLiked, likeCount, toggleLike } = useLikes(
         post.id,
         post.isLikedByCurrentUser,
@@ -30,6 +35,36 @@ export function FeedCard({ post, onDelete, onCommentPress, compact = false }: Fe
     const handleEventPress = () => {
         if (post.event) {
             router.push(`/event/${post.event.id}`);
+        }
+    };
+
+    const handleOptionsPress = () => {
+        if (Platform.OS === 'ios') {
+            ActionSheetIOS.showActionSheetWithOptions(
+                {
+                    options: ['Cancel', 'Edit Post', 'Delete Post'],
+                    destructiveButtonIndex: 2,
+                    cancelButtonIndex: 0,
+                    userInterfaceStyle: isDark ? 'dark' : 'light',
+                },
+                (buttonIndex) => {
+                    if (buttonIndex === 1) {
+                        onEdit?.(post);
+                    } else if (buttonIndex === 2) {
+                        handleDeletePress();
+                    }
+                }
+            );
+        } else {
+            Alert.alert(
+                'Post Options',
+                'Choose an action',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Edit', onPress: () => onEdit?.(post) },
+                    { text: 'Delete', onPress: handleDeletePress, style: 'destructive' },
+                ]
+            );
         }
     };
 
@@ -48,6 +83,11 @@ export function FeedCard({ post, onDelete, onCommentPress, compact = false }: Fe
         );
     };
 
+    const handleLike = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        toggleLike();
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
             {/* Header */}
@@ -64,18 +104,31 @@ export function FeedCard({ post, onDelete, onCommentPress, compact = false }: Fe
                         </View>
                     )}
                     <View>
-                        <Text style={[styles.authorName, { color: theme.text }]}>
-                            {post.author.firstName} {post.author.lastName}
-                        </Text>
+                        <View style={styles.nameContainer}>
+                            <Text style={[styles.authorName, { color: theme.text }]}>
+                                {post.author.firstName} {post.author.lastName}
+                            </Text>
+                            {post.event && (
+                                <View style={styles.headerEventTag}>
+                                    <View style={[styles.dot, { backgroundColor: theme.subtext }]} />
+                                    <Ionicons name="location-outline" size={12} color={theme.subtext} />
+                                    <TouchableOpacity onPress={handleEventPress}>
+                                        <Text style={[styles.headerEventText, { color: theme.subtext }]}>
+                                            {post.event.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
                         <Text style={[styles.timestamp, { color: theme.subtext }]}>
                             {formatRelativeTime(post.createdAt)}
                         </Text>
                     </View>
                 </TouchableOpacity>
 
-                {onDelete && (
-                    <TouchableOpacity onPress={handleDeletePress}>
-                        <Ionicons name="trash-outline" size={20} color={theme.error} />
+                {isAuthor && !compact && (
+                    <TouchableOpacity onPress={handleOptionsPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Ionicons name="ellipsis-horizontal" size={20} color={theme.subtext} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -111,16 +164,7 @@ export function FeedCard({ post, onDelete, onCommentPress, compact = false }: Fe
                 </View>
             )}
 
-            {/* Event Link */}
-            {post.event && (
-                <TouchableOpacity
-                    style={[styles.eventLink, { backgroundColor: theme.calendarAccent, borderColor: theme.border }]}
-                    onPress={handleEventPress}
-                >
-                    <Ionicons name="calendar" size={16} color={theme.primary} />
-                    <Text style={[styles.eventText, { color: theme.text }]}>{post.event.name}</Text>
-                </TouchableOpacity>
-            )}
+
 
             {/* Tagged Users */}
             {post.taggedUsers.length > 0 && (
@@ -135,7 +179,7 @@ export function FeedCard({ post, onDelete, onCommentPress, compact = false }: Fe
             {/* Actions */}
             {!compact && (
                 <View style={[styles.actions, { borderTopColor: theme.border }]}>
-                    <TouchableOpacity style={styles.actionButton} onPress={toggleLike}>
+                    <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
                         <Ionicons
                             name={isLiked ? 'heart' : 'heart-outline'}
                             size={22}
@@ -271,5 +315,25 @@ const styles = StyleSheet.create({
     actionText: {
         fontSize: 14,
         fontWeight: '500',
+    },
+    nameContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap',
+    },
+    headerEventTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    dot: {
+        width: 3,
+        height: 3,
+        borderRadius: 1.5,
+    },
+    headerEventText: {
+        fontSize: 14,
+        fontWeight: '400',
     },
 });
