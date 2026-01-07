@@ -8,6 +8,8 @@ import React, {
 } from 'react';
 import { eventsService } from '../services/events.service';
 import { supabase, EventRow } from '../lib/supabase';
+import { Event } from '../types/events';
+import { mapSupabaseError } from '../types/errors';
 
 // State shape
 interface EventsState {
@@ -144,16 +146,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('[EventsContext] Supabase error:', error.message);
-        dispatch({ type: 'SET_ERROR', payload: error.message });
+        dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(error).message });
         return;
       }
 
       const mappedEvents = (data ?? []).map(mapEventRowToEvent);
       dispatch({ type: 'SET_EVENTS', payload: mappedEvents });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load events';
-      console.error('[EventsContext] Fetch error:', message);
-      dispatch({ type: 'SET_ERROR', payload: message });
+      console.error('[EventsContext] Fetch error:', err);
+      dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(err).message });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }

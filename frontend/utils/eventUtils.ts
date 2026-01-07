@@ -11,6 +11,7 @@ export const EVENT_GRADIENTS = {
 };
 
 export const getEventGradient = (event: Event): string[] => {
+    if (!event || !event.title) return EVENT_GRADIENTS.default;
     const text = `${event.title} ${event.tags?.join(' ') || ''}`.toLowerCase();
 
     if (text.match(/social|mixer|fun|party|game/)) {
