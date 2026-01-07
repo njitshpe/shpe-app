@@ -4,6 +4,7 @@ import { format, isBefore, startOfDay } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Event } from '@/types/events';
 import { EventCard } from './EventCard';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface PastEventsListProps {
   events: Event[];
@@ -11,6 +12,7 @@ interface PastEventsListProps {
 
 export const PastEventsList: React.FC<PastEventsListProps> = ({ events }) => {
   const router = useRouter();
+  const { theme, isDark } = useTheme();
   const today = startOfDay(new Date());
 
   const pastEvents = useMemo(() => {
@@ -35,8 +37,11 @@ export const PastEventsList: React.FC<PastEventsListProps> = ({ events }) => {
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Past Events</Text>
-        <Text style={styles.sectionCount}>{pastEvents.length}</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Past Events</Text>
+        <Text style={[styles.sectionCount, {
+          color: theme.subtext,
+          backgroundColor: isDark ? '#333' : '#F3F4F6'
+        }]}>{pastEvents.length}</Text>
       </View>
       {pastEvents.map((event) => {
         const startTime = new Date(event.startTimeISO);
@@ -74,14 +79,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
     letterSpacing: -0.3,
   },
   sectionCount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#9CA3AF',
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
