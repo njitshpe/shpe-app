@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Alert, View, Text, StyleSheet } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,9 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
+import { SHADOWS } from '@/constants/colors';
 import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import WizardBackButton from './WizardBackButton.native';
+import WizardLayout from './WizardLayout.native';
 import IdentityStep from './IdentityStep.native';
 import InterestsStep from './InterestsStep.native';
 import AssetsStep from './AssetsStep.native';
@@ -96,10 +94,16 @@ export default function OnboardingWizard() {
   };
 
   // Handle back button press
-  const handleBack = () => {
+  const handleBack = async () => {
     if (currentStep === 0) {
-      // Exit to role selection
-      router.replace('/role-selection');
+      // Exit to role selection (clear user_type first)
+      try {
+        await updateUserMetadata({ user_type: null });
+        router.replace('/role-selection');
+      } catch (error) {
+        console.error('Failed to clear user type:', error);
+        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
+      }
     } else {
       // Go to previous step
       prevStep();
@@ -249,53 +253,19 @@ export default function OnboardingWizard() {
     }
   };
 
-  const backgroundGradient = isDark ? GRADIENTS.darkBackground : GRADIENTS.lightBackground;
-
   return (
-    <LinearGradient
-      colors={backgroundGradient}
-      style={styles.gradient}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
+    <WizardLayout
+      currentStep={currentStep}
+      totalSteps={4}
+      onBack={handleBack}
+      hasFormData={hasFormData()}
+      showConfirmation={currentStep === 0}
+      variant="student"
+      progressType="segmented"
     >
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={styles.container}>
-          {/* Back Button + Progress Container */}
-          <View style={styles.headerContainer}>
-            <WizardBackButton
-              onPress={handleBack}
-              hasFormData={hasFormData()}
-              showConfirmation={currentStep === 0}
-            />
-          </View>
-
-          {/* Segmented Progress Indicator */}
-          <View style={styles.progressContainer}>
-            <View style={styles.segmentedProgress}>
-              {[0, 1, 2, 3].map((index) => (
-                <MotiView
-                  key={index}
-                  animate={{
-                    backgroundColor: index <= currentStep
-                      ? SHPE_COLORS.accentBlueBright
-                      : isDark
-                        ? 'rgba(255, 255, 255, 0.2)'
-                        : theme.border,
-                  }}
-                  transition={{ type: 'timing', duration: 400 }}
-                  style={styles.progressSegment}
-                />
-              ))}
-            </View>
-            <Text style={[styles.progressText, { color: theme.subtext }]}>
-              Step {currentStep + 1} of 4
-            </Text>
-          </View>
-
-        {/* Step Rendering with AnimatePresence */}
-        <View style={styles.stepsContainer}>
-          <AnimatePresence exitBeforeEnter>
+      {/* Step Rendering with AnimatePresence */}
+      <View style={styles.stepsContainer}>
+        <AnimatePresence exitBeforeEnter>
             {currentStep === 0 && (
               <MotiView
                 key="step-0"
@@ -376,90 +346,49 @@ export default function OnboardingWizard() {
                 />
               </MotiView>
             )}
-          </AnimatePresence>
-        </View>
+        </AnimatePresence>
+      </View>
 
-        {/* Loading Overlay */}
-        {isSaving && (
-          <View
-            style={[
-              styles.loadingOverlay,
-              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
-            ]}
-          >
-            <View style={[styles.loadingCard, { backgroundColor: theme.card }]}>
-              <Text style={[styles.loadingText, { color: theme.text }]}>
-                Saving your profile...
-              </Text>
-              <Text style={[styles.loadingSubtext, { color: theme.subtext }]}>
-                This may take a moment
-              </Text>
-            </View>
+      {/* Loading Overlay */}
+      {isSaving && (
+        <View
+          style={[
+            styles.loadingOverlay,
+            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+          ]}
+        >
+          <View style={[styles.loadingCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.loadingText, { color: theme.text }]}>
+              Saving your profile...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: theme.subtext }]}>
+              This may take a moment
+            </Text>
           </View>
-        )}
-
-        {/* Confetti Cannon */}
-        <ConfettiCannon
-          ref={confettiRef}
-          count={200}
-          origin={{ x: -10, y: 0 }}
-          autoStart={false}
-          fadeOut
-        />
-
-        {/* Badge Unlock Celebration */}
-        <BadgeUnlockOverlay
-          visible={showBadgeCelebration}
-          badgeType="student"
-          onComplete={handleBadgeCelebrationComplete}
-          autoCompleteDelay={0} // Manual completion only
-        />
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+      )}
+
+      {/* Confetti Cannon */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        fadeOut
+      />
+
+      {/* Badge Unlock Celebration */}
+      <BadgeUnlockOverlay
+        visible={showBadgeCelebration}
+        badgeType="student"
+        onComplete={handleBadgeCelebrationComplete}
+        autoCompleteDelay={0} // Manual completion only
+      />
+    </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: SPACING.md,
-  },
-  headerContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  progressContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  segmentedProgress: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    borderRadius: RADIUS.full,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: SPACING.xs,
-  },
   stepsContainer: {
     flex: 1,
     width: '100%',
@@ -479,15 +408,15 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   loadingCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
+    borderRadius: 16,
+    padding: 32,
     alignItems: 'center',
     ...SHADOWS.large,
   },
   loadingText: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
   },
   loadingSubtext: {
     fontSize: 14,

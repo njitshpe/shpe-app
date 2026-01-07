@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Alert, View, Text, StyleSheet, useColorScheme } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,10 +8,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import WizardBackButton from './WizardBackButton.native';
+import WizardLayout from './WizardLayout.native';
 import IdentityStep from './IdentityStep.native';
 import GuestAffiliationStep from './GuestAffiliationStep.native';
 import InterestsStep from './InterestsStep.native';
+import GuestReviewStep from './GuestReviewStep.native';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -80,7 +80,7 @@ export default function GuestOnboardingWizard() {
 
   // Navigation helpers
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 2)); // 3 steps (0-2)
+    setCurrentStep((prev) => Math.min(prev + 1, 3)); // 4 steps (0-3)
   };
 
   const prevStep = () => {
@@ -88,10 +88,16 @@ export default function GuestOnboardingWizard() {
   };
 
   // Handle back button press
-  const handleBack = () => {
+  const handleBack = async () => {
     if (currentStep === 0) {
-      // Exit to role selection
-      router.replace('/role-selection');
+      // Exit to role selection (clear user_type first)
+      try {
+        await updateUserMetadata({ user_type: null });
+        router.replace('/role-selection');
+      } catch (error) {
+        console.error('Failed to clear user type:', error);
+        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
+      }
     } else {
       // Go to previous step
       prevStep();
@@ -212,48 +218,26 @@ export default function GuestOnboardingWizard() {
     }
   };
 
-  // Calculate progress percentage
-  const progressPercentage = ((currentStep + 1) / 3) * 100;
-
   // Dynamic colors based on theme
   const colors = {
     background: isDark ? '#001339' : '#F7FAFF',
-    progressTrack: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(11, 22, 48, 0.12)',
-    progressFill: isDark ? '#8B5CF6' : '#7C3AED', // Purple for guests
     text: isDark ? '#F5F8FF' : '#0B1630',
     textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
-        {/* Back Button */}
-        <View style={styles.headerContainer}>
-          <WizardBackButton
-            onPress={handleBack}
-            hasFormData={hasFormData()}
-            showConfirmation={currentStep === 0}
-          />
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressTrack, { backgroundColor: colors.progressTrack }]}>
-            <MotiView
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={[styles.progressFill, { backgroundColor: colors.progressFill }]}
-            />
-          </View>
-          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-            Step {currentStep + 1} of 3
-          </Text>
-        </View>
-
-        {/* Step Rendering with AnimatePresence */}
-        <View style={styles.stepsContainer}>
-          <AnimatePresence exitBeforeEnter>
+    <WizardLayout
+      currentStep={currentStep}
+      totalSteps={4}
+      onBack={handleBack}
+      hasFormData={hasFormData()}
+      showConfirmation={currentStep === 0}
+      variant="guest"
+      progressType="bar"
+    >
+      {/* Step Rendering with AnimatePresence */}
+      <View style={styles.stepsContainer}>
+        <AnimatePresence exitBeforeEnter>
             {currentStep === 0 && (
               <MotiView
                 key="step-0"
@@ -312,95 +296,82 @@ export default function GuestOnboardingWizard() {
                     major: formData.major,
                   }}
                   update={updateFormData}
+                  onNext={nextStep}
+                />
+              </MotiView>
+            )}
+
+            {currentStep === 3 && (
+              <MotiView
+                key="step-3"
+                from={{ translateX: 50, opacity: 0 }}
+                animate={{ translateX: 0, opacity: 1 }}
+                exit={{ translateX: -50, opacity: 0 }}
+                transition={{ type: 'timing', duration: 300 }}
+                style={styles.stepWrapper}
+              >
+                <GuestReviewStep
+                  data={{
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    major: formData.major,
+                    university: formData.university,
+                    profilePhoto: formData.profilePhoto,
+                    interests: formData.interests,
+                    phoneNumber: formData.phoneNumber,
+                  }}
                   onNext={handleFinish}
                 />
               </MotiView>
             )}
-          </AnimatePresence>
-        </View>
+        </AnimatePresence>
+      </View>
 
-        {/* Loading Overlay */}
-        {isSaving && (
+      {/* Loading Overlay */}
+      {isSaving && (
+        <View
+          style={[
+            styles.loadingOverlay,
+            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+          ]}
+        >
           <View
             style={[
-              styles.loadingOverlay,
-              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+              styles.loadingCard,
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
             ]}
           >
-            <View
-              style={[
-                styles.loadingCard,
-                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
-              ]}
-            >
-              <Text style={[styles.loadingText, { color: colors.text }]}>
-                Saving your profile...
-              </Text>
-              <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
-                This may take a moment
-              </Text>
-            </View>
+            <Text style={[styles.loadingText, { color: colors.text }]}>
+              Saving your profile...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
+              This may take a moment
+            </Text>
           </View>
-        )}
+        </View>
+      )}
 
-        {/* Confetti Cannon */}
-        <ConfettiCannon
-          ref={confettiRef}
-          count={200}
-          origin={{ x: -10, y: 0 }}
-          autoStart={false}
-          fadeOut
-        />
+      {/* Confetti Cannon */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        fadeOut
+      />
 
-        {/* Badge Unlock Celebration */}
-        <BadgeUnlockOverlay
-          visible={showBadgeCelebration}
-          badgeType="guest"
-          onComplete={handleBadgeCelebrationComplete}
-          autoCompleteDelay={0} // Manual completion only
-        />
-      </View>
-    </SafeAreaView>
+      {/* Badge Unlock Celebration */}
+      <BadgeUnlockOverlay
+        visible={showBadgeCelebration}
+        badgeType="guest"
+        onComplete={handleBadgeCelebrationComplete}
+        autoCompleteDelay={0} // Manual completion only
+      />
+    </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  headerContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  progressContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: 24,
-    marginBottom: 32,
-  },
-  progressTrack: {
-    height: 8,
-    width: '100%',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-  },
   stepsContainer: {
     flex: 1,
     width: '100%',
