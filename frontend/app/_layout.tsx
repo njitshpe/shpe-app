@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
 
@@ -14,13 +14,13 @@ import { ErrorBoundary } from '@/components/shared';
  * Handles redirects based on authentication state
  */
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, isBootstrapping, user, profile } = useAuth();
+  const { session, isLoading, user, profile } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
 
-  React.useEffect(() => {
-    if (isLoading || isBootstrapping) return;
+  useEffect(() => {
+    if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
@@ -37,6 +37,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         router.replace(target);
       }
     };
+    if (__DEV__) {
+      console.log('[AuthGuard] Debug:', {
+        hasSession: !!session,
+        inAuthGroup,
+        inApp,
+        segment: segments[0],
+        onboardingCompleted,
+        userType,
+      });
+    }
 
     // Rule 1: No session → redirect to login
     if (!session && !inAuthGroup) {
@@ -45,7 +55,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Rule 2: Has session but NO profile + no user_type → must select role first
-    if (session && !profile && !userType && !inRoleSelection) {
+    // Only force role selection if onboarding is NOT complete.
+    if (session && !profile && !userType && !inRoleSelection && !onboardingCompleted) {
       replaceIfNeeded('/role-selection');
       return;
     }
@@ -96,10 +107,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       replaceIfNeeded('/home');
       return;
     }
-  }, [session, isLoading, isBootstrapping, segments, user, profile, pathname, router]);
+  }, [session, isLoading, segments, user, profile, pathname, router]);
 
   // Loading State
-  if (isLoading || isBootstrapping) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
         <ActivityIndicator size="large" color="#D35400" />
@@ -113,12 +124,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 /**
  * Root Layout
  * Wraps the app with all necessary providers
- * EventsProvider is at the top level so it's always available
+ * ThemeProvide  is at the top level so it prevents crashing.
  */
 export default function RootLayout() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
+    <ThemeProvider>
+      <ErrorBoundary>
         <AuthProvider>
           <NotificationProvider>
             <EventsProvider>
@@ -128,7 +139,7 @@ export default function RootLayout() {
             </EventsProvider>
           </NotificationProvider>
         </AuthProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
