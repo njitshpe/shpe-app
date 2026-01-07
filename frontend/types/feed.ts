@@ -61,6 +61,7 @@ export interface FeedPostUI {
     }>;
     event?: {
         id: string;
+        publicId?: string;
         name: string;
     };
 }

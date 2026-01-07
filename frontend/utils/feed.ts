@@ -26,6 +26,7 @@ export function mapFeedPostDBToUI(db: any): FeedPostUI {
         taggedUsers: [],
         event: db.event ? {
             id: db.event.id,
+            publicId: db.event.event_id,
             name: db.event.name,
         } : undefined,
     };
