@@ -1,32 +1,185 @@
+
 /**
- * award-points Edge Function
- *
- * Orchestrates points awarding and rank updates with atomic database transactions.
- * All business logic for point calculation is in ruleEngine.ts.
- *
- * POST /functions/v1/award-points
- * Body: { userId?: string, actionType: string, eventId?: string, metadata?: object }
- *
- * Returns: { success, transaction, newBalance, rank }
- * Or error: { success: false, error: string, code: string }
+ * award-points Edge Function (Consolidated Single File)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import {
-  computePoints,
-  calculateRank,
-  validatePayload,
-  type ActionPayload,
-  type ActionType,
-  type RulesJson,
-} from './ruleEngine.ts';
 
-// CORS headers for browser requests
+// ==========================================
+// PART 1: Rule Engine Logic
+// ==========================================
+
+export type ActionType =
+  | 'attendance'
+  | 'feedback'
+  | 'photo_upload'
+  | 'rsvp'
+  | 'early_checkin'
+  | 'committee_setup'
+  | 'verified'
+  | 'college_year';
+
+export type PhotoType = 'alumni' | 'professional' | 'member_of_month';
+
+export interface RuleDefinition {
+  action_type: ActionType;
+  base_points: number;
+  multipliers?: MultiplierCondition[];
+  requires_committee_for_rank?: boolean;
+  max_points?: number;
+  enabled?: boolean;
+}
+
+export interface MultiplierCondition {
+  field: string;
+  operator: 'eq' | 'gt' | 'gte' | 'lt' | 'lte' | 'exists';
+  value?: unknown;
+  multiplier: number;
+}
+
+export interface RulesJson {
+  version: string;
+  rules: RuleDefinition[];
+}
+
+export interface ActionPayload {
+  action_type: ActionType;
+  user_id: string;
+  event_id?: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface ComputeResult {
+  points: number;
+  reasons: string[];
+  rank_affecting_allowed: boolean;
+}
+
+function computePoints(
+  rulesJson: RulesJson,
+  payload: ActionPayload
+): ComputeResult {
+  const { action_type, metadata } = payload;
+
+  const rule = rulesJson.rules.find(
+    (r) => r.action_type === action_type && r.enabled !== false
+  );
+
+  if (!rule) {
+    return {
+      points: 0,
+      reasons: [`No active rule found for action: ${action_type}`],
+      rank_affecting_allowed: true,
+    };
+  }
+
+  let points = rule.base_points;
+  const reasons: string[] = [`Base points for ${action_type}: ${rule.base_points}`];
+
+  if (rule.multipliers && rule.multipliers.length > 0) {
+    for (const multiplier of rule.multipliers) {
+      if (evaluateCondition(multiplier, metadata)) {
+        const bonus = Math.floor(rule.base_points * (multiplier.multiplier - 1));
+        points += bonus;
+        reasons.push(
+          `Multiplier ${multiplier.multiplier}x applied (${multiplier.field} ${multiplier.operator} ${multiplier.value}): +${bonus}`
+        );
+      }
+    }
+  }
+
+  if (rule.max_points !== undefined && points > rule.max_points) {
+    reasons.push(`Points capped at max: ${rule.max_points}`);
+    points = rule.max_points;
+  }
+
+  let rank_affecting_allowed = true;
+
+  if (rule.requires_committee_for_rank) {
+    const isCommitteeMember = metadata.committee_member === true;
+    if (!isCommitteeMember) {
+      rank_affecting_allowed = false;
+      reasons.push(
+        'Rank change blocked: rule requires committee membership, but committee_member is false'
+      );
+    }
+  }
+
+  return {
+    points,
+    reasons,
+    rank_affecting_allowed,
+  };
+}
+
+function evaluateCondition(
+  condition: MultiplierCondition,
+  metadata: Record<string, unknown>
+): boolean {
+  const fieldValue = metadata[condition.field];
+
+  switch (condition.operator) {
+    case 'exists':
+      return fieldValue !== undefined && fieldValue !== null;
+    case 'eq':
+      return fieldValue === condition.value;
+    case 'gt':
+      return typeof fieldValue === 'number' && fieldValue > (condition.value as number);
+    case 'gte':
+      return typeof fieldValue === 'number' && fieldValue >= (condition.value as number);
+    case 'lt':
+      return typeof fieldValue === 'number' && fieldValue < (condition.value as number);
+    case 'lte':
+      return typeof fieldValue === 'number' && fieldValue <= (condition.value as number);
+    default:
+      return false;
+  }
+}
+
+function calculateRank(
+  points: number
+): 'unranked' | 'bronze' | 'silver' | 'gold' {
+  if (points >= 75) return 'gold';
+  if (points >= 50) return 'silver';
+  if (points >= 25) return 'bronze';
+  return 'unranked';
+}
+
+function validatePayload(
+  payload: ActionPayload
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!payload.action_type) errors.push('action_type is required');
+  if (!payload.user_id) errors.push('user_id is required');
+
+  switch (payload.action_type) {
+    case 'committee_setup':
+      if (payload.metadata.committee_member === undefined) {
+        errors.push('metadata.committee_member is required for committee_setup action');
+      }
+      break;
+    case 'attendance':
+    case 'early_checkin':
+    case 'rsvp':
+    case 'feedback':
+      if (!payload.event_id && !payload.metadata.event_id) {
+        errors.push(`event_id is required for ${payload.action_type} action`);
+      }
+      break;
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// ==========================================
+// PART 2: Main Handler (index.ts)
+// ==========================================
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 interface RequestBody {
@@ -65,45 +218,56 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Initialize Supabase client with service role for DB operations
+    // ---------------------------------------------------------
+    // SECURITY CONFIGURATION
+    // ---------------------------------------------------------
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+    // Check for custom Rank_Key first
+    const rankKey = Deno.env.get('Rank_Key');
+    const defaultKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    // Fallback logic
+    const supabaseServiceKey = rankKey || defaultKey;
+    const keySource = rankKey ? 'Rank_Key' : 'Default_Key';
+
+    // DEBUG: Return config error with source info
     if (!supabaseUrl || !supabaseServiceKey) {
-      return errorResponse('Missing Supabase configuration', 'CONFIGURATION_ERROR');
+      return errorResponse('Missing Supabase configuration', 'CONFIGURATION_ERROR', { keySource });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse request body
-    const body: RequestBody = await req.json();
+    // Safely parse body
+    let body: RequestBody;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse('Invalid JSON body', 'INVALID_REQUEST');
+    }
+
     const { actionType, eventId, metadata = {} } = body;
 
-    // Get userId from body or auth token
     let userId = body.userId;
 
+    // Auth Token Logic
     if (!userId) {
-      // Try to get user from auth header
       const authHeader = req.headers.get('Authorization');
       if (authHeader) {
         const token = authHeader.replace('Bearer ', '');
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser(token);
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-          return errorResponse('Invalid or missing authentication', 'UNAUTHORIZED');
+          return errorResponse('Invalid or missing authentication', 'UNAUTHORIZED', { keySource, authError: authError?.message });
         }
         userId = user.id;
       }
     }
 
     if (!userId) {
-      return errorResponse('userId is required', 'UNAUTHORIZED');
+      return errorResponse('userId is required', 'UNAUTHORIZED', { keySource });
     }
 
-    // Validate payload
     const payload: ActionPayload = {
       action_type: actionType as ActionType,
       user_id: userId,
@@ -116,7 +280,7 @@ serve(async (req: Request) => {
       return errorResponse(validation.errors.join('; '), 'INVALID_ACTION_TYPE');
     }
 
-    // Check for duplicate award (idempotency)
+    // Idempotency check
     if (eventId) {
       const { data: existing } = await supabase
         .from('points')
@@ -127,14 +291,11 @@ serve(async (req: Request) => {
         .single();
 
       if (existing) {
-        return errorResponse(
-          'Points already awarded for this action',
-          'ALREADY_REWARDED'
-        );
+        return errorResponse('Points already awarded for this action', 'ALREADY_REWARDED');
       }
     }
 
-    // Validate event exists if eventId provided
+    // Event check
     if (eventId) {
       const { data: event, error: eventError } = await supabase
         .from('events')
@@ -147,7 +308,7 @@ serve(async (req: Request) => {
       }
     }
 
-    // Check preconditions (e.g., must be checked in for photo upload)
+    // Photo check
     if (actionType === 'photo_upload' && eventId) {
       const { data: checkin } = await supabase
         .from('event_attendance')
@@ -157,14 +318,11 @@ serve(async (req: Request) => {
         .single();
 
       if (!checkin) {
-        return errorResponse(
-          'User has not checked in to this event',
-          'PRECONDITION_FAILED'
-        );
+        return errorResponse('User has not checked in to this event', 'PRECONDITION_FAILED');
       }
     }
 
-    // Load active rules from database
+    // Rule Engine
     const { data: rulesData, error: rulesError } = await supabase
       .from('rank_rules')
       .select('rules')
@@ -176,18 +334,13 @@ serve(async (req: Request) => {
     }
 
     const rulesJson = rulesData.rules as RulesJson;
-
-    // Compute points using rule engine
     const computeResult = computePoints(rulesJson, payload);
 
     if (computeResult.points === 0) {
-      return errorResponse(
-        computeResult.reasons.join('; '),
-        'INVALID_ACTION_TYPE'
-      );
+      return errorResponse(computeResult.reasons.join('; '), 'INVALID_ACTION_TYPE');
     }
 
-    // Get current user profile
+    // User Profile
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('rank_points, rank')
@@ -195,20 +348,19 @@ serve(async (req: Request) => {
       .single();
 
     if (profileError) {
-      return errorResponse('User profile not found', 'UNAUTHORIZED');
+      return errorResponse('User profile not found', 'UNAUTHORIZED', { userId, keySource });
     }
 
     const previousPoints = profile.rank_points ?? 0;
     const previousRank = profile.rank ?? 'unranked';
-    const newPoints = Math.min(previousPoints + computeResult.points, 100); // Cap at 100
+    const newPoints = Math.min(previousPoints + computeResult.points, 100);
 
-    // Calculate new rank
     let newRank = previousRank;
     if (computeResult.rank_affecting_allowed) {
       newRank = calculateRank(newPoints);
     }
 
-    // 1. Insert points transaction record
+    // DB Updates
     const { data: pointsRecord, error: pointsError } = await supabase
       .from('points')
       .insert({
@@ -216,10 +368,7 @@ serve(async (req: Request) => {
         event_id: eventId || null,
         amount: computeResult.points,
         reason: actionType,
-        metadata: {
-          ...metadata,
-          reasons: computeResult.reasons,
-        },
+        metadata: { ...metadata, reasons: computeResult.reasons },
       })
       .select('id, created_at')
       .single();
@@ -228,7 +377,6 @@ serve(async (req: Request) => {
       return errorResponse('Failed to record points', 'DATABASE_ERROR');
     }
 
-    // 2. Insert audit record
     const { error: auditError } = await supabase
       .from('rank_transactions')
       .insert({
@@ -245,18 +393,14 @@ serve(async (req: Request) => {
           ...metadata,
           reasons: computeResult.reasons,
           rank_affecting_allowed: computeResult.rank_affecting_allowed,
-          // TODO: When canonical committee_members table exists, prefer DB-derived
-          // membership over metadata. Change this to query the table instead.
           committee_member_from_metadata: metadata.committee_member,
         },
       });
 
     if (auditError) {
       console.error('Audit insert failed:', auditError);
-      // Continue - audit failure shouldn't block points award
     }
 
-    // 3. Update user profile
     const updateData: Record<string, unknown> = {
       rank_points: newPoints,
       updated_at: new Date().toISOString(),
@@ -275,7 +419,6 @@ serve(async (req: Request) => {
       return errorResponse('Failed to update profile', 'DATABASE_ERROR');
     }
 
-    // Return success response (matching README schema)
     const response: SuccessResponse = {
       success: true,
       transaction: {
@@ -296,24 +439,25 @@ serve(async (req: Request) => {
     });
   } catch (error) {
     console.error('Unexpected error:', error);
-    return errorResponse(
-      'An unexpected error occurred',
-      'SERVER_ERROR'
-    );
+    // Explicitly safe stringify debug info
+    return errorResponse('An unexpected error occurred', 'SERVER_ERROR', { error: String(error) });
   }
 });
 
-function errorResponse(message: string, code: string): Response {
-  const body: ErrorResponse = {
+/**
+ * Helper to return formatted errors.
+ * DEBUG: Forces 200 OK status to ensure client can read the body.
+ */
+function errorResponse(message: string, code: string, debug?: any): Response {
+  const body: ErrorResponse & { debug?: any } = {
     success: false,
     error: message,
     code,
+    debug
   };
 
-  const status = code === 'UNAUTHORIZED' ? 401 : code === 'INVALID_EVENT' ? 404 : 400;
-
   return new Response(JSON.stringify(body), {
-    status,
+    status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
