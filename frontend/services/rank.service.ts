@@ -191,13 +191,24 @@ class RankService {
         .from('user_profiles')
         .select('rank_points, rank')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Failed to fetch rank:', error);
         return {
           success: false,
           error: mapSupabaseError(error),
+        };
+      }
+
+      // Handle case where user has no profile yet or rank columns are null
+      if (!data) {
+        return {
+          success: true,
+          data: {
+            rank_points: 0,
+            rank: getRankFromPoints(0),
+          },
         };
       }
 
@@ -233,12 +244,23 @@ class RankService {
         .from('user_profiles')
         .select('rank_points, rank')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         return {
           success: false,
           error: mapSupabaseError(error),
+        };
+      }
+
+      // Handle case where user has no profile yet
+      if (!data) {
+        return {
+          success: true,
+          data: {
+            rank_points: 0,
+            rank: getRankFromPoints(0),
+          },
         };
       }
 

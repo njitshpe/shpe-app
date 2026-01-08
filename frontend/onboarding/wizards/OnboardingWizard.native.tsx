@@ -1,61 +1,67 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Alert, View, Text, StyleSheet } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
 import { useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import IdentityStep from './IdentityStep.native';
-import GuestAffiliationStep from './GuestAffiliationStep.native';
-import InterestsStep from './InterestsStep.native';
+import { SHADOWS } from '@/constants/colors';
+import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import WizardLayout from '../components/WizardLayout.native';
+import IdentityStep from '../screens/shared/IdentityStep.native';
+import InterestsStep from '../screens/shared/InterestsStep.native';
+import AssetsStep from '../screens/student/AssetsStep.native';
+import ReviewStep from '../screens/student/ReviewStep.native';
 
-// Guest-specific FormData interface
-interface GuestOnboardingFormData {
-  // Step 1: Identity (reuse existing)
+const DEFAULT_GRAD_YEAR = String(new Date().getFullYear());
+
+// Master FormData interface combining all step fields
+interface OnboardingFormData {
+  // Step 1: Identity
   firstName: string;
   lastName: string;
-  major: string; // Will be used for "Role/Major" in affiliation
-  graduationYear: string; // Not used for guests, but required by IdentityStep
+  major: string;
+  graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Interests (reuse existing)
+  // Step 2: Interests + Phone
   interests: string[];
   phoneNumber: string;
-  // Step 3: Affiliation (NEW)
-  university: string;
+  // Step 3: Assets
+  resumeFile: DocumentPicker.DocumentPickerAsset | null;
+  linkedinUrl: string;
+  portfolioUrl: string;
+  bio: string;
 }
 
-export default function GuestOnboardingWizard() {
+export default function OnboardingWizard() {
   const router = useRouter();
   const { user, updateUserMetadata, loadProfile } = useAuth();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { theme, isDark } = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
-  const [formData, setFormData] = useState<GuestOnboardingFormData>({
+  const [formData, setFormData] = useState<OnboardingFormData>({
     // Step 1
     firstName: '',
     lastName: '',
-    major: '', // Role/Major from affiliation step
-    graduationYear: '2025', // Dummy value for guests
+    major: '',
+    graduationYear: DEFAULT_GRAD_YEAR,
     profilePhoto: null,
     // Step 2
     interests: [],
     phoneNumber: '',
     // Step 3
-    university: '',
+    resumeFile: null,
+    linkedinUrl: '',
+    portfolioUrl: '',
+    bio: '',
   });
-
-  // Helper function to merge partial data into main state
-  const updateFormData = (fields: Partial<GuestOnboardingFormData>) => {
-    setFormData((prev) => ({ ...prev, ...fields }));
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -64,24 +70,57 @@ export default function GuestOnboardingWizard() {
       router.replace('/role-selection');
       return;
     }
-    if (userType !== 'guest') {
+    if (userType !== 'student') {
       const fallback =
-        userType === 'student'
-          ? '/onboarding'
-          : userType === 'alumni'
-            ? '/alumni-onboarding'
+        userType === 'alumni'
+          ? '/alumni-onboarding'
+          : userType === 'guest'
+            ? '/guest-onboarding'
             : '/role-selection';
       router.replace(fallback);
     }
   }, [user, router]);
 
+  // Helper function to merge partial data into main state
+  const updateFormData = (fields: Partial<OnboardingFormData>) => {
+    setFormData((prev) => ({ ...prev, ...fields }));
+  };
+
   // Navigation helpers
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 2)); // 3 steps (0-2)
+    setCurrentStep((prev) => Math.min(prev + 1, 3)); // 4 steps now (0-3)
   };
 
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  // Handle back button press
+  const handleBack = async () => {
+    if (currentStep === 0) {
+      // Exit to role selection (clear user_type first)
+      try {
+        await updateUserMetadata({ user_type: null });
+        router.replace('/role-selection');
+      } catch (error) {
+        console.error('Failed to clear user type:', error);
+        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
+      }
+    } else {
+      // Go to previous step
+      prevStep();
+    }
+  };
+
+  // Check if user has entered any data
+  const hasFormData = () => {
+    return (
+      formData.firstName.trim() !== '' ||
+      formData.lastName.trim() !== '' ||
+      formData.major.trim() !== '' ||
+      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
+      formData.profilePhoto !== null
+    );
   };
 
   // Handle badge celebration completion
@@ -106,6 +145,8 @@ export default function GuestOnboardingWizard() {
 
     try {
       let profilePictureUrl: string | undefined;
+      let resumeUrl: string | undefined;
+      let resumeName: string | undefined;
 
       // Upload profile photo if provided
       if (formData.profilePhoto) {
@@ -117,9 +158,30 @@ export default function GuestOnboardingWizard() {
         if (uploadResult.success) {
           profilePictureUrl = uploadResult.data.url;
         } else {
+          // Show warning but continue
           Alert.alert(
             'Photo Upload Failed',
             'Your profile photo could not be uploaded. You can add it later in settings.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+
+      // Upload resume if provided
+      if (formData.resumeFile) {
+        const uploadResult = await storageService.uploadResume(
+          user.id,
+          formData.resumeFile
+        );
+
+        if (uploadResult.success) {
+          resumeUrl = uploadResult.data.url;
+          resumeName = uploadResult.data.originalName;
+        } else {
+          // Show warning but continue
+          Alert.alert(
+            'Resume Upload Failed',
+            'Your resume could not be uploaded. You can add it later in settings.',
             [{ text: 'OK' }]
           );
         }
@@ -141,17 +203,22 @@ export default function GuestOnboardingWizard() {
         .map(id => interestMap[id])
         .filter((val, idx, arr) => arr.indexOf(val) === idx); // Remove duplicates
 
-      // Create profile data object for guest
+      // Create profile data object
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
-        university: formData.university.trim(),
-        major: formData.major?.trim() || undefined,
-        bio: '',
+        major: formData.major.trim(),
+        expected_graduation_year: parseInt(formData.graduationYear, 10),
+        university: 'NJIT', // Default university for NJIT students
+        bio: formData.bio?.trim() || '',
         interests: mappedInterests,
+        linkedin_url: formData.linkedinUrl?.trim() || undefined,
+        website_url: formData.portfolioUrl?.trim() || undefined,
         phone_number: formData.phoneNumber?.trim() || undefined,
         profile_picture_url: profilePictureUrl,
-        user_type: 'guest' as const,
+        resume_url: resumeUrl,
+        resume_name: resumeName,
+        user_type: 'student' as const,
       };
 
       // Try to create the profile (will fail if exists, then we update)
@@ -170,12 +237,8 @@ export default function GuestOnboardingWizard() {
       }
 
       // Mark onboarding as complete in user metadata
+      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
-
-      // Reload the profile to update context (important for Traffic Cop)
-      if (user?.id) {
-        await loadProfile(user.id);
-      }
 
       setIsSaving(false);
 
@@ -188,39 +251,19 @@ export default function GuestOnboardingWizard() {
     }
   };
 
-  // Calculate progress percentage
-  const progressPercentage = ((currentStep + 1) / 3) * 100;
-
-  // Dynamic colors based on theme
-  const colors = {
-    background: isDark ? '#001339' : '#F7FAFF',
-    progressTrack: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(11, 22, 48, 0.12)',
-    progressFill: isDark ? '#8B5CF6' : '#7C3AED', // Purple for guests
-    text: isDark ? '#F5F8FF' : '#0B1630',
-    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
-  };
-
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressTrack, { backgroundColor: colors.progressTrack }]}>
-            <MotiView
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={[styles.progressFill, { backgroundColor: colors.progressFill }]}
-            />
-          </View>
-          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-            Step {currentStep + 1} of 3
-          </Text>
-        </View>
-
-        {/* Step Rendering with AnimatePresence */}
-        <View style={styles.stepsContainer}>
-          <AnimatePresence exitBeforeEnter>
+    <WizardLayout
+      currentStep={currentStep}
+      totalSteps={4}
+      onBack={handleBack}
+      hasFormData={hasFormData()}
+      showConfirmation={currentStep === 0}
+      variant="student"
+      progressType="segmented"
+    >
+      {/* Step Rendering with AnimatePresence */}
+      <View style={styles.stepsContainer}>
+        <AnimatePresence exitBeforeEnter>
             {currentStep === 0 && (
               <MotiView
                 key="step-0"
@@ -260,7 +303,6 @@ export default function GuestOnboardingWizard() {
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -274,95 +316,77 @@ export default function GuestOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <GuestAffiliationStep
+                <AssetsStep
                   data={{
-                    university: formData.university,
-                    major: formData.major,
+                    resumeFile: formData.resumeFile,
+                    linkedinUrl: formData.linkedinUrl,
+                    portfolioUrl: formData.portfolioUrl,
+                    bio: formData.bio,
                   }}
                   update={updateFormData}
-                  onNext={handleFinish}
-                  onBack={prevStep}
+                  onNext={nextStep}
                 />
               </MotiView>
             )}
-          </AnimatePresence>
-        </View>
 
-        {/* Loading Overlay */}
-        {isSaving && (
-          <View
-            style={[
-              styles.loadingOverlay,
-              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
-            ]}
-          >
-            <View
-              style={[
-                styles.loadingCard,
-                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
-              ]}
-            >
-              <Text style={[styles.loadingText, { color: colors.text }]}>
-                Saving your profile...
-              </Text>
-              <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
-                This may take a moment
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Confetti Cannon */}
-        <ConfettiCannon
-          ref={confettiRef}
-          count={200}
-          origin={{ x: -10, y: 0 }}
-          autoStart={false}
-          fadeOut
-        />
-
-        {/* Badge Unlock Celebration */}
-        <BadgeUnlockOverlay
-          visible={showBadgeCelebration}
-          badgeType="guest"
-          onComplete={handleBadgeCelebrationComplete}
-          autoCompleteDelay={0} // Manual completion only
-        />
+            {currentStep === 3 && (
+              <MotiView
+                key="step-3"
+                from={{ translateX: 50, opacity: 0 }}
+                animate={{ translateX: 0, opacity: 1 }}
+                exit={{ translateX: -50, opacity: 0 }}
+                transition={{ type: 'timing', duration: 300 }}
+                style={styles.stepWrapper}
+              >
+                <ReviewStep
+                  data={formData}
+                  onNext={handleFinish}
+                />
+              </MotiView>
+            )}
+        </AnimatePresence>
       </View>
-    </SafeAreaView>
+
+      {/* Loading Overlay */}
+      {isSaving && (
+        <View
+          style={[
+            styles.loadingOverlay,
+            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+          ]}
+        >
+          <View style={[styles.loadingCard, { backgroundColor: theme.card }]}>
+            <Text style={[styles.loadingText, { color: theme.text }]}>
+              Saving your profile...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: theme.subtext }]}>
+              This may take a moment
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Confetti Cannon */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        fadeOut
+      />
+
+      {/* Badge Unlock Celebration */}
+      <BadgeUnlockOverlay
+        visible={showBadgeCelebration}
+        badgeType="student"
+        onComplete={handleBadgeCelebrationComplete}
+        autoCompleteDelay={0} // Manual completion only
+      />
+    </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  progressContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: 24,
-    marginBottom: 32,
-  },
-  progressTrack: {
-    height: 8,
-    width: '100%',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-  },
   stepsContainer: {
     flex: 1,
     width: '100%',
@@ -385,11 +409,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    ...SHADOWS.large,
   },
   loadingText: {
     fontSize: 18,

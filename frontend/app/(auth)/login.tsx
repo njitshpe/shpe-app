@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -13,12 +13,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthInput, ForgotPasswordModal } from '@/components/auth';
+import { AuthInput, ForgotPasswordModal, AuthLogo } from '@/components/auth';
+import { getAuthBackgroundColors, getAuthPalette } from '@/constants/authTheme';
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
@@ -27,40 +29,14 @@ export default function LoginScreen() {
     const { signIn, signInWithGoogle } = useAuth();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const backgroundColors = isDark
-        ? ['#001e55', '#001339', '#00030a']
-        : ['#F7FAFF', '#E9F0FF', '#DDE8FF'];
-    const palette = isDark
-        ? {
-            text: '#F5F8FF',
-            subtext: 'rgba(229, 239, 255, 0.85)',
-            muted: 'rgba(229, 239, 255, 0.7)',
-            logoBg: 'rgba(255, 255, 255, 0.12)',
-            logoBorder: 'rgba(255, 255, 255, 0.25)',
-            logoInner: 'rgba(255, 255, 255, 0.18)',
-            logoDiamond: '#FFFFFF',
-            checkboxBorder: 'rgba(191, 215, 255, 0.55)',
-            checkboxActive: '#FFFFFF',
-            divider: 'rgba(255, 255, 255, 0.16)',
-            socialBg: 'rgba(255, 255, 255, 0.12)',
-            socialBorder: 'rgba(255, 255, 255, 0.2)',
-            link: '#CFE0FF',
+    const backgroundColors = getAuthBackgroundColors(isDark);
+    const palette = getAuthPalette(isDark);
+
+    useEffect(() => {
+        if (typeof emailParam === 'string' && emailParam.trim().length > 0) {
+            setEmail(emailParam);
         }
-        : {
-            text: '#0B1630',
-            subtext: 'rgba(22, 39, 74, 0.75)',
-            muted: 'rgba(22, 39, 74, 0.6)',
-            logoBg: 'rgba(11, 22, 48, 0.08)',
-            logoBorder: 'rgba(11, 22, 48, 0.18)',
-            logoInner: 'rgba(11, 22, 48, 0.12)',
-            logoDiamond: '#0B1630',
-            checkboxBorder: 'rgba(11, 22, 48, 0.35)',
-            checkboxActive: '#0B1630',
-            divider: 'rgba(11, 22, 48, 0.15)',
-            socialBg: 'rgba(255, 255, 255, 0.7)',
-            socialBorder: 'rgba(11, 22, 48, 0.12)',
-            link: '#2D4E9D',
-        };
+    }, [emailParam]);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -104,13 +80,7 @@ export default function LoginScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Logo */}
-                    <View style={styles.logoContainer}>
-                        <View style={[styles.logoCircle, { backgroundColor: palette.logoBg, borderColor: palette.logoBorder }]}>
-                            <View style={[styles.logoInnerCircle, { backgroundColor: palette.logoInner }]}>
-                                <View style={[styles.logoDiamond, { backgroundColor: palette.logoDiamond }]} />
-                            </View>
-                        </View>
-                    </View>
+                    <AuthLogo />
 
                     {/* Title */}
                     <Text style={[styles.title, { color: palette.text }]}>Welcome to NJIT SHPE</Text>
@@ -237,35 +207,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         paddingTop: 80,
         paddingBottom: 40,
-    },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    logoCircle: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.25)',
-    },
-    logoInnerCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.18)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    logoDiamond: {
-        width: 16,
-        height: 16,
-        backgroundColor: '#FFFFFF',
-        transform: [{ rotate: '45deg' }],
-        borderRadius: 3,
     },
     title: {
         fontSize: 28,

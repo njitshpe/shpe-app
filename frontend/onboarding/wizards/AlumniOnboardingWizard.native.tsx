@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Alert, View, Text, StyleSheet, useColorScheme } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -9,31 +8,33 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import AlumniIdentityStep from './AlumniIdentityStep.native';
-import AlumniProfessionalStep from './AlumniProfessionalStep.native';
-import AssetsStep from './AssetsStep.native';
-import ReviewStep from './ReviewStep.native';
+import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import WizardLayout from '../components/WizardLayout.native';
+import AlumniIdentityStep from '../screens/alumni/AlumniIdentityStep.native';
+import AlumniSocialStep from '../screens/alumni/AlumniSocialStep.native';
+import AlumniProfessionalStep from '../screens/alumni/AlumniProfessionalStep.native';
+import AlumniReviewStep from '../screens/alumni/AlumniReviewStep.native';
 
 // Alumni-specific FormData interface
 interface AlumniOnboardingFormData {
   // Step 1: Identity
   firstName: string;
   lastName: string;
-  graduationYear: string;
   major: string;
+  customMajor?: string;
+  degreeType: string;
+  graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Assets
-  resumeFile: DocumentPicker.DocumentPickerAsset | null;
+  // Step 2: Social & Professional Snapshot
   linkedinUrl: string;
-  bio: string;
-  // Step 3: Professional Info
+  professionalBio: string;
+  // Step 3: Professional Details
   company: string;
   jobTitle: string;
   industry: string;
-  phoneNumber: string;
+  mentorshipAvailable: boolean;
+  mentorshipWays: string[];
   // Step 4: Review (uses all above data)
-  interests: string[];
 }
 
 export default function AlumniOnboardingWizard() {
@@ -47,23 +48,23 @@ export default function AlumniOnboardingWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
   const [formData, setFormData] = useState<AlumniOnboardingFormData>({
-    // Step 1
+    // Step 1: Identity
     firstName: '',
     lastName: '',
-    graduationYear: '',
     major: '',
+    customMajor: '',
+    degreeType: '',
+    graduationYear: '',
     profilePhoto: null,
-    // Step 2
-    resumeFile: null,
+    // Step 2: Social & Professional Snapshot
     linkedinUrl: '',
-    bio: '',
-    // Step 3
+    professionalBio: '',
+    // Step 3: Professional Details
     company: '',
     jobTitle: '',
     industry: '',
-    phoneNumber: '',
-    // Default
-    interests: [],
+    mentorshipAvailable: false,
+    mentorshipWays: [],
   });
 
   // Helper function to merge partial data into main state
@@ -98,6 +99,34 @@ export default function AlumniOnboardingWizard() {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
+  // Handle back button press
+  const handleBack = async () => {
+    if (currentStep === 0) {
+      // Exit to role selection (clear user_type first)
+      try {
+        await updateUserMetadata({ user_type: null });
+        router.replace('/role-selection');
+      } catch (error) {
+        console.error('Failed to clear user type:', error);
+        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
+      }
+    } else {
+      // Go to previous step
+      prevStep();
+    }
+  };
+
+  // Check if user has entered any data
+  const hasFormData = () => {
+    return (
+      formData.firstName.trim() !== '' ||
+      formData.lastName.trim() !== '' ||
+      formData.major.trim() !== '' ||
+      formData.graduationYear.trim() !== '' ||
+      formData.profilePhoto !== null
+    );
+  };
+
   // Handle badge celebration completion
   const handleBadgeCelebrationComplete = () => {
     setShowBadgeCelebration(false);
@@ -120,8 +149,6 @@ export default function AlumniOnboardingWizard() {
 
     try {
       let profilePictureUrl: string | undefined;
-      let resumeUrl: string | undefined;
-      let resumeName: string | undefined;
 
       // Upload profile photo if provided
       if (formData.profilePhoto) {
@@ -141,43 +168,23 @@ export default function AlumniOnboardingWizard() {
         }
       }
 
-      // Upload resume if provided
-      if (formData.resumeFile) {
-        const uploadResult = await storageService.uploadResume(
-          user.id,
-          formData.resumeFile
-        );
-
-        if (uploadResult.success) {
-          resumeUrl = uploadResult.data.url;
-          resumeName = uploadResult.data.originalName;
-        } else {
-          Alert.alert(
-            'Resume Upload Failed',
-            'Your resume could not be uploaded. You can add it later in settings.',
-            [{ text: 'OK' }]
-          );
-        }
-      }
-
       // Create profile data object for alumni
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         major: formData.major.trim() || undefined,
+        degree_type: formData.degreeType.trim() || undefined,
         expected_graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
         university: 'NJIT', // Default university for NJIT alumni
-        bio: formData.bio?.trim() || '',
         company: formData.company?.trim() || undefined,
         job_title: formData.jobTitle?.trim() || undefined,
         industry: formData.industry?.trim() || undefined,
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
-        phone_number: formData.phoneNumber?.trim() || undefined,
+        bio: formData.professionalBio?.trim() || undefined,
+        mentorship_available: formData.mentorshipAvailable || false,
+        mentorship_ways: formData.mentorshipWays || [],
         profile_picture_url: profilePictureUrl,
-        resume_url: resumeUrl,
-        resume_name: resumeName,
         user_type: 'alumni' as const,
-        interests: formData.interests,
       };
 
       // Try to create the profile (will fail if exists, then we update)
@@ -196,12 +203,8 @@ export default function AlumniOnboardingWizard() {
       }
 
       // Mark onboarding as complete in user metadata
+      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
-
-      // Reload the profile to update context (important for Traffic Cop)
-      if (user?.id) {
-        await loadProfile(user.id);
-      }
 
       setIsSaving(false);
 
@@ -214,39 +217,26 @@ export default function AlumniOnboardingWizard() {
     }
   };
 
-  // Calculate progress percentage
-  const progressPercentage = ((currentStep + 1) / 4) * 100;
-
   // Dynamic colors based on theme
   const colors = {
     background: isDark ? '#001339' : '#F7FAFF',
-    progressTrack: isDark ? 'rgba(255, 255, 255, 0.16)' : 'rgba(11, 22, 48, 0.12)',
-    progressFill: '#0D9488', // Teal for alumni
     text: isDark ? '#F5F8FF' : '#0B1630',
     textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
-        {/* Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressTrack, { backgroundColor: colors.progressTrack }]}>
-            <MotiView
-              animate={{ width: `${progressPercentage}%` }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={[styles.progressFill, { backgroundColor: colors.progressFill }]}
-            />
-          </View>
-          <Text style={[styles.progressText, { color: colors.textSecondary }]}>
-            Step {currentStep + 1} of 4
-          </Text>
-        </View>
-
-        {/* Step Rendering with AnimatePresence */}
-        <View style={styles.stepsContainer}>
-          <AnimatePresence exitBeforeEnter>
+    <WizardLayout
+      currentStep={currentStep}
+      totalSteps={4}
+      onBack={handleBack}
+      hasFormData={hasFormData()}
+      showConfirmation={currentStep === 0}
+      variant="alumni"
+      progressType="segmented"
+    >
+      {/* Step Rendering with AnimatePresence */}
+      <View style={styles.stepsContainer}>
+        <AnimatePresence exitBeforeEnter>
             {currentStep === 0 && (
               <MotiView
                 key="step-0"
@@ -261,6 +251,8 @@ export default function AlumniOnboardingWizard() {
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     major: formData.major,
+                    customMajor: formData.customMajor,
+                    degreeType: formData.degreeType,
                     graduationYear: formData.graduationYear,
                     profilePhoto: formData.profilePhoto,
                   }}
@@ -279,15 +271,13 @@ export default function AlumniOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <AssetsStep
+                <AlumniSocialStep
                   data={{
-                    resumeFile: formData.resumeFile,
                     linkedinUrl: formData.linkedinUrl,
-                    bio: formData.bio,
+                    professionalBio: formData.professionalBio,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -306,11 +296,11 @@ export default function AlumniOnboardingWizard() {
                     company: formData.company,
                     jobTitle: formData.jobTitle,
                     industry: formData.industry,
-                    phoneNumber: formData.phoneNumber,
+                    mentorshipAvailable: formData.mentorshipAvailable,
+                    mentorshipWays: formData.mentorshipWays,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -324,91 +314,60 @@ export default function AlumniOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <ReviewStep
+                <AlumniReviewStep
                   data={formData}
                   onNext={handleFinish}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
-          </AnimatePresence>
-        </View>
+        </AnimatePresence>
+      </View>
 
-        {/* Loading Overlay */}
-        {isSaving && (
+      {/* Loading Overlay */}
+      {isSaving && (
+        <View
+          style={[
+            styles.loadingOverlay,
+            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+          ]}
+        >
           <View
             style={[
-              styles.loadingOverlay,
-              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+              styles.loadingCard,
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
             ]}
           >
-            <View
-              style={[
-                styles.loadingCard,
-                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
-              ]}
-            >
-              <Text style={[styles.loadingText, { color: colors.text }]}>
-                Saving your profile...
-              </Text>
-              <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
-                This may take a moment
-              </Text>
-            </View>
+            <Text style={[styles.loadingText, { color: colors.text }]}>
+              Saving your profile...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
+              This may take a moment
+            </Text>
           </View>
-        )}
+        </View>
+      )}
 
-        {/* Confetti Cannon */}
-        <ConfettiCannon
-          ref={confettiRef}
-          count={200}
-          origin={{ x: -10, y: 0 }}
-          autoStart={false}
-          fadeOut
-        />
+      {/* Confetti Cannon */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        fadeOut
+      />
 
-        {/* Badge Unlock Celebration */}
-        <BadgeUnlockOverlay
-          visible={showBadgeCelebration}
-          badgeType="alumni"
-          onComplete={handleBadgeCelebrationComplete}
-          autoCompleteDelay={0} // Manual completion only
-        />
-      </View>
-    </SafeAreaView>
+      {/* Badge Unlock Celebration */}
+      <BadgeUnlockOverlay
+        visible={showBadgeCelebration}
+        badgeType="alumni"
+        onComplete={handleBadgeCelebrationComplete}
+        autoCompleteDelay={0} // Manual completion only
+      />
+    </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  progressContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: 24,
-    marginBottom: 32,
-  },
-  progressTrack: {
-    height: 8,
-    width: '100%',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-  },
   stepsContainer: {
     flex: 1,
     width: '100%',

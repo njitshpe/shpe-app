@@ -1,71 +1,55 @@
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
-import ResumePreview from '@/components/shared/ResumePreview';
 
 export interface FormData {
   firstName: string;
   lastName: string;
   major: string;
+  degreeType: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  interests: string[];
-  resumeFile: DocumentPicker.DocumentPickerAsset | null;
+  company: string;
+  jobTitle: string;
   linkedinUrl: string;
-  bio: string;
-  phoneNumber: string;
+  professionalBio: string;
+  industry: string;
+  mentorshipAvailable: boolean;
+  mentorshipWays: string[];
 }
 
-interface ReviewStepProps {
+interface AlumniReviewStepProps {
   data: FormData;
   onNext: () => void;
-  onBack: () => void;
 }
 
-const INTEREST_LABELS: Record<string, string> = {
-  'internships': 'Internships 💼',
-  'scholarships': 'Scholarships 🎓',
-  'resume-help': 'Resume Help 📄',
-  'mental-health': 'Mental Health 💙',
-  'networking': 'Networking 🤝',
-  'leadership': 'Leadership 🌟',
-  'career-fairs': 'Career Fairs 🧭',
-  'community-service': 'Community Service 🤲',
+const MENTORSHIP_WAY_LABELS: Record<string, string> = {
+  'resume-reviews': '📄 Resume Reviews',
+  'mock-interviews': '🎤 Mock Interviews',
+  'coffee-chats': '☕ Coffee Chats',
+  'company-tours': '🏢 Company Tours',
 };
 
-export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
+export default function AlumniReviewStep({ data, onNext }: AlumniReviewStepProps) {
   const { theme, isDark } = useTheme();
-
-  const formatPhoneDisplay = (phone: string) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
+  const insets = useSafeAreaInsets();
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
-            <Ionicons name="chevron-back" size={22} color={theme.text} />
-          </TouchableOpacity>
-          <View style={styles.headerSpacer} />
-        </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Almost there!</Text>
@@ -109,98 +93,119 @@ export default function ReviewStep({ data, onNext, onBack }: ReviewStepProps) {
               </LinearGradient>
             </View>
 
-            {/* Name & Class Year */}
+            {/* Name & Professional Role - EMPHASIZED */}
             <View style={styles.identitySection}>
               <Text style={[styles.fullName, { color: theme.text }]}>
                 {data.firstName} {data.lastName}
               </Text>
-              <Text style={[styles.major, { color: theme.subtext }]}>
-                {data.major}
+              {/* Emphasize Job Title at Company */}
+              <Text style={[styles.professionalRole, { color: SHPE_COLORS.accentBlueBright }]}>
+                {data.jobTitle} at {data.company}
               </Text>
-              <Text style={[styles.classYear, { color: SHPE_COLORS.accentBlueBright }]}>
-                Class of {data.graduationYear}
+              {/* Mentor Badge */}
+              {data.mentorshipAvailable && (
+                <View style={[styles.mentorBadge, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 215, 0, 0.15)' }]}>
+                  <Text style={styles.mentorBadgeText}>🌟 Active Mentor</Text>
+                </View>
+              )}
+              {/* De-emphasize education */}
+              <Text style={[styles.education, { color: theme.subtext }]}>
+                {data.degreeType} {data.major} • Class of {data.graduationYear}
               </Text>
             </View>
 
             {/* Divider */}
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-            {/* Interests Pills */}
+            {/* Expertise Tags (Industry) */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Interests</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Expertise</Text>
               <View style={styles.interestsContainer}>
-                {data.interests.map((id) => (
-                  <View key={id} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.2)' : 'rgba(92, 141, 255, 0.12)' }]}>
-                    <Text style={[styles.interestText, { color: SHPE_COLORS.accentBlueBright }]}>
-                      {INTEREST_LABELS[id] || id}
-                    </Text>
-                  </View>
-                ))}
+                <View style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.2)' : 'rgba(92, 141, 255, 0.12)' }]}>
+                  <Text style={[styles.interestText, { color: SHPE_COLORS.accentBlueBright }]}>
+                    {data.industry}
+                  </Text>
+                </View>
               </View>
             </View>
 
-            {/* Additional Info */}
-            {(data.resumeFile || data.linkedinUrl || data.bio || data.phoneNumber) && (
+            {/* Mentorship Areas - Replaces Student Interests */}
+            {data.mentorshipAvailable && data.mentorshipWays && data.mentorshipWays.length > 0 && (
               <>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Additional Info</Text>
-                  {data.resumeFile && (
-                    <View style={styles.resumePreview}>
-                      <Text style={[styles.sectionSubtitle, { color: theme.subtext }]}>Resume Preview</Text>
-                      <ResumePreview file={data.resumeFile} />
-                    </View>
-                  )}
-                  {data.linkedinUrl && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailIcon}>🔗</Text>
-                      <Text style={[styles.detail, { color: theme.subtext }]} numberOfLines={1}>
-                        LinkedIn connected
-                      </Text>
-                    </View>
-                  )}
-                  {data.phoneNumber && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailIcon}>📱</Text>
-                      <Text style={[styles.detail, { color: theme.subtext }]}>
-                        {formatPhoneDisplay(data.phoneNumber)}
-                      </Text>
-                    </View>
-                  )}
-                  {data.bio && (
-                    <Text style={[styles.bioPreview, { color: theme.subtext }]} numberOfLines={2}>
-                      {data.bio}
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Mentorship Areas</Text>
+                  <View style={styles.interestsContainer}>
+                    {data.mentorshipWays.map((wayId) => (
+                      <View key={wayId} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 215, 0, 0.15)' }]}>
+                        <Text style={[styles.interestText, { color: '#B8860B' }]}>
+                          {MENTORSHIP_WAY_LABELS[wayId] || wayId}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </>
+            )}
+
+            {/* Professional Bio (if provided) */}
+            {data.professionalBio && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Professional Bio</Text>
+                  <Text style={[styles.bioPreview, { color: theme.subtext }]}>
+                    {data.professionalBio}
+                  </Text>
+                </View>
+              </>
+            )}
+
+            {/* LinkedIn (if provided) */}
+            {data.linkedinUrl && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Professional Links</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailIcon}>🔗</Text>
+                    <Text style={[styles.detail, { color: theme.subtext }]} numberOfLines={1}>
+                      LinkedIn connected
                     </Text>
-                  )}
+                  </View>
                 </View>
               </>
             )}
           </LinearGradient>
         </MotiView>
 
-        {/* Navigation Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={onNext} activeOpacity={0.8}>
-            <LinearGradient
-              colors={GRADIENTS.accentButton}
-              style={styles.confirmButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
         <Text style={[styles.helperText, { color: theme.subtext }]}>
           You can update this information anytime in your profile settings.
         </Text>
       </ScrollView>
-    </MotiView>
+      </MotiView>
+
+      {/* Fixed Navigation Button - Outside MotiView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
+        <TouchableOpacity onPress={onNext} activeOpacity={0.8} style={styles.buttonWrapper}>
+          <LinearGradient
+            colors={GRADIENTS.accentButton}
+            style={styles.confirmButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -212,21 +217,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    paddingBottom: SPACING.md,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
+  buttonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
   },
-  backIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
+  buttonWrapper: {
+    width: '100%',
   },
   header: {
     marginBottom: SPACING.lg,
@@ -285,15 +284,26 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
-  major: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: SPACING.xs / 2,
+  professionalRole: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
-  classYear: {
-    fontSize: 15,
+  mentorBadge: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    marginBottom: SPACING.sm,
+  },
+  mentorBadgeText: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#B8860B',
+  },
+  education: {
+    fontSize: 14,
+    fontWeight: '500',
     textAlign: 'center',
   },
   divider: {
@@ -309,16 +319,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     marginBottom: SPACING.sm,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  resumePreview: {
-    marginBottom: SPACING.md,
   },
   // Interest chips (small pills)
   interestsContainer: {
@@ -353,20 +353,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     marginTop: SPACING.xs,
-    fontStyle: 'italic',
   },
   // Buttons
-  buttonRow: {
-    flexDirection: 'row',
-    marginBottom: SPACING.md,
-  },
   confirmButton: {
-    flex: 1,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   confirmButtonText: {
     fontSize: 16,

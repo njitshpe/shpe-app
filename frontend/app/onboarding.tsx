@@ -1,4 +1,4 @@
-import { OnboardingWizard } from '@/components/onboarding';
+import { OnboardingWizard } from '@/onboarding';
 
 export default function OnboardingScreen() {
   return <OnboardingWizard />;

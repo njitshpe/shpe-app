@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
-import * as ImageManipulator from 'expo-image-manipulator';
 import type { FeedPostUI, FeedCommentUI, CreatePostRequest, CreateCommentRequest } from '../types/feed';
+import { PhotoHelper } from '../services/photo.service';
+
 import type { ServiceResponse } from '../types/errors';
 import { createError, mapSupabaseError } from '../types/errors';
 import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent } from '../utils/feed';
@@ -522,8 +523,8 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
     try {
         const uploadPromises = imageUris.map(async (uri, index) => {
             try {
-                // Compress image
-                const compressedImage = await compressImage(uri);
+                // Compress image using shared helper
+                const compressedImage = await PhotoHelper.compressImage(uri);
 
                 // Generate unique path
                 const timestamp = Date.now();
@@ -567,19 +568,6 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
         console.error('uploadImages error:', error);
         throw error;
     }
-}
-
-// Compresses an image using expo-image-manipulator
-async function compressImage(uri: string): Promise<string> {
-    const result = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1080 } }], // Max width 1080px (Instagram-style)
-        {
-            compress: 0.7, // 70% quality
-            format: ImageManipulator.SaveFormat.WEBP,
-        }
-    );
-    return result.uri;
 }
 
 // Updates a post

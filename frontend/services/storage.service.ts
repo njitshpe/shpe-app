@@ -3,6 +3,7 @@ import type { ServiceResponse } from '../types/errors';
 import { createError } from '../types/errors';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { PhotoHelper } from './photo.service';
 
 interface UploadResult {
   url: string;
@@ -21,21 +22,27 @@ class StorageService {
     imageAsset: ImagePicker.ImagePickerAsset
   ): Promise<ServiceResponse<UploadResult>> {
     try {
-      // Create a unique filename
+      // Compress the image first (Standardizes to WebP + 70% Quality)
+      const compressedUri = await PhotoHelper.compressImage(imageAsset.uri);
+
+      // Create a unique filename (forcing .webp extension since we compressed it)
       const timestamp = Date.now();
-      const fileExt = imageAsset.uri.split('.').pop() || 'jpg';
-      const fileName = `${userId}_${timestamp}.${fileExt}`;
+      const fileName = `${userId}_${timestamp}.webp`;
       const filePath = `profile-photos/${fileName}`;
 
-      // Fetch the image as a blob
-      const response = await fetch(imageAsset.uri);
-      const blob = await response.blob();
+      // Use FormData for React Native uploads (fixes 0-byte issue)
+      const formData = new FormData();
+      formData.append('file', {
+        uri: compressedUri,
+        type: 'image/webp',
+        name: fileName,
+      } as any);
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('user-uploads')
-        .upload(filePath, blob, {
-          contentType: imageAsset.mimeType || 'image/jpeg',
+        .upload(filePath, formData, {
+          contentType: 'image/webp',
           upsert: false,
         });
 
