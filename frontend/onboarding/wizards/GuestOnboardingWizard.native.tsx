@@ -235,7 +235,7 @@ export default function GuestOnboardingWizard() {
       hasFormData={hasFormData()}
       showConfirmation={currentStep === 0}
       variant="guest"
-      progressType="bar"
+      progressType="segmented"
     >
       {/* Step Rendering with AnimatePresence */}
       <View style={styles.stepsContainer}>
