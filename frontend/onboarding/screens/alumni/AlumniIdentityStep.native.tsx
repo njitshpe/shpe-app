@@ -24,6 +24,9 @@ import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
 
 const DEGREE_TYPES = ['B.S.', 'M.S.', 'Ph.D.'] as const;
 
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_GRAD_YEAR = CURRENT_YEAR - 80;
+
 const majorOptions = [...NJIT_MAJORS, 'Other'];
 
 const identitySchema = z.object({
@@ -40,9 +43,9 @@ const identitySchema = z.object({
     .refine(
       (year) => {
         const numYear = parseInt(year, 10);
-        return numYear >= 1980 && numYear <= 2030;
+        return numYear >= MIN_GRAD_YEAR && numYear <= CURRENT_YEAR;
       },
-      { message: 'Graduation year must be between 1980 and 2030' }
+      { message: `Graduation year must be between ${MIN_GRAD_YEAR} and ${CURRENT_YEAR}` }
     ),
 }).refine(
   (data) => {
