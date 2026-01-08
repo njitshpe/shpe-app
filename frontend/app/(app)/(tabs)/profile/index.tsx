@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, Linking, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { EditProfileScreen } from '@/components/profile';
@@ -9,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getRankFromPoints } from '@/types/userProfile';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile } = useAuth();
@@ -23,6 +25,7 @@ export default function ProfileScreen() {
 
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     // --- SECURE RESUME HOOK ---
     // This converts the storage path (e.g. "123/resume.pdf") into a viewable link
@@ -46,13 +49,60 @@ export default function ProfileScreen() {
 
     const getSubtitle = () => {
         if (!profile) return "Complete your profile to get started";
-        if (profile.user_type === 'student') return profile.major || "Student";
-        if (profile.user_type === 'alumni') {
-            return profile.current_position
-                ? `${profile.current_position} at ${profile.current_company || 'Unknown'}`
-                : "Alumni";
+
+        if (profile.user_type === 'student') {
+            const major = profile.major || "Major";
+            const year = profile.expected_graduation_year || new Date().getFullYear();
+            return `${major} | Class of ${year}`;
         }
-        return profile.affiliation || "Member";
+
+        if (profile.user_type === 'alumni') {
+            const major = profile.major || "Major";
+            const year = profile.graduation_year || new Date().getFullYear();
+            // Show major and graduation year for alumni
+            return `${major} | Class of ${year}`;
+        }
+
+        if (profile.user_type === 'guest') {
+            if (profile.major) {
+                return `${profile.major} | ${profile.university || 'Guest'}`;
+            }
+            return profile.university || "Guest";
+        }
+
+        if (profile.user_type === 'other') {
+            return profile.affiliation || "Member";
+        }
+
+        return "Member";
+    };
+
+    const getUserTypeBadge = () => {
+        if (!profile?.user_type) return "Student";
+
+        // Capitalize first letter
+        return profile.user_type.charAt(0).toUpperCase() + profile.user_type.slice(1);
+    };
+
+    const getRankColor = () => {
+        // Calculate rank from points if not provided
+        const points = profile?.rank_points || 0;
+        const rank = profile?.rank || getRankFromPoints(points);
+
+        switch (rank) {
+            case 'gold':
+                return '#FFD700';
+            case 'silver':
+                return '#C0C0C0';
+            case 'bronze':
+                return '#CD7F32';
+            default:
+                return '#8E8E93';
+        }
+    };
+
+    const getPoints = () => {
+        return profile?.rank_points || 0;
     };
 
     const handleOpenResume = () => {
@@ -78,6 +128,14 @@ export default function ProfileScreen() {
         }
     };
 
+    const onRefresh = async () => {
+        if (user?.id) {
+            setRefreshing(true);
+            await loadProfile(user.id);
+            setRefreshing(false);
+        }
+    };
+
     const dynamicStyles = {
         container: { backgroundColor: theme.background },
         text: { color: theme.text },
@@ -88,117 +146,214 @@ export default function ProfileScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
-            <ScrollView style={styles.scrollView}>
-                
-                {/* Header Section */}
-                <View style={[styles.headerContainer, { backgroundColor: SHPE_COLORS.darkBlue }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+            <LinearGradient
+                colors={isDark ? ['#1A1A1A', '#000000', '#000000'] : ['#F7FAFF', '#E9F0FF', '#DDE8FF']}
+                style={styles.gradient}
+            >
+                <ScrollView
+                    style={styles.scrollView}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor={theme.primary}
+                            colors={[theme.primary]}
+                        />
+                    }
+                >
+
+                    {/* Settings Icon - Top Right */}
                     <Link href="/settings" asChild>
                         <TouchableOpacity style={styles.settingsButton}>
-                            <Ionicons name="settings-outline" size={24} color={SHPE_COLORS.white} />
+                            <Ionicons name="settings-outline" size={28} color={theme.text} />
                         </TouchableOpacity>
                     </Link>
 
+                    {/* Profile Photo - Centered */}
                     <View style={styles.avatarContainer}>
                         {profile?.profile_picture_url ? (
                             <Image source={{ uri: profile.profile_picture_url }} style={styles.avatar} />
                         ) : (
-                            <View style={styles.avatarPlaceholder}>
-                                <Text style={styles.avatarInitials}>{getInitials()}</Text>
+                            <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? '#444' : '#C0C0C0' }]}>
+                                <Text style={[styles.avatarInitials, { color: isDark ? SHPE_COLORS.white : '#000' }]}>{getInitials()}</Text>
                             </View>
                         )}
                     </View>
 
-                    <View style={styles.nameDataContainer}>
-                        <Text style={styles.nameText}>{getDisplayName()}</Text>
-                        <Text style={styles.emailText}>{user?.email}</Text>
+                    {/* User Type Badge - Red Pill */}
+                    <View style={styles.badgeContainer}>
+                        <View style={styles.userTypeBadge}>
+                            <Text style={styles.userTypeBadgeText}>{getUserTypeBadge()}</Text>
+                        </View>
                     </View>
 
-                    <Text style={styles.majorText}>{getSubtitle()}</Text>
+                    {/* Name - Centered */}
+                    <Text style={[styles.nameText, { color: theme.text }]}>{getDisplayName()}</Text>
 
-                    {profile?.bio && (
-                        <Text style={styles.bioText} numberOfLines={3}>{profile.bio}</Text>
-                    )}
+                    {/* Subtitle - Major | Class of YYYY */}
+                    <Text style={[styles.subtitleText, { color: theme.subtext }]}>{getSubtitle()}</Text>
 
-                    <View style={styles.linksContainer}>
-                        {profile?.linkedin_url && (
-                            <TouchableOpacity
-                                style={styles.linkedinButton}
-                                onPress={() => {
-                                    let url = profile.linkedin_url!;
+                    {/* Social Links Row */}
+                    <View style={styles.socialLinksContainer}>
+                        {/* LinkedIn */}
+                        <TouchableOpacity
+                            style={styles.socialLink}
+                            onPress={() => {
+                                if (profile?.linkedin_url) {
+                                    let url = profile.linkedin_url;
                                     if (!url.startsWith('http')) url = 'https://' + url;
                                     Linking.openURL(url).catch(err => Alert.alert('Error', 'Could not open LinkedIn'));
-                                }}
-                            >
-                                <Ionicons name="logo-linkedin" size={16} color="white" style={{marginRight: 6}}/>
-                                <Text style={styles.linkedinText}>LinkedIn</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
+                                } else {
+                                    Alert.alert('No LinkedIn', 'Add your LinkedIn in Edit Profile');
+                                }
+                            }}
+                        >
+                            <Ionicons
+                                name="logo-linkedin"
+                                size={22}
+                                color={profile?.linkedin_url ? "#0077B5" : "#8E8E93"}
+                            />
+                            <Text style={[styles.socialLinkText, { color: theme.text }, !profile?.linkedin_url && { color: theme.subtext }]}>
+                                LinkedIn
+                            </Text>
+                        </TouchableOpacity>
 
-                {/* Main Content Area */}
-                <View style={styles.contentSection}>
-                    
+                        {/* Resume */}
+                        <TouchableOpacity
+                            style={styles.socialLink}
+                            onPress={() => {
+                                if (profile?.resume_url) {
+                                    handleOpenResume();
+                                } else {
+                                    Alert.alert('No Resume', 'Add your resume in Edit Profile');
+                                }
+                            }}
+                        >
+                            <Ionicons
+                                name="document-text"
+                                size={22}
+                                color={profile?.resume_url ? theme.text : theme.subtext}
+                            />
+                            <Text style={[styles.socialLinkText, { color: theme.text }, !profile?.resume_url && { color: theme.subtext }]}>
+                                Resume
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Portfolio */}
+                        <TouchableOpacity
+                            style={styles.socialLink}
+                            onPress={() => {
+                                if (profile?.portfolio_url) {
+                                    let url = (profile as any).portfolio_url;
+                                    if (!url.startsWith('http')) url = 'https://' + url;
+                                    Linking.openURL(url).catch(err => Alert.alert('Error', 'Could not open Portfolio'));
+                                } else {
+                                    Alert.alert('No Portfolio', 'Add your portfolio in Edit Profile');
+                                }
+                            }}
+                        >
+                            <Ionicons
+                                name="link-outline"
+                                size={22}
+                                color={(profile as any)?.portfolio_url ? theme.text : theme.subtext}
+                            />
+                            <Text style={[styles.socialLinkText, { color: theme.text }, !(profile as any)?.portfolio_url && { color: theme.subtext }]}>
+                                Portfolio
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Bio - Centered */}
+                    {profile?.bio && (
+                        <Text style={[styles.bioText, { color: theme.subtext }]}>{profile.bio}</Text>
+                    )}
+
                     {/* Edit Profile Button */}
                     <TouchableOpacity
-                        style={[styles.primaryButton, dynamicStyles.primaryButton]}
+                        style={[styles.editProfileButton, { backgroundColor: isDark ? 'rgba(60,60,80,1)' : 'rgba(200,200,220,1)' }]}
                         onPress={() => setShowEditProfile(true)}
                     >
-                        <Text style={styles.primaryButtonText}>Edit Profile</Text>
+                        <Text style={[styles.editProfileButtonText, { color: theme.text }]}>Edit Profile</Text>
                     </TouchableOpacity>
 
-                    {/* --- RESUME PREVIEW SECTION --- */}
-                    {profile?.resume_url && (
-                        <View style={styles.resumeSection}>
-                            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Resume</Text>
-                            
-                            <TouchableOpacity 
-                                style={[styles.resumeCard, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}
-                                onPress={handleOpenResume}
-                                activeOpacity={0.7}
-                            >
-                                {/* Preview Area */}
-                                <View style={styles.resumePreviewArea}>
-                                    {resumeLoading ? (
-                                        <ActivityIndicator color={SHPE_COLORS.orange} />
-                                    ) : isResumeImage && signedUrl ? (
-                                        // We use signedUrl here so the private image actually loads
-                                        <Image 
-                                            source={{ uri: signedUrl }} 
-                                            style={styles.resumeImagePreview}
-                                            resizeMode="cover"
-                                        />
-                                    ) : (
-                                        // Generic PDF/Doc Placeholder
-                                        <View style={styles.resumeIconPlaceholder}>
-                                            <Ionicons name="document-text" size={48} color={SHPE_COLORS.gray} />
-                                            <View style={styles.pdfBadge}>
-                                                <Text style={styles.pdfBadgeText}>PDF</Text>
-                                            </View>
-                                        </View>
-                                    )}
+                    {/* Badges Section */}
+                    <View style={styles.badgesSection}>
+                        <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.badgesScrollContent}
+                        >
+                            {/* Placeholder badges - replace with real data when available */}
+                            <View style={styles.badgeItem}>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                    <Ionicons name="trophy" size={32} color="#FFD700" />
                                 </View>
+                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
+                            </View>
+                            <View style={styles.badgeItem}>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                    <Ionicons name="star" size={32} color="#FF9500" />
+                                </View>
+                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Top Contributor</Text>
+                            </View>
+                            <View style={styles.badgeItem}>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                    <Ionicons name="people" size={32} color="#00A3E0" />
+                                </View>
+                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Networker</Text>
+                            </View>
+                            <View style={styles.badgeItem}>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                    <Ionicons name="ribbon" size={32} color="#AF52DE" />
+                                </View>
+                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Early Adopter</Text>
+                            </View>
+                        </ScrollView>
+                    </View>
 
-                                {/* Footer Area */}
-                                <View style={[styles.resumeFooter, { borderTopColor: isDark ? '#3A3A3C' : '#E5E5EA' }]}>
-                                    <View style={{flex: 1}}>
-                                        <Text style={[styles.resumeName, dynamicStyles.text]} numberOfLines={1}>
-                                            {profile.resume_name || 'My Resume.pdf'}
-                                        </Text>
-                                        <Text style={styles.resumeActionText}>
-                                            {resumeLoading ? 'Generating secure link...' : 'Tap to view'}
-                                        </Text>
-                                    </View>
-                                    <Ionicons name="open-outline" size={20} color={SHPE_COLORS.blue} />
-                                </View>
-                            </TouchableOpacity>
+                    {/* Posts Section */}
+                    <View style={styles.postsSection}>
+                        <View style={styles.postsSectionHeader}>
+                            <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
                         </View>
-                    )}
-                    {/* ------------------------------- */}
 
+                        {/* 3-Column Grid of Posts */}
+                        <View style={styles.postsGrid}>
+                            {/* Placeholder posts - replace with real data when available */}
+                            <View style={styles.postItem}>
+                                <Image
+                                    source={{ uri: 'https://via.placeholder.com/150/667BC6/FFFFFF?text=Post+1' }}
+                                    style={styles.postImage}
+                                />
+                            </View>
+                            <View style={styles.postItem}>
+                                <Image
+                                    source={{ uri: 'https://via.placeholder.com/150/333333/FFFFFF?text=Post+2' }}
+                                    style={styles.postImage}
+                                />
+                            </View>
+                            <View style={styles.postItem}>
+                                <Image
+                                    source={{ uri: 'https://via.placeholder.com/150/FF6B9D/FFFFFF?text=Post+3' }}
+                                    style={styles.postImage}
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                </ScrollView>
+
+                {/* Points Pill - Bottom Fixed */}
+                <View style={styles.pointsPillContainer}>
+                    <View style={[styles.pointsPill, { backgroundColor: getRankColor() }]}>
+                        <Text style={styles.pointsPillNumber}>{getPoints()}</Text>
+                        <Text style={styles.pointsPillLabel}>Points</Text>
+                    </View>
                 </View>
-            </ScrollView>
+            </LinearGradient>
 
             {/* Edit Profile Modal */}
             <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
@@ -228,169 +383,204 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    scrollView: { flex: 1 },
-    headerContainer: {
-        paddingTop: 30,
-        paddingBottom: 40,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
+    container: {
+        flex: 1,
     },
-    settingsButton: { position: 'absolute', top: 20, right: 20, zIndex: 10, padding: 5 },
+    gradient: {
+        flex: 1,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    settingsButton: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        zIndex: 10,
+        padding: 8,
+    },
     avatarContainer: {
-        marginBottom: 15,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
+        alignItems: 'center',
+        marginTop: 60,
+        marginBottom: 8,
     },
     avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        borderWidth: 4,
-        borderColor: SHPE_COLORS.white,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 3,
+        borderColor: 'rgba(128,128,128,0.3)',
     },
     avatarPlaceholder: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: SHPE_COLORS.orange,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 4,
-        borderColor: SHPE_COLORS.white,
+        borderWidth: 3,
+        borderColor: 'rgba(128,128,128,0.3)',
     },
-    avatarInitials: { 
-        fontSize: 36, 
-        fontWeight: 'bold', 
-        color: SHPE_COLORS.white 
+    avatarInitials: {
+        fontSize: 40,
+        fontWeight: 'bold',
     },
-    nameDataContainer: { 
-        alignItems: 'center', 
-        marginBottom: 8 
+    badgeContainer: {
+        alignItems: 'center',
+        marginTop: -20,
+        marginBottom: 12,
     },
-    nameText: { 
-        fontSize: 24, 
-        fontWeight: 'bold', 
-        color: SHPE_COLORS.white, 
-        textAlign: 'center' 
+    userTypeBadge: {
+        backgroundColor: '#E53E3E',
+        paddingHorizontal: 24,
+        paddingVertical: 6,
+        borderRadius: 20,
     },
-    emailText: { 
-        fontSize: 13, 
-        color: 'rgba(255,255,255,0.8)', 
-        textAlign: 'center', 
-        marginTop: 4 
+    userTypeBadgeText: {
+        color: SHPE_COLORS.white,
+        fontSize: 15,
+        fontWeight: '600',
     },
-    majorText: { 
-        fontSize: 14, 
-        color: 'rgba(255,255,255,0.9)', 
-        fontWeight: '500' 
+    nameText: {
+        fontSize: 26,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    subtitleText: {
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    socialLinksContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 28,
+        marginBottom: 28,
+        paddingHorizontal: 20,
+    },
+    socialLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    socialLinkText: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    socialLinkDisabled: {
+        opacity: 0.6,
     },
     bioText: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.9)',
+        fontSize: 15,
         textAlign: 'center',
-        marginTop: 12,
-        paddingHorizontal: 20,
-        fontStyle: 'italic',
+        lineHeight: 22,
+        paddingHorizontal: 32,
+        marginBottom: 24,
     },
-    linksContainer: {
-        flexDirection: 'row',
+    editProfileButton: {
+        marginHorizontal: 40,
+        paddingVertical: 14,
+        borderRadius: 24,
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        marginTop: 15,
+        marginBottom: 32,
     },
-    linkedinButton: {
-        backgroundColor: '#0077B5',
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 15,
+    editProfileButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
     },
-    linkedinText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
-    
-    // Content Section (Below Header)
-    contentSection: {
-        padding: 20,
-        gap: 24, 
+    badgesSection: {
+        paddingTop: 8,
+        paddingBottom: 24,
     },
-    primaryButton: {
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    primaryButtonText: { color: SHPE_COLORS.white, fontSize: 16, fontWeight: '600' },
-
-    // RESUME STYLES
-    resumeSection: {
-        gap: 10,
-    },
-    sectionTitle: {
+    badgesSectionTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        marginLeft: 4,
+        fontWeight: '700',
+        marginBottom: 16,
+        paddingHorizontal: 20,
     },
-    resumeCard: {
+    badgesScrollContent: {
+        paddingHorizontal: 20,
+        gap: 16,
+    },
+    badgeItem: {
+        alignItems: 'center',
+        width: 80,
+    },
+    badgeIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    badgeLabel: {
+        fontSize: 11,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    postsSection: {
+        paddingTop: 24,
+        paddingBottom: 40,
+        paddingHorizontal: 20,
+    },
+    postsSectionHeader: {
+        marginBottom: 20,
+    },
+    postsSectionTitle: {
+        fontSize: 22,
+        fontWeight: '700',
+    },
+    postsGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 8,
+    },
+    postItem: {
+        flex: 1,
+        aspectRatio: 1,
         borderRadius: 12,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
-        height: 200, 
     },
-    resumePreviewArea: {
+    postImage: {
+        width: '100%',
+        height: '100%',
+    },
+    loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.02)',
     },
-    resumeImagePreview: {
-        width: '100%',
-        height: '100%',
-        opacity: 0.9,
-    },
-    resumeIconPlaceholder: {
+    pointsPillContainer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 0,
+        right: 0,
         alignItems: 'center',
-        justifyContent: 'center',
+        paddingHorizontal: 20,
     },
-    pdfBadge: {
-        marginTop: 5,
-        backgroundColor: '#FF3B30', // PDF Red
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    pdfBadgeText: {
-        color: 'white',
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    resumeFooter: {
+    pointsPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 12,
-        borderTopWidth: 1,
-        backgroundColor: 'transparent',
+        gap: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
     },
-    resumeName: {
-        fontSize: 14,
+    pointsPillNumber: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    pointsPillLabel: {
+        fontSize: 16,
         fontWeight: '600',
+        color: '#000',
     },
-    resumeActionText: {
-        fontSize: 12,
-        color: SHPE_COLORS.gray,
-        marginTop: 2,
-    },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' }
 });
