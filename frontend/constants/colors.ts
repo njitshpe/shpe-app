@@ -203,11 +203,4 @@ export const SHADOWS = {
         shadowRadius: 12,
         elevation: 6,
     },
-    accentGlow: {
-        shadowColor: SHPE_COLORS.accentBlueBright,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 6,
-    },
 } as const;

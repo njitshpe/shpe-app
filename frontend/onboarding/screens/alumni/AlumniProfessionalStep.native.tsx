@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
 import MentorshipInterstitial from '../../components/MentorshipInterstitial.native';
 
 const INDUSTRIES = [
@@ -369,7 +369,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,
