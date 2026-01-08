@@ -15,8 +15,6 @@ import AlumniSocialStep from '../screens/alumni/AlumniSocialStep.native';
 import AlumniProfessionalStep from '../screens/alumni/AlumniProfessionalStep.native';
 import AlumniReviewStep from '../screens/alumni/AlumniReviewStep.native';
 
-const DEFAULT_GRAD_YEAR = String(new Date().getFullYear());
-
 // Alumni-specific FormData interface
 interface AlumniOnboardingFormData {
   // Step 1: Identity
@@ -56,7 +54,7 @@ export default function AlumniOnboardingWizard() {
     major: '',
     customMajor: '',
     degreeType: '',
-    graduationYear: DEFAULT_GRAD_YEAR,
+    graduationYear: '',
     profilePhoto: null,
     // Step 2: Social & Professional Snapshot
     linkedinUrl: '',
@@ -124,7 +122,7 @@ export default function AlumniOnboardingWizard() {
       formData.firstName.trim() !== '' ||
       formData.lastName.trim() !== '' ||
       formData.major.trim() !== '' ||
-      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
+      formData.graduationYear.trim() !== '' ||
       formData.profilePhoto !== null
     );
   };
