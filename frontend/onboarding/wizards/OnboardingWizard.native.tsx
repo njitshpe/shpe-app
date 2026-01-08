@@ -10,12 +10,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import { SHADOWS } from '@/constants/colors';
-import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import WizardLayout from './WizardLayout.native';
-import IdentityStep from './IdentityStep.native';
-import InterestsStep from './InterestsStep.native';
-import AssetsStep from './AssetsStep.native';
-import ReviewStep from './ReviewStep.native';
+import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import WizardLayout from '../components/WizardLayout.native';
+import IdentityStep from '../screens/shared/IdentityStep.native';
+import InterestsStep from '../screens/shared/InterestsStep.native';
+import AssetsStep from '../screens/student/AssetsStep.native';
+import ReviewStep from '../screens/student/ReviewStep.native';
 
 // Master FormData interface combining all step fields
 interface OnboardingFormData {

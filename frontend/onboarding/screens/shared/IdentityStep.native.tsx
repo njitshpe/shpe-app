@@ -18,7 +18,7 @@ import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SearchableSelectionModal from '../shared/SearchableSelectionModal';
+import SearchableSelectionModal from './SearchableSelectionModal';
 import { NJIT_MAJORS } from '@/constants/majors';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
 

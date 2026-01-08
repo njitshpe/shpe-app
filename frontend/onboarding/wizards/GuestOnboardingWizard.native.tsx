@@ -7,12 +7,12 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import WizardLayout from './WizardLayout.native';
-import IdentityStep from './IdentityStep.native';
-import GuestAffiliationStep from './GuestAffiliationStep.native';
-import InterestsStep from './InterestsStep.native';
-import GuestReviewStep from './GuestReviewStep.native';
+import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import WizardLayout from '../components/WizardLayout.native';
+import IdentityStep from '../screens/shared/IdentityStep.native';
+import GuestAffiliationStep from '../screens/guest/GuestAffiliationStep.native';
+import InterestsStep from '../screens/shared/InterestsStep.native';
+import GuestReviewStep from '../screens/guest/GuestReviewStep.native';
 
 const CURRENT_YEAR = new Date().getFullYear();
 

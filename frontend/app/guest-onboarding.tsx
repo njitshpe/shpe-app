@@ -1,5 +1,5 @@
 import React from 'react';
-import { GuestOnboardingWizard } from '@/components/onboarding';
+import { GuestOnboardingWizard } from '@/onboarding';
 
 export default function GuestOnboardingScreen() {
   return <GuestOnboardingWizard />;
