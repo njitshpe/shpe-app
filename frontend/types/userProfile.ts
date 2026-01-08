@@ -76,6 +76,7 @@ export interface GuestProfile extends BaseProfile {
     user_type: 'guest';
     university: string; // Required - their home university/organization
     major?: string; // Optional - their role or major
+    expected_graduation_year?: number; // Optional - their expected graduation year
 }
 
 export interface OtherProfile extends BaseProfile {

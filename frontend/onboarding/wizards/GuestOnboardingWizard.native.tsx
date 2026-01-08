@@ -179,6 +179,7 @@ export default function GuestOnboardingWizard() {
         last_name: formData.lastName.trim(),
         university: formData.university.trim(),
         major: formData.major?.trim() || undefined,
+        expected_graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
         bio: '',
         interests: mappedInterests,
         phone_number: formData.phoneNumber?.trim() || undefined,
@@ -202,12 +203,8 @@ export default function GuestOnboardingWizard() {
       }
 
       // Mark onboarding as complete in user metadata
+      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
-
-      // Reload the profile to update context (important for Traffic Cop)
-      if (user?.id) {
-        await loadProfile(user.id);
-      }
 
       setIsSaving(false);
 

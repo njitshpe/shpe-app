@@ -203,12 +203,8 @@ export default function AlumniOnboardingWizard() {
       }
 
       // Mark onboarding as complete in user metadata
+      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
-
-      // Reload the profile to update context (important for Traffic Cop)
-      if (user?.id) {
-        await loadProfile(user.id);
-      }
 
       setIsSaving(false);
 
