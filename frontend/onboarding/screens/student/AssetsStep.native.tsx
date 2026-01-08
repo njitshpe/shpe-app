@@ -15,12 +15,10 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as DocumentPicker from 'expo-document-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
 import ResumePreview from '@/components/shared/ResumePreview';
-
-const MOCK_BIO_TEMPLATE =
-  'Mechanical Engineering student at NJIT passionate about automotive systems, sustainable design, and innovation. Experienced in CAD modeling and team collaboration through SHPE projects.';
 
 // Note: File validation in RN uses a different approach
 const assetsSchema = z.object({
@@ -30,12 +28,19 @@ const assetsSchema = z.object({
     .url('Please enter a valid URL (e.g., https://linkedin.com/in/yourname)')
     .optional()
     .or(z.literal('')),
+  portfolioUrl: z
+    .string()
+    .trim()
+    .url('Please enter a valid URL (e.g., https://yourportfolio.com)')
+    .optional()
+    .or(z.literal('')),
   bio: z.string().optional(),
 });
 
 export interface FormData {
   resumeFile: DocumentPicker.DocumentPickerAsset | null;
   linkedinUrl: string;
+  portfolioUrl: string;
   bio: string;
 }
 
@@ -43,11 +48,11 @@ interface AssetsStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  onBack: () => void;
 }
 
-export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepProps) {
+export default function AssetsStep({ data, update, onNext }: AssetsStepProps) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
@@ -80,11 +85,6 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
     update({ resumeFile: null });
   };
 
-  const handleAutoGenerateBio = () => {
-    update({ bio: MOCK_BIO_TEMPLATE });
-    setError(null);
-  };
-
   const handleSkip = () => {
     onNext();
   };
@@ -92,11 +92,12 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
   const handleNext = () => {
     const payload = {
       linkedinUrl: data.linkedinUrl?.trim() ?? '',
+      portfolioUrl: data.portfolioUrl?.trim() ?? '',
       bio: data.bio?.trim() ?? '',
     };
 
-    // Only validate if linkedinUrl has content
-    if (payload.linkedinUrl) {
+    // Only validate if linkedinUrl or portfolioUrl has content
+    if (payload.linkedinUrl || payload.portfolioUrl) {
       const result = assetsSchema.safeParse(payload);
       if (!result.success) {
         setError(result.error.issues[0]?.message ?? 'Please check your inputs.');
@@ -109,26 +110,24 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
   };
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
         >
-        {/* Top Row: Back Arrow + Skip */}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+        {/* Top Row: Skip Button */}
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
-            <Ionicons name="chevron-back" size={22} color={theme.text} />
-          </TouchableOpacity>
           <View style={styles.topRowSpacer} />
           <TouchableOpacity onPress={handleSkip}>
             <Text style={[styles.skipText, { color: theme.subtext }]}>Skip for now</Text>
@@ -224,19 +223,45 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
               />
         </View>
 
+        {/* Portfolio / Website URL - Filled Style */}
+        <View style={styles.fieldContainer}>
+          <Text style={[styles.label, { color: theme.text }]}>Portfolio / Website (Optional)</Text>
+          <View style={[
+            styles.filledInput,
+            { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }
+          ]}>
+            <Text style={styles.inputIcon}>🌐</Text>
+            <TextInput
+              value={data.portfolioUrl ?? ''}
+              onChangeText={(text) => {
+                update({ portfolioUrl: text });
+                setError(null);
+              }}
+              onFocus={() => setFocusedInput('portfolio')}
+              onBlur={() => setFocusedInput(null)}
+              placeholder="https://yourportfolio.com"
+              placeholderTextColor={theme.subtext}
+              style={[styles.inputWithPadding, { color: theme.text }]}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </View>
+          {/* Bottom line indicator */}
+              <MotiView
+                animate={{
+                  width: focusedInput === 'portfolio' ? '100%' : '0%',
+                  backgroundColor: SHPE_COLORS.accentBlueBright,
+                }}
+                transition={{ type: 'timing', duration: 200 }}
+                style={styles.focusIndicator}
+              />
+        </View>
+
         {/* Bio Section - Filled Style */}
         <View style={styles.fieldContainer}>
           <View style={styles.bioHeader}>
             <Text style={[styles.label, { color: theme.text }]}>Professional Bio (Optional)</Text>
-              <TouchableOpacity
-              onPress={handleAutoGenerateBio}
-              style={[
-                styles.aiButton,
-                { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.18)' : 'rgba(92, 141, 255, 0.12)' }
-              ]}
-            >
-              <Text style={[styles.aiButtonText, { color: SHPE_COLORS.accentBlueBright }]}>✨ Auto-generate</Text>
-            </TouchableOpacity>
           </View>
           <View style={[
             styles.filledInput,
@@ -268,26 +293,31 @@ export default function AssetsStep({ data, update, onNext, onBack }: AssetsStepP
           />
         </View>
 
-        {/* Navigation Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={handleNext} activeOpacity={0.8}>
-            <LinearGradient
-              colors={GRADIENTS.accentButton}
-              style={styles.nextButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.nextButtonText}>Next</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
+        <TouchableOpacity onPress={handleNext} activeOpacity={0.8} style={styles.buttonWrapper}>
+          <LinearGradient
+            colors={GRADIENTS.accentButton}
+            style={styles.nextButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -302,18 +332,21 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  buttonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
+  },
+  buttonWrapper: {
+    width: '100%',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     marginBottom: SPACING.sm,
-  },
-  backIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   topRowSpacer: {
     flex: 1,
@@ -407,32 +440,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: SPACING.sm,
   },
-  aiButton: {
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 6,
-  },
-  aiButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   textArea: {
     padding: SPACING.md,
     fontSize: 16,
     minHeight: 100,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: SPACING.sm,
-  },
   nextButton: {
-    flex: 1,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

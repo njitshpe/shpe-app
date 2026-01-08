@@ -1,64 +1,65 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, SafeAreaView, useColorScheme } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Alert, View, Text, StyleSheet, useColorScheme } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
-import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import IdentityStep from './IdentityStep.native';
-import InterestsStep from './InterestsStep.native';
-import AssetsStep from './AssetsStep.native';
-import ReviewStep from './ReviewStep.native';
+import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import WizardLayout from '../components/WizardLayout.native';
+import IdentityStep from '../screens/shared/IdentityStep.native';
+import GuestAffiliationStep from '../screens/guest/GuestAffiliationStep.native';
+import InterestsStep from '../screens/shared/InterestsStep.native';
+import GuestReviewStep from '../screens/guest/GuestReviewStep.native';
 
-// Master FormData interface combining all step fields
-interface OnboardingFormData {
-  // Step 1: Identity
+const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_GRAD_YEAR = String(CURRENT_YEAR);
+
+// Guest-specific FormData interface
+interface GuestOnboardingFormData {
+  // Step 1: Identity (reuse existing)
   firstName: string;
   lastName: string;
-  major: string;
-  graduationYear: string;
+  major: string; // Will be used for "Role/Major" in affiliation
+  graduationYear: string; // Not used for guests, but required by IdentityStep
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Interests + Phone
+  // Step 2: Interests (reuse existing)
   interests: string[];
   phoneNumber: string;
-  // Step 3: Assets
-  resumeFile: DocumentPicker.DocumentPickerAsset | null;
-  linkedinUrl: string;
-  bio: string;
+  // Step 3: Affiliation (NEW)
+  university: string;
 }
 
-export default function OnboardingWizard() {
+export default function GuestOnboardingWizard() {
   const router = useRouter();
   const { user, updateUserMetadata, loadProfile } = useAuth();
-  const { theme, isDark } = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const confettiRef = useRef<ConfettiCannon>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
-  const [formData, setFormData] = useState<OnboardingFormData>({
+  const [formData, setFormData] = useState<GuestOnboardingFormData>({
     // Step 1
     firstName: '',
     lastName: '',
-    major: '',
-    graduationYear: '',
+    major: '', // Role/Major from affiliation step
+    graduationYear: DEFAULT_GRAD_YEAR, // Dummy value for guests
     profilePhoto: null,
     // Step 2
     interests: [],
     phoneNumber: '',
     // Step 3
-    resumeFile: null,
-    linkedinUrl: '',
-    bio: '',
+    university: '',
   });
+
+  // Helper function to merge partial data into main state
+  const updateFormData = (fields: Partial<GuestOnboardingFormData>) => {
+    setFormData((prev) => ({ ...prev, ...fields }));
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -67,29 +68,52 @@ export default function OnboardingWizard() {
       router.replace('/role-selection');
       return;
     }
-    if (userType !== 'student') {
+    if (userType !== 'guest') {
       const fallback =
-        userType === 'alumni'
-          ? '/alumni-onboarding'
-          : userType === 'guest'
-            ? '/guest-onboarding'
+        userType === 'student'
+          ? '/onboarding'
+          : userType === 'alumni'
+            ? '/alumni-onboarding'
             : '/role-selection';
       router.replace(fallback);
     }
   }, [user, router]);
 
-  // Helper function to merge partial data into main state
-  const updateFormData = (fields: Partial<OnboardingFormData>) => {
-    setFormData((prev) => ({ ...prev, ...fields }));
-  };
-
   // Navigation helpers
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 3)); // 4 steps now (0-3)
+    setCurrentStep((prev) => Math.min(prev + 1, 3)); // 4 steps (0-3)
   };
 
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  // Handle back button press
+  const handleBack = async () => {
+    if (currentStep === 0) {
+      // Exit to role selection (clear user_type first)
+      try {
+        await updateUserMetadata({ user_type: null });
+        router.replace('/role-selection');
+      } catch (error) {
+        console.error('Failed to clear user type:', error);
+        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
+      }
+    } else {
+      // Go to previous step
+      prevStep();
+    }
+  };
+
+  // Check if user has entered any data
+  const hasFormData = () => {
+    return (
+      formData.firstName.trim() !== '' ||
+      formData.lastName.trim() !== '' ||
+      formData.major.trim() !== '' ||
+      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
+      formData.profilePhoto !== null
+    );
   };
 
   // Handle badge celebration completion
@@ -114,8 +138,6 @@ export default function OnboardingWizard() {
 
     try {
       let profilePictureUrl: string | undefined;
-      let resumeUrl: string | undefined;
-      let resumeName: string | undefined;
 
       // Upload profile photo if provided
       if (formData.profilePhoto) {
@@ -127,30 +149,9 @@ export default function OnboardingWizard() {
         if (uploadResult.success) {
           profilePictureUrl = uploadResult.data.url;
         } else {
-          // Show warning but continue
           Alert.alert(
             'Photo Upload Failed',
             'Your profile photo could not be uploaded. You can add it later in settings.',
-            [{ text: 'OK' }]
-          );
-        }
-      }
-
-      // Upload resume if provided
-      if (formData.resumeFile) {
-        const uploadResult = await storageService.uploadResume(
-          user.id,
-          formData.resumeFile
-        );
-
-        if (uploadResult.success) {
-          resumeUrl = uploadResult.data.url;
-          resumeName = uploadResult.data.originalName;
-        } else {
-          // Show warning but continue
-          Alert.alert(
-            'Resume Upload Failed',
-            'Your resume could not be uploaded. You can add it later in settings.',
             [{ text: 'OK' }]
           );
         }
@@ -172,21 +173,18 @@ export default function OnboardingWizard() {
         .map(id => interestMap[id])
         .filter((val, idx, arr) => arr.indexOf(val) === idx); // Remove duplicates
 
-      // Create profile data object
+      // Create profile data object for guest
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
-        major: formData.major.trim(),
-        expected_graduation_year: parseInt(formData.graduationYear, 10),
-        university: 'NJIT', // Default university for NJIT students
-        bio: formData.bio?.trim() || '',
+        university: formData.university.trim(),
+        major: formData.major?.trim() || undefined,
+        expected_graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
+        bio: '',
         interests: mappedInterests,
-        linkedin_url: formData.linkedinUrl?.trim() || undefined,
         phone_number: formData.phoneNumber?.trim() || undefined,
         profile_picture_url: profilePictureUrl,
-        resume_url: resumeUrl,
-        resume_name: resumeName,
-        user_type: 'student' as const,
+        user_type: 'guest' as const,
       };
 
       // Try to create the profile (will fail if exists, then we update)
@@ -205,12 +203,8 @@ export default function OnboardingWizard() {
       }
 
       // Mark onboarding as complete in user metadata
+      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
-
-      // Reload the profile to update context (important for Traffic Cop)
-      if (user?.id) {
-        await loadProfile(user.id);
-      }
 
       setIsSaving(false);
 
@@ -223,44 +217,26 @@ export default function OnboardingWizard() {
     }
   };
 
-  const backgroundGradient = isDark ? GRADIENTS.darkBackground : GRADIENTS.lightBackground;
+  // Dynamic colors based on theme
+  const colors = {
+    background: isDark ? '#001339' : '#F7FAFF',
+    text: isDark ? '#F5F8FF' : '#0B1630',
+    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
+  };
 
   return (
-    <LinearGradient
-      colors={backgroundGradient}
-      style={styles.gradient}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
+    <WizardLayout
+      currentStep={currentStep}
+      totalSteps={4}
+      onBack={handleBack}
+      hasFormData={hasFormData()}
+      showConfirmation={currentStep === 0}
+      variant="guest"
+      progressType="segmented"
     >
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={styles.container}>
-          {/* Segmented Progress Indicator */}
-          <View style={styles.progressContainer}>
-            <View style={styles.segmentedProgress}>
-              {[0, 1, 2, 3].map((index) => (
-                <MotiView
-                  key={index}
-                  animate={{
-                    backgroundColor: index <= currentStep
-                      ? SHPE_COLORS.accentBlueBright
-                      : isDark
-                        ? 'rgba(255, 255, 255, 0.2)'
-                        : theme.border,
-                  }}
-                  transition={{ type: 'timing', duration: 400 }}
-                  style={styles.progressSegment}
-                />
-              ))}
-            </View>
-            <Text style={[styles.progressText, { color: theme.subtext }]}>
-              Step {currentStep + 1} of 4
-            </Text>
-          </View>
-
-        {/* Step Rendering with AnimatePresence */}
-        <View style={styles.stepsContainer}>
-          <AnimatePresence exitBeforeEnter>
+      {/* Step Rendering with AnimatePresence */}
+      <View style={styles.stepsContainer}>
+        <AnimatePresence exitBeforeEnter>
             {currentStep === 0 && (
               <MotiView
                 key="step-0"
@@ -300,7 +276,6 @@ export default function OnboardingWizard() {
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -314,15 +289,13 @@ export default function OnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <AssetsStep
+                <GuestAffiliationStep
                   data={{
-                    resumeFile: formData.resumeFile,
-                    linkedinUrl: formData.linkedinUrl,
-                    bio: formData.bio,
+                    university: formData.university,
+                    major: formData.major,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
@@ -336,90 +309,68 @@ export default function OnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <ReviewStep
-                  data={formData}
+                <GuestReviewStep
+                  data={{
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    major: formData.major,
+                    university: formData.university,
+                    profilePhoto: formData.profilePhoto,
+                    interests: formData.interests,
+                    phoneNumber: formData.phoneNumber,
+                  }}
                   onNext={handleFinish}
-                  onBack={prevStep}
                 />
               </MotiView>
             )}
-          </AnimatePresence>
-        </View>
+        </AnimatePresence>
+      </View>
 
-        {/* Loading Overlay */}
-        {isSaving && (
+      {/* Loading Overlay */}
+      {isSaving && (
+        <View
+          style={[
+            styles.loadingOverlay,
+            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+          ]}
+        >
           <View
             style={[
-              styles.loadingOverlay,
-              { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
+              styles.loadingCard,
+              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
             ]}
           >
-            <View style={[styles.loadingCard, { backgroundColor: theme.card }]}>
-              <Text style={[styles.loadingText, { color: theme.text }]}>
-                Saving your profile...
-              </Text>
-              <Text style={[styles.loadingSubtext, { color: theme.subtext }]}>
-                This may take a moment
-              </Text>
-            </View>
+            <Text style={[styles.loadingText, { color: colors.text }]}>
+              Saving your profile...
+            </Text>
+            <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
+              This may take a moment
+            </Text>
           </View>
-        )}
-
-        {/* Confetti Cannon */}
-        <ConfettiCannon
-          ref={confettiRef}
-          count={200}
-          origin={{ x: -10, y: 0 }}
-          autoStart={false}
-          fadeOut
-        />
-
-        {/* Badge Unlock Celebration */}
-        <BadgeUnlockOverlay
-          visible={showBadgeCelebration}
-          badgeType="student"
-          onComplete={handleBadgeCelebrationComplete}
-          autoCompleteDelay={0} // Manual completion only
-        />
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+      )}
+
+      {/* Confetti Cannon */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{ x: -10, y: 0 }}
+        autoStart={false}
+        fadeOut
+      />
+
+      {/* Badge Unlock Celebration */}
+      <BadgeUnlockOverlay
+        visible={showBadgeCelebration}
+        badgeType="guest"
+        onComplete={handleBadgeCelebrationComplete}
+        autoCompleteDelay={0} // Manual completion only
+      />
+    </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: SPACING.md,
-  },
-  progressContainer: {
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  segmentedProgress: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    borderRadius: RADIUS.full,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: SPACING.xs,
-  },
   stepsContainer: {
     flex: 1,
     width: '100%',
@@ -439,15 +390,19 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   loadingCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
+    borderRadius: 16,
+    padding: 32,
     alignItems: 'center',
-    ...SHADOWS.large,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   loadingText: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
   },
   loadingSubtext: {
     fontSize: 14,

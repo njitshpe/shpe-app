@@ -4,17 +4,54 @@ import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
 class ProfileService {
+    private inFlight: Map<string, Promise<ServiceResponse<UserProfile>>> = new Map();
+
     // Get user profile by user ID
     async getProfile(userId: string): Promise<ServiceResponse<UserProfile>> {
         try {
+            const existingRequest = this.inFlight.get(userId);
+            if (existingRequest) {
+                if (__DEV__) {
+                    console.log('[ProfileService] Reusing in-flight profile request for user:', userId);
+                }
+                return await existingRequest;
+            }
+
+            const request = (async () => {
+            if (__DEV__) {
+                console.log('[ProfileService] Fetching profile for user:', userId);
+            }
             const { data, error } = await supabase
                 .from('user_profiles')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle(); // Use maybeSingle() instead of single() to handle missing profiles gracefully
+
+            if (__DEV__) {
+                console.log('[ProfileService] Profile fetch result:', { hasData: !!data, error: error?.message });
+            }
+
+            // If no profile exists (data is null and no error), return success with null data
+            if (!data && !error) {
+                return {
+                    success: true,
+                    data: null as any, // Profile doesn't exist yet (e.g., during onboarding)
+                };
+            }
 
             return handleSupabaseError(data, error);
+            })();
+
+            this.inFlight.set(userId, request);
+            request.finally(() => {
+                this.inFlight.delete(userId);
+            });
+
+            return await request;
         } catch (error) {
+            if (__DEV__) {
+                console.error('[ProfileService] Exception in getProfile:', error);
+            }
             return {
                 success: false,
                 error: createError(

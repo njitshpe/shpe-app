@@ -10,57 +10,29 @@ import {
     ScrollView,
     Pressable,
     useColorScheme,
+    Modal,
+    SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthInput } from '@/components/auth';
+import { AuthInput, AuthLogo } from '@/components/auth';
+import { getAuthBackgroundColors, getAuthPalette } from '@/constants/authTheme';
 
 export default function SignupScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [agreeToTerms, setAgreeToTerms] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const { signUp, signInWithGoogle } = useAuth();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const backgroundColors = isDark
-        ? ['#001e55', '#001339', '#00030a']
-        : ['#F7FAFF', '#E9F0FF', '#DDE8FF'];
-    const palette = isDark
-        ? {
-            text: '#F5F8FF',
-            subtext: 'rgba(229, 239, 255, 0.85)',
-            muted: 'rgba(229, 239, 255, 0.7)',
-            logoBg: 'rgba(255, 255, 255, 0.12)',
-            logoBorder: 'rgba(255, 255, 255, 0.25)',
-            logoInner: 'rgba(255, 255, 255, 0.18)',
-            logoDiamond: '#FFFFFF',
-            checkboxBorder: 'rgba(191, 215, 255, 0.55)',
-            checkboxActive: '#FFFFFF',
-            divider: 'rgba(255, 255, 255, 0.16)',
-            socialBg: 'rgba(255, 255, 255, 0.12)',
-            socialBorder: 'rgba(255, 255, 255, 0.2)',
-            link: '#CFE0FF',
-        }
-        : {
-            text: '#0B1630',
-            subtext: 'rgba(22, 39, 74, 0.75)',
-            muted: 'rgba(22, 39, 74, 0.6)',
-            logoBg: 'rgba(11, 22, 48, 0.08)',
-            logoBorder: 'rgba(11, 22, 48, 0.18)',
-            logoInner: 'rgba(11, 22, 48, 0.12)',
-            logoDiamond: '#0B1630',
-            checkboxBorder: 'rgba(11, 22, 48, 0.35)',
-            checkboxActive: '#0B1630',
-            divider: 'rgba(11, 22, 48, 0.15)',
-            socialBg: 'rgba(255, 255, 255, 0.7)',
-            socialBorder: 'rgba(11, 22, 48, 0.12)',
-            link: '#2D4E9D',
-        };
+    const backgroundColors = getAuthBackgroundColors(isDark);
+    const palette = getAuthPalette(isDark);
 
     const handleSignup = async () => {
         if (!email) {
@@ -83,11 +55,6 @@ export default function SignupScreen() {
             return;
         }
 
-        if (!agreeToTerms) {
-            Alert.alert('Error', 'Please agree to Terms & Privacy');
-            return;
-        }
-
         setLoading(true);
 
         const result = await signUp(email, password, {
@@ -100,7 +67,7 @@ export default function SignupScreen() {
             Alert.alert(
                 'Verify Your Email',
                 `We've sent a verification link to ${email}. Please check your email and click the link to verify your account. Once verified, you can sign in.`,
-                [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
+                [{ text: 'OK', onPress: () => router.replace({ pathname: '/(auth)/login', params: { email } }) }]
             );
         } else {
             Alert.alert(
@@ -136,13 +103,7 @@ export default function SignupScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Logo */}
-                    <View style={styles.logoContainer}>
-                        <View style={[styles.logoCircle, { backgroundColor: palette.logoBg, borderColor: palette.logoBorder }]}>
-                            <View style={[styles.logoInnerCircle, { backgroundColor: palette.logoInner }]}>
-                                <View style={[styles.logoDiamond, { backgroundColor: palette.logoDiamond }]} />
-                            </View>
-                        </View>
-                    </View>
+                    <AuthLogo />
 
                     {/* Title */}
                     <Text style={[styles.title, { color: palette.text }]}>Sign up Account</Text>
@@ -174,26 +135,20 @@ export default function SignupScreen() {
                             secureTextEntry
                         />
 
-                        {/* Terms & Privacy Checkbox */}
+                        {/* Terms & Privacy */}
                         <View style={styles.termsRow}>
-                            <TouchableOpacity
-                                style={styles.checkboxRow}
-                                onPress={() => setAgreeToTerms(!agreeToTerms)}
-                                activeOpacity={0.7}
+                            <Text
+                                style={[styles.checkboxLabel, { color: palette.subtext }]}
                             >
-                                <View
-                                    style={[
-                                        styles.checkbox,
-                                        { borderColor: palette.checkboxBorder },
-                                        agreeToTerms && { borderColor: palette.checkboxActive },
-                                    ]}
-                                >
-                                    {agreeToTerms && (
-                                        <Ionicons name="checkmark" size={14} color={palette.checkboxActive} />
-                                    )}
-                                </View>
-                                <Text style={[styles.checkboxLabel, { color: palette.subtext }]}>Agree to Terms & Privacy</Text>
-                            </TouchableOpacity>
+                                By continuing, you accept our
+                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => setShowTermsModal(true)}>
+                                    {' '}Terms of Conditions
+                                </Text>
+                                {' '}and
+                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => setShowPrivacyModal(true)}>
+                                    {' '}Privacy Policy
+                                </Text>
+                            </Text>
                         </View>
 
                         {/* Sign Up Button */}
@@ -251,6 +206,60 @@ export default function SignupScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Terms & Conditions Modal */}
+            <Modal
+                visible={showTermsModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowTermsModal(false)}
+            >
+                <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDark ? '#001339' : '#FFFFFF' }]}>
+                    <View
+                        style={[
+                            styles.modalHeader,
+                            { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(11, 22, 48, 0.12)' },
+                        ]}
+                    >
+                        <Text style={[styles.modalTitle, { color: palette.text }]}>Terms of Conditions</Text>
+                        <TouchableOpacity onPress={() => setShowTermsModal(false)} style={styles.modalClose}>
+                            <Ionicons name="close" size={22} color={palette.text} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView contentContainerStyle={styles.modalContent}>
+                        <Text style={[styles.modalText, { color: palette.subtext }]}>
+                            Add your Terms of Conditions content here.
+                        </Text>
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
+
+            {/* Privacy Policy Modal */}
+            <Modal
+                visible={showPrivacyModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowPrivacyModal(false)}
+            >
+                <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDark ? '#001339' : '#FFFFFF' }]}>
+                    <View
+                        style={[
+                            styles.modalHeader,
+                            { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(11, 22, 48, 0.12)' },
+                        ]}
+                    >
+                        <Text style={[styles.modalTitle, { color: palette.text }]}>Privacy Policy</Text>
+                        <TouchableOpacity onPress={() => setShowPrivacyModal(false)} style={styles.modalClose}>
+                            <Ionicons name="close" size={22} color={palette.text} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView contentContainerStyle={styles.modalContent}>
+                        <Text style={[styles.modalText, { color: palette.subtext }]}>
+                            Add your Privacy Policy content here.
+                        </Text>
+                    </ScrollView>
+                </SafeAreaView>
+            </Modal>
         </LinearGradient>
     );
 }
@@ -268,35 +277,6 @@ const styles = StyleSheet.create({
         paddingTop: 80,
         paddingBottom: 40,
     },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    logoCircle: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.25)',
-    },
-    logoInnerCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.18)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    logoDiamond: {
-        width: 16,
-        height: 16,
-        backgroundColor: '#FFFFFF',
-        transform: [{ rotate: '45deg' }],
-        borderRadius: 3,
-    },
     title: {
         fontSize: 28,
         fontWeight: '700',
@@ -312,22 +292,40 @@ const styles = StyleSheet.create({
         marginTop: 4,
         marginBottom: 24,
     },
-    checkboxRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    checkbox: {
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        borderWidth: 2,
-        marginRight: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     checkboxLabel: {
         fontSize: 14,
         fontWeight: '400',
+        lineHeight: 18,
+    },
+    linkText: {
+        textDecorationLine: 'underline',
+        fontWeight: '600',
+    },
+    modalContainer: {
+        flex: 1,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    modalClose: {
+        padding: 4,
+    },
+    modalContent: {
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+    },
+    modalText: {
+        fontSize: 14,
+        lineHeight: 20,
     },
     signupButton: {
         borderRadius: 10,

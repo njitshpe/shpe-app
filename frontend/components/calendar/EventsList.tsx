@@ -20,7 +20,7 @@ interface EventsListProps {
 }
 
 interface EventSection {
-  key: 'selected' | 'upcoming' | 'past';
+  key: 'selected' | 'upcoming';
   title: string;
   data: Event[];
 }
@@ -57,15 +57,6 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
         return new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime();
       });
 
-    const pastEvents = weekEvents
-      .filter((event) => {
-        const eventDay = startOfDay(new Date(event.startTimeISO));
-        return isBefore(eventDay, today) && !isSameDay(eventDay, selectedDay);
-      })
-      .sort((a, b) => {
-        return new Date(b.startTimeISO).getTime() - new Date(a.startTimeISO).getTime();
-      });
-
     return [
       {
         key: 'selected',
@@ -76,11 +67,6 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
         key: 'upcoming',
         title: 'Upcoming Events',
         data: upcomingEvents,
-      },
-      {
-        key: 'past',
-        title: 'Past Events',
-        data: pastEvents,
       },
     ];
   }, [events, selectedDate, today]);
@@ -137,12 +123,6 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
       return renderEmptyComponent(
         'No upcoming events this week',
         'Check back later or explore another day'
-      );
-    }
-    if (section.key === 'past' && section.data.length === 0) {
-      return renderEmptyComponent(
-        'No past events this week',
-        'Try another week to see past events'
       );
     }
     return null;

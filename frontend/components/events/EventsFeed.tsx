@@ -35,21 +35,21 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     const { ongoingEvents, upcomingEvents, pastEvents } = useOngoingEvents(events);
 
     const sections: EventSection[] = useMemo(() => [
-        {
-            key: 'ongoing' as const,
-            title: 'Happening Now',
-            data: ongoingEvents,
-        },
-        {
-            key: 'upcoming' as const,
-            title: 'Upcoming Events',
-            data: upcomingEvents,
-        },
-        {
-            key: 'past' as const,
-            title: 'Past Events',
-            data: pastEvents,
-        },
+            {
+                key: 'ongoing' as const,
+                title: 'Happening Now',
+                data: ongoingEvents,
+            },
+            {
+                key: 'upcoming' as const,
+                title: 'Upcoming Events',
+                data: upcomingEvents,
+            },
+            {
+                key: 'past' as const,
+                title: 'Past Events',
+                data: pastEvents,
+            },
     ].filter((section) => section.data.length > 0), [ongoingEvents, upcomingEvents, pastEvents]);
 
     const handleEventPress = useCallback(

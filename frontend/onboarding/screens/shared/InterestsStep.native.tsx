@@ -17,8 +17,9 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as Notifications from 'expo-notifications';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
 
 const INTEREST_OPTIONS = [
   { id: 'internships', label: 'Internships 💼' },
@@ -53,11 +54,11 @@ interface InterestsStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  onBack: () => void;
 }
 
-export default function InterestsStep({ data, update, onNext, onBack }: InterestsStepProps) {
+export default function InterestsStep({ data, update, onNext }: InterestsStepProps) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
   const [maxLimitWarning, setMaxLimitWarning] = useState(false);
   const [focusedInput, setFocusedInput] = useState(false);
@@ -150,27 +151,22 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
   const isNextDisabled = !data.interests || data.interests.length === 0;
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={onBack} style={styles.backIconButton}>
-              <Ionicons name="chevron-back" size={22} color={theme.text} />
-            </TouchableOpacity>
-            <View style={styles.headerSpacer} />
-          </View>
           {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]}>What interests you?</Text>
@@ -291,30 +287,36 @@ export default function InterestsStep({ data, update, onNext, onBack }: Interest
             </Text>
           </View>
 
-          {/* Navigation Buttons */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              onPress={handleNext}
-              disabled={isNextDisabled}
-              activeOpacity={0.8}
-            >
-              <LinearGradient
-                colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
-                style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.nextButtonText}>Next</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </MotiView>
+        </KeyboardAvoidingView>
+      </MotiView>
+
+      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
+        <TouchableOpacity
+          onPress={handleNext}
+          disabled={isNextDisabled}
+          activeOpacity={0.8}
+          style={styles.buttonWrapper}
+        >
+          <LinearGradient
+            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
+            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.nextButtonText}>Next</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -329,21 +331,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    paddingBottom: SPACING.md,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
+  buttonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
   },
-  backIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSpacer: {
-    flex: 1,
+  buttonWrapper: {
+    width: '100%',
   },
   header: {
     marginBottom: SPACING.lg,
@@ -390,7 +386,6 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   interestPillActive: {
-    ...SHADOWS.accentGlow,
   },
   interestText: {
     fontSize: 14,
@@ -403,17 +398,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: SPACING.sm,
-  },
   nextButton: {
-    flex: 1,
     borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

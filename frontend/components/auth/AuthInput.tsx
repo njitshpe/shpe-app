@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getAuthInputPalette } from '@/constants/authTheme';
 
 interface AuthInputProps {
   label: string;
@@ -24,23 +25,11 @@ export function AuthInput({
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const palette = isDark
-    ? {
-        label: 'rgba(229, 239, 255, 0.85)',
-        inputBg: 'rgba(255, 255, 255, 0.08)',
-        inputBorder: 'rgba(255, 255, 255, 0.18)',
-        inputText: '#F5F8FF',
-        placeholder: 'rgba(229, 239, 255, 0.5)',
-        icon: 'rgba(229, 239, 255, 0.7)',
-      }
-    : {
-        label: 'rgba(22, 39, 74, 0.8)',
-        inputBg: 'rgba(255, 255, 255, 0.7)',
-        inputBorder: 'rgba(11, 22, 48, 0.12)',
-        inputText: '#0B1630',
-        placeholder: 'rgba(22, 39, 74, 0.45)',
-        icon: 'rgba(11, 22, 48, 0.6)',
-      };
+  const basePalette = getAuthInputPalette(isDark);
+  const palette = {
+    ...basePalette,
+    icon: isDark ? 'rgba(229, 239, 255, 0.7)' : 'rgba(11, 22, 48, 0.6)',
+  };
 
   // Get icon based on label
   const getIcon = () => {

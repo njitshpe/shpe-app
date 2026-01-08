@@ -63,16 +63,20 @@ export interface StudentProfile extends BaseProfile {
 export interface AlumniProfile extends BaseProfile {
     user_type: 'alumni';
     major: string;
+    degree_type?: string; // e.g., 'B.S.', 'M.S.', 'Ph.D.'
     graduation_year: number;
     university: string; // Defaults to 'NJIT'
     current_company?: string;
     current_position?: string;
+    mentorship_available?: boolean;
+    mentorship_ways?: string[]; // e.g., ['resume-reviews', 'mock-interviews']
 }
 
 export interface GuestProfile extends BaseProfile {
     user_type: 'guest';
     university: string; // Required - their home university/organization
     major?: string; // Optional - their role or major
+    expected_graduation_year?: number; // Optional - their expected graduation year
 }
 
 export interface OtherProfile extends BaseProfile {
