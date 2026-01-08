@@ -9,6 +9,11 @@ import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/shared';
 
+// Services
+import { eventNotificationHelper } from '@/services/eventNotification.helper';
+import { notificationService } from '@/services/notification.service';
+import { pointsListener } from '@/services/pointsListener.service';
+
 /**
  * Auth Guard Component
  * Handles redirects based on authentication state
@@ -38,6 +43,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         router.replace(target);
       }
     };
+
     if (__DEV__) {
       console.log('[AuthGuard] Debug:', {
         hasSession: !!session,
@@ -99,17 +105,32 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Rule 5: Has session + onboarding completed → should be in app
-    if (session && onboardingCompleted && (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection)) {
-      replaceIfNeeded('/home');
-      return;
-    }
-
-    // Rule 6: Session + onboarding completed + not in app → go home
-    if (session && onboardingCompleted && !inApp) {
-      replaceIfNeeded('/home');
-      return;
+    if (session && onboardingCompleted) {
+      if (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection) {
+        replaceIfNeeded('/home');
+        return;
+      }
+      // If we are not in app (e.g. root), go to home
+      if (!inApp) {
+        replaceIfNeeded('/home');
+        return;
+      }
     }
   }, [session, isLoading, segments, user, profile, pathname, router]);
+
+  // 2. POINTS LISTENER (Notification logic is now in Context)
+  useEffect(() => {
+    if (!isLoading && session) {
+      // Start listening for events to award points
+      pointsListener.start();
+    } else if (!session) {
+      pointsListener.stop();
+    }
+
+    return () => {
+      pointsListener.stop();
+    };
+  }, [session, isLoading]);
 
   // Loading State - wait for auth to load
   if (isLoading) {
