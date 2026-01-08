@@ -8,12 +8,12 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import BadgeUnlockOverlay from '../shared/BadgeUnlockOverlay';
-import WizardLayout from './WizardLayout.native';
-import AlumniIdentityStep from './AlumniIdentityStep.native';
-import AlumniSocialStep from './AlumniSocialStep.native';
-import AlumniProfessionalStep from './AlumniProfessionalStep.native';
-import AlumniReviewStep from './AlumniReviewStep.native';
+import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import WizardLayout from '../components/WizardLayout.native';
+import AlumniIdentityStep from '../screens/alumni/AlumniIdentityStep.native';
+import AlumniSocialStep from '../screens/alumni/AlumniSocialStep.native';
+import AlumniProfessionalStep from '../screens/alumni/AlumniProfessionalStep.native';
+import AlumniReviewStep from '../screens/alumni/AlumniReviewStep.native';
 
 // Alumni-specific FormData interface
 interface AlumniOnboardingFormData {

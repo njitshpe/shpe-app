@@ -15,7 +15,7 @@ import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
-import MentorshipInterstitial from './MentorshipInterstitial.native';
+import MentorshipInterstitial from '../../components/MentorshipInterstitial.native';
 
 const INDUSTRIES = [
   'Aerospace',
