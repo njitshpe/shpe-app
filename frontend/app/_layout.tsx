@@ -9,6 +9,11 @@ import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/shared';
 
+// Services
+import { eventNotificationHelper } from '@/services/eventNotification.helper';
+import { notificationService } from '@/services/notification.service';
+import { pointsListener } from '@/services/pointsListener.service';
+
 /**
  * Auth Guard Component
  * Handles redirects based on authentication state
@@ -104,6 +109,20 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
   }, [session, isLoading, segments, user, profile]);
+
+  // 2. POINTS LISTENER (Notification logic is now in Context)
+  useEffect(() => {
+    if (!isLoading && session) {
+      // Start listening for events to award points
+      pointsListener.start();
+    } else if (!session) {
+      pointsListener.stop();
+    }
+
+    return () => {
+      pointsListener.stop();
+    };
+  }, [session, isLoading]);
 
   // Loading State
   if (isLoading) {
