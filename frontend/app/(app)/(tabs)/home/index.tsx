@@ -16,7 +16,7 @@ export default function HomeScreen() {
     const router = useRouter();
     const { user, signOut, updateUserMetadata, profile, loadProfile } = useAuth();
     const { theme, isDark } = useTheme();
-    const { events } = useEvents();
+    const { events, isCurrentUserAdmin } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
     const [rankData, setRankData] = useState<UserRankData | null>(null);
@@ -212,7 +212,68 @@ export default function HomeScreen() {
                                     <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh</Text>
                                 </TouchableOpacity>
                             </View>
+
+                            <Text style={[styles.debugTitle, { marginTop: 16 }]}>Admin Status</Text>
+                            <Text style={[styles.debugText, dynamicStyles.text]}>
+                                Is Admin: {isCurrentUserAdmin ? '✅ YES' : '❌ NO'}
+                            </Text>
+                            <View style={styles.debugActions}>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={async () => {
+                                        try {
+                                            const { data: { user } } = await supabase.auth.getUser();
+                                            if (!user) {
+                                                Alert.alert('Error', 'Not logged in');
+                                                return;
+                                            }
+
+                                            const { data: adminRole, error } = await supabase
+                                                .from('admin_roles')
+                                                .select('*')
+                                                .eq('user_id', user.id)
+                                                .is('revoked_at', null)
+                                                .maybeSingle();
+
+                                            if (error) {
+                                                Alert.alert('Database Error', error.message);
+                                                return;
+                                            }
+
+                                            if (adminRole) {
+                                                Alert.alert(
+                                                    'Admin Status: YES ✅',
+                                                    `User ID: ${user.id}\nRole: ${adminRole.role_type}\nGranted: ${new Date(adminRole.granted_at).toLocaleDateString()}`
+                                                );
+                                            } else {
+                                                Alert.alert(
+                                                    'Admin Status: NO ❌',
+                                                    `User ID: ${user.id}\n\nTo grant admin access, run:\n\nINSERT INTO admin_roles (user_id, role_type) VALUES ('${user.id}', 'event_manager');`
+                                                );
+                                            }
+                                        } catch (e: any) {
+                                            Alert.alert('Error', e.message);
+                                        }
+                                    }}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Check Admin</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
+                    )}
+
+                    {/* Admin Dashboard - Only for admins */}
+                    {isCurrentUserAdmin && (
+                        <TouchableOpacity
+                            style={[styles.actionCard, dynamicStyles.card]}
+                            onPress={() => router.push('/admin')}
+                        >
+                            <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
+                                <Ionicons name="shield-checkmark" size={32} color={theme.primary} />
+                            </View>
+                            <Text style={[styles.actionTitle, dynamicStyles.text]}>Admin</Text>
+                            <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Manage events</Text>
+                        </TouchableOpacity>
                     )}
 
                     {/* Check In - Right Side */}
