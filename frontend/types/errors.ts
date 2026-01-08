@@ -42,6 +42,8 @@ export type ErrorCode =
   | 'DATABASE_ERROR'
   | 'NOT_FOUND'
   | 'ALREADY_EXISTS'
+  | 'UPLOAD_ERROR'
+  | 'DELETE_ERROR'
 
   // Permission errors
   | 'PERMISSION_DENIED'

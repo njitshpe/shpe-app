@@ -12,6 +12,7 @@ import { useProfilePhoto } from '@/hooks/media';
 import type { UserProfile } from '@/types/userProfile';
 
 // --- IMPORTS FOR UPLOAD ---
+import { storageService } from '@/services/storage.service';
 import { supabase } from '@/lib/supabase';
 // Note: We removed 'expo-file-system' and 'base64-arraybuffer' 
 // because we are using the modern fetch API now.
@@ -25,6 +26,8 @@ interface EditProfileScreenProps {
   onSave: (data: UserProfile) => void;
 }
 
+// ...
+
 export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileScreenProps) {
   // 1. Hook into Theme
   const { theme, isDark } = useTheme();
@@ -35,10 +38,11 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 
   // Local state for upload spinner
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const handleSave = async () => {
-    if (uploadingResume) {
-      Alert.alert("Please Wait", "Resume is still uploading...");
+    if (uploadingResume || uploadingPhoto) {
+      Alert.alert("Please Wait", "Files are still uploading...");
       return;
     }
 
@@ -67,7 +71,7 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
       const { error: uploadError } = await supabase.storage
         .from('resumes')
         .upload(storagePath, arrayBuffer, {
-          contentType: result.mimeType || 'application/pdf',
+          contentType: 'application/pdf',
           upsert: true,
         });
 
@@ -88,12 +92,27 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
   };
 
   const handleImagePick = async () => {
-    pickPhoto((uri) => {
-      updateField('profile_picture_url', uri);
+    pickPhoto(async (uri) => {
+      try {
+        setUploadingPhoto(true);
+
+        // Use the photo service to upload (handles compression)
+        const result = await storageService.uploadProfilePhoto(initialData.id, { uri } as any);
+
+        if (result.success && result.data) {
+          updateField('profile_picture_url', result.data.url);
+        } else {
+          Alert.alert("Upload Failed", result.error?.message || "Could not upload photo");
+        }
+      } catch (error) {
+        Alert.alert("Error", "Failed to process photo");
+      } finally {
+        setUploadingPhoto(false);
+      }
     });
   };
 
-  const isLoading = formLoading || uploadingResume;
+  const isLoading = formLoading || uploadingResume || uploadingPhoto;
 
   // Dynamic Styles
   const dynamicStyles = {
@@ -128,8 +147,12 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 
         {/* 0. Avatar Picker */}
         <View style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleImagePick} style={styles.avatarWrapper}>
-            {formData.profile_picture_url ? (
+          <TouchableOpacity onPress={handleImagePick} style={styles.avatarWrapper} disabled={uploadingPhoto}>
+            {uploadingPhoto ? (
+              <View style={[styles.avatarPlaceholder, dynamicStyles.avatarPlaceholder]}>
+                <ActivityIndicator color={SHPE_COLORS.orange} />
+              </View>
+            ) : formData.profile_picture_url ? (
               <Image source={{ uri: formData.profile_picture_url }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatarPlaceholder, dynamicStyles.avatarPlaceholder]}>
@@ -142,8 +165,10 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
               <Text style={styles.editIconText}>📷</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleImagePick}>
-            <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+          <TouchableOpacity onPress={handleImagePick} disabled={uploadingPhoto}>
+            <Text style={styles.changePhotoText}>
+              {uploadingPhoto ? 'Uploading...' : 'Change Profile Photo'}
+            </Text>
           </TouchableOpacity>
         </View>
 

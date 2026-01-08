@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { Alert, Platform } from 'react-native';
 
 export interface ImagePickerServiceOptions {
@@ -102,5 +103,24 @@ export const PhotoHelper = {
       console.log('Error picking file:', error);
     }
     return null;
+  },
+
+  // 4. Compress Image (Standardize to WebP)
+  compressImage: async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1080 } }], // Max width 1080px to save space
+        {
+          compress: 0.7, // 70% quality
+          format: ImageManipulator.SaveFormat.WEBP,
+        }
+      );
+      return result.uri;
+    } catch (error) {
+      console.log('Error compressing image:', error);
+      // If compression fails, return original URI as fallback
+      return uri;
+    }
   },
 };
