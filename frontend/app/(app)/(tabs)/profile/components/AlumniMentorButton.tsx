@@ -11,6 +11,7 @@ interface AlumniMentorButtonProps {
     themeText: string;
     themeSubtext: string;
     onMentorshipUpdate: () => Promise<void>;
+    readOnly?: boolean;
 }
 
 const MENTORSHIP_WAYS = [
@@ -27,9 +28,15 @@ export function AlumniMentorButton({
     themeText,
     themeSubtext,
     onMentorshipUpdate,
+    readOnly = false,
 }: AlumniMentorButtonProps) {
     const [showModal, setShowModal] = useState(false);
     const [selectedWays, setSelectedWays] = useState<string[]>([]);
+
+    // If read-only and not a mentor, don't show anything
+    if (readOnly && !profile.mentorship_available) {
+        return null;
+    }
 
     const toggleMentorshipWay = (wayId: string) => {
         setSelectedWays(prev =>
