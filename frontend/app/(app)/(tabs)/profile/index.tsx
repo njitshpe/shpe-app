@@ -8,14 +8,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { useProfileDisplay } from './hooks/useProfileDisplay';
 import { ProfileHeader } from './components/ProfileHeader';
 import { ProfileSocialLinks } from './components/ProfileSocialLinks';
+import { fetchUserPosts, deletePost } from '@/lib/feedService';
+import { FeedCard } from '@/components/feed';
+import type { FeedPostUI } from '@/types/feed';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile, profileLoading } = useAuth();
     const { theme, isDark } = useTheme();
+    const router = useRouter();
 
     // Load profile on mount if missing and not already loading
     React.useEffect(() => {
@@ -27,6 +32,27 @@ export default function ProfileScreen() {
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [posts, setPosts] = useState<FeedPostUI[]>([]);
+    const [postsLoading, setPostsLoading] = useState(false);
+
+    const loadPosts = async () => {
+        if (!user?.id) return;
+        setPostsLoading(true);
+        try {
+            const result = await fetchUserPosts(user.id, 0, 20);
+            if (result.success && result.data) {
+                setPosts(result.data);
+            }
+        } catch (error) {
+            console.error('Error loading posts:', error);
+        } finally {
+            setPostsLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        loadPosts();
+    }, [user?.id]);
 
     // --- SECURE RESUME HOOK ---
     // This converts the storage path (e.g. "123/resume.pdf") into a viewable link
@@ -59,7 +85,10 @@ export default function ProfileScreen() {
     const onRefresh = async () => {
         if (user?.id) {
             setRefreshing(true);
-            await loadProfile(user.id);
+            await Promise.all([
+                loadProfile(user.id),
+                loadPosts()
+            ]);
             setRefreshing(false);
         }
     };
@@ -76,10 +105,7 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-            <LinearGradient
-                colors={isDark ? ['#1A1A1A', '#000000', '#000000'] : ['#F7FAFF', '#E9F0FF', '#DDE8FF']}
-                style={styles.gradient}
-            >
+            <View style={[styles.gradient, { backgroundColor: theme.background }]}>
                 <ScrollView
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
@@ -130,9 +156,11 @@ export default function ProfileScreen() {
                         />
                     )}
 
-                    {/* Bio - Centered */}
+                    {/* Bio - Centered with Background */}
                     {profile?.bio && (
-                        <Text style={[styles.bioText, { color: theme.subtext }]}>{profile.bio}</Text>
+                        <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                            <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
+                        </View>
                     )}
 
                     {/* Edit Profile Button */}
@@ -151,28 +179,40 @@ export default function ProfileScreen() {
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.badgesScrollContent}
                         >
+                            {/* Points / Rank Badge */}
+                            <View style={styles.badgeItem}>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
+                                    <Text style={{ color: '#000000ff', fontWeight: 'bold', fontSize: 14 }}>
+                                        {profileDisplay.points}
+                                    </Text>
+                                </View>
+                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
+                                    {profileDisplay.rank}
+                                </Text>
+                            </View>
+
                             {/* Placeholder badges - replace with real data when available */}
                             <View style={styles.badgeItem}>
                                 <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="trophy" size={32} color="#FFD700" />
+                                    <Ionicons name="trophy" size={24} color="#FFD700" />
                                 </View>
                                 <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
                             </View>
                             <View style={styles.badgeItem}>
                                 <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="star" size={32} color="#FF9500" />
+                                    <Ionicons name="star" size={24} color="#FF9500" />
                                 </View>
                                 <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Top Contributor</Text>
                             </View>
                             <View style={styles.badgeItem}>
                                 <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="people" size={32} color="#00A3E0" />
+                                    <Ionicons name="people" size={24} color="#00A3E0" />
                                 </View>
                                 <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Networker</Text>
                             </View>
                             <View style={styles.badgeItem}>
                                 <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="ribbon" size={32} color="#AF52DE" />
+                                    <Ionicons name="ribbon" size={24} color="#AF52DE" />
                                 </View>
                                 <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Early Adopter</Text>
                             </View>
@@ -185,40 +225,36 @@ export default function ProfileScreen() {
                             <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
                         </View>
 
-                        {/* 3-Column Grid of Posts */}
-                        <View style={styles.postsGrid}>
-                            {/* Placeholder posts - replace with real data when available */}
-                            <View style={styles.postItem}>
-                                <Image
-                                    source={{ uri: 'https://via.placeholder.com/150/667BC6/FFFFFF?text=Post+1' }}
-                                    style={styles.postImage}
-                                />
+                        {/* Post List */}
+                        {postsLoading ? (
+                            <ActivityIndicator color={theme.primary} style={{ marginTop: 20 }} />
+                        ) : posts.length > 0 ? (
+                            <View style={styles.postsList}>
+                                {posts.map(post => (
+                                    <FeedCard
+                                        key={post.id}
+                                        post={post}
+                                        onEdit={(post) => router.push({ pathname: '/feed/create', params: { id: post.id } })}
+                                        onDelete={async (postId) => {
+                                            const result = await deletePost(postId);
+                                            if (result.success) {
+                                                loadPosts();
+                                            } else {
+                                                Alert.alert('Error', result.error?.message || 'Failed to delete post');
+                                            }
+                                        }}
+                                    />
+                                ))}
                             </View>
-                            <View style={styles.postItem}>
-                                <Image
-                                    source={{ uri: 'https://via.placeholder.com/150/333333/FFFFFF?text=Post+2' }}
-                                    style={styles.postImage}
-                                />
-                            </View>
-                            <View style={styles.postItem}>
-                                <Image
-                                    source={{ uri: 'https://via.placeholder.com/150/FF6B9D/FFFFFF?text=Post+3' }}
-                                    style={styles.postImage}
-                                />
-                            </View>
-                        </View>
+                        ) : (
+                            <Text style={[styles.noPostsText, { color: theme.subtext }]}>You haven't posted anything yet.</Text>
+                        )}
                     </View>
 
                 </ScrollView>
 
-                {/* Points Pill - Bottom Fixed */}
-                <View style={styles.pointsPillContainer}>
-                    <View style={[styles.pointsPill, { backgroundColor: profileDisplay.rankColor }]}>
-                        <Text style={styles.pointsPillNumber}>{profileDisplay.points}</Text>
-                        <Text style={styles.pointsPillLabel}>Points</Text>
-                    </View>
-                </View>
-            </LinearGradient>
+
+            </View>
 
             {/* Edit Profile Modal */}
             <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
@@ -236,15 +272,17 @@ export default function ProfileScreen() {
             </Modal>
 
             {/* Resume Viewer Modal */}
-            {signedUrl && (
-                <ResumeViewerModal
-                    visible={showResumeViewer}
-                    onClose={() => setShowResumeViewer(false)}
-                    resumeUrl={signedUrl}
-                />
-            )}
+            {
+                signedUrl && (
+                    <ResumeViewerModal
+                        visible={showResumeViewer}
+                        onClose={() => setShowResumeViewer(false)}
+                        resumeUrl={signedUrl}
+                    />
+                )
+            }
 
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -265,12 +303,17 @@ const styles = StyleSheet.create({
         zIndex: 10,
         padding: 8,
     },
+    bioSection: {
+        marginHorizontal: 20,
+        marginBottom: 24,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
     bioText: {
         fontSize: 15,
         textAlign: 'center',
         lineHeight: 22,
-        paddingHorizontal: 32,
-        marginBottom: 24,
     },
     editProfileButton: {
         marginHorizontal: 40,
@@ -285,32 +328,32 @@ const styles = StyleSheet.create({
     },
     badgesSection: {
         paddingTop: 8,
-        paddingBottom: 24,
+        paddingBottom: 12,
     },
     badgesSectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 16,
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 12,
         paddingHorizontal: 20,
     },
     badgesScrollContent: {
         paddingHorizontal: 20,
-        gap: 16,
+        gap: 12,
     },
     badgeItem: {
         alignItems: 'center',
-        width: 80,
+        width: 60,
     },
     badgeIconContainer: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     badgeLabel: {
-        fontSize: 11,
+        fontSize: 10,
         textAlign: 'center',
         fontWeight: '500',
     },
@@ -326,55 +369,19 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: '700',
     },
-    postsGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 8,
+    postsList: {
+        gap: 16,
     },
-    postItem: {
-        flex: 1,
-        aspectRatio: 1,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    postImage: {
-        width: '100%',
-        height: '100%',
+    noPostsText: {
+        textAlign: 'center',
+        fontStyle: 'italic',
+        marginTop: 20,
+        marginBottom: 40,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    pointsPillContainer: {
-        position: 'absolute',
-        bottom: 20,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    pointsPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-    pointsPillNumber: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#000',
-    },
-    pointsPillLabel: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000',
-    },
+
 });
