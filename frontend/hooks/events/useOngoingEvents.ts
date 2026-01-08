@@ -14,17 +14,28 @@ interface UseOngoingEventsResult {
  */
 export function useOngoingEvents(events: Event[]): UseOngoingEventsResult {
     return useMemo(() => {
+        console.log('[useOngoingEvents] 📥 Received events:', events.length);
         const now = new Date();
         const ongoing: Event[] = [];
         const upcoming: Event[] = [];
         const past: Event[] = [];
+        let skippedInvalid = 0;
 
         events.forEach((event) => {
             const startTime = new Date(event.startTimeISO);
             const endTime = new Date(event.endTimeISO);
 
             // Skip invalid dates
-            if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return;
+            if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+                skippedInvalid++;
+                console.warn('[useOngoingEvents] ⚠️  Skipping invalid dates:', {
+                    id: event.id,
+                    title: event.title,
+                    startTimeISO: event.startTimeISO,
+                    endTimeISO: event.endTimeISO
+                });
+                return;
+            }
 
             // Check if event is currently happening
             if (isWithinInterval(now, { start: startTime, end: endTime })) {
@@ -36,6 +47,14 @@ export function useOngoingEvents(events: Event[]): UseOngoingEventsResult {
                 // Event has ended
                 past.push(event);
             }
+        });
+
+        console.log('[useOngoingEvents] 📊 Results:', {
+            total: events.length,
+            skippedInvalid,
+            ongoing: ongoing.length,
+            upcoming: upcoming.length,
+            past: past.length
         });
 
         // Sort ongoing by end time (ending soonest first)

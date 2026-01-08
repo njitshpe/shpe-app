@@ -14,7 +14,7 @@ import { MotiView } from 'moti';
 import { z } from 'zod';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SearchableSelectionModal from '../shared/SearchableSelectionModal';
+import SearchableSelectionModal from '../../components/SearchableSelectionModal';
 import { UNIVERSITIES } from '@/constants/universities';
 
 const affiliationSchema = z.object({
