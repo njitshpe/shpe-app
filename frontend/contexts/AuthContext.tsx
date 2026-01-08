@@ -375,7 +375,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loadProfile = async (userId: string) => {
+    // Skip if we're already loading a profile for the same user
+    if (loadingProfileRef.current && currentUserIdRef.current === userId) {
+      if (__DEV__) {
+        console.log('[AuthContext] Skipping loadProfile - already in progress for this user');
+      }
+      return;
+    }
+
     currentUserIdRef.current = userId;
+    loadingProfileRef.current = true;
     setProfileLoading(true);
     try {
       const result = await withTimeout(
@@ -394,6 +403,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
     } finally {
       setProfileLoading(false);
+      loadingProfileRef.current = false;
     }
   };
 

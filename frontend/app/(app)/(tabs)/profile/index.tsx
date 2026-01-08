@@ -13,19 +13,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getRankFromPoints } from '@/types/userProfile';
 
 export default function ProfileScreen() {
-    const { user, profile, loadProfile } = useAuth();
+    const { user, profile, loadProfile, profileLoading } = useAuth();
     const { theme, isDark } = useTheme();
 
-    // Load profile on mount if missing
+    // Load profile on mount if missing and not already loading
     React.useEffect(() => {
-        if (user?.id && !profile) {
+        if (user?.id && !profile && !profileLoading) {
             loadProfile(user.id);
         }
-    }, [user, profile]);
+    }, [user?.id, profile, profileLoading]);
 
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [showMentorshipModal, setShowMentorshipModal] = useState(false);
+    const [selectedMentorshipWays, setSelectedMentorshipWays] = useState<string[]>([]);
 
     // --- SECURE RESUME HOOK ---
     // This converts the storage path (e.g. "123/resume.pdf") into a viewable link
@@ -58,9 +60,10 @@ export default function ProfileScreen() {
 
         if (profile.user_type === 'alumni') {
             const major = profile.major || "Major";
+            const degreeType = profile.degree_type;
             const year = profile.graduation_year || new Date().getFullYear();
-            // Show major and graduation year for alumni
-            return `${major} | Class of ${year}`;
+            // Show degree type and major for alumni (e.g., "B.S. Computer Science | Class of 2020")
+            return degreeType ? `${degreeType} ${major} | Class of ${year}` : `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'guest') {
@@ -75,6 +78,26 @@ export default function ProfileScreen() {
         }
 
         return "Member";
+    };
+
+    const getSecondarySubtitle = () => {
+        if (!profile) return null;
+
+        // Show job info for alumni only
+        if (profile.user_type === 'alumni') {
+            const position = profile.current_position;
+            const company = profile.current_company;
+
+            if (position && company) {
+                return `${position} at ${company}`;
+            } else if (position) {
+                return position;
+            } else if (company) {
+                return company;
+            }
+        }
+
+        return null;
     };
 
     const getUserTypeBadge = () => {
@@ -136,6 +159,41 @@ export default function ProfileScreen() {
         }
     };
 
+    const handleEnableMentorship = async () => {
+        if (selectedMentorshipWays.length === 0) {
+            Alert.alert('Select at least one option', 'Please choose how you\'d like to help students.');
+            return;
+        }
+
+        if (!user?.id) return;
+
+        try {
+            const { profileService } = await import('@/services/profile.service');
+            const result = await profileService.updateProfile(user.id, {
+                mentorship_available: true,
+                mentorship_ways: selectedMentorshipWays,
+            });
+
+            if (result.success) {
+                await loadProfile(user.id);
+                setShowMentorshipModal(false);
+                setSelectedMentorshipWays([]);
+                Alert.alert('Success', 'Mentorship enabled! Students can now see your availability.');
+            } else {
+                Alert.alert('Error', 'Failed to enable mentorship. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error enabling mentorship:', error);
+            Alert.alert('Error', 'Failed to enable mentorship. Please try again.');
+        }
+    };
+
+    const toggleMentorshipWay = (way: string) => {
+        setSelectedMentorshipWays(prev =>
+            prev.includes(way) ? prev.filter(w => w !== way) : [...prev, way]
+        );
+    };
+
     const dynamicStyles = {
         container: { backgroundColor: theme.background },
         text: { color: theme.text },
@@ -195,6 +253,11 @@ export default function ProfileScreen() {
                     {/* Subtitle - Major | Class of YYYY */}
                     <Text style={[styles.subtitleText, { color: theme.subtext }]}>{getSubtitle()}</Text>
 
+                    {/* Secondary Subtitle - Job Title at Company (Alumni only) */}
+                    {getSecondarySubtitle() && (
+                        <Text style={[styles.secondarySubtitleText, { color: theme.subtext }]}>{getSecondarySubtitle()}</Text>
+                    )}
+
                     {/* Social Links Row */}
                     <View style={styles.socialLinksContainer}>
                         {/* LinkedIn */}
@@ -220,26 +283,50 @@ export default function ProfileScreen() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Resume */}
-                        <TouchableOpacity
-                            style={styles.socialLink}
-                            onPress={() => {
-                                if (profile?.resume_url) {
-                                    handleOpenResume();
-                                } else {
-                                    Alert.alert('No Resume', 'Add your resume in Edit Profile');
-                                }
-                            }}
-                        >
-                            <Ionicons
-                                name="document-text"
-                                size={22}
-                                color={profile?.resume_url ? theme.text : theme.subtext}
-                            />
-                            <Text style={[styles.socialLinkText, { color: theme.text }, !profile?.resume_url && { color: theme.subtext }]}>
-                                Resume
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Mentor Button (for alumni) or Resume (for non-alumni) */}
+                        {profile?.user_type === 'alumni' ? (
+                            <TouchableOpacity
+                                style={profile?.mentorship_available ? styles.mentorButton : styles.mentorButtonInactive}
+                                onPress={() => setShowMentorshipModal(true)}
+                            >
+                                {profile?.mentorship_available ? (
+                                    <LinearGradient
+                                        colors={['#667BC6', '#5A67B8']}
+                                        style={styles.mentorButtonGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                    >
+                                        <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+                                        <Text style={styles.mentorButtonText}>Mentor</Text>
+                                    </LinearGradient>
+                                ) : (
+                                    <View style={styles.mentorButtonInactiveContent}>
+                                        <Ionicons name="people-outline" size={22} color={theme.subtext} />
+                                        <Text style={[styles.socialLinkText, { color: theme.subtext }]}>Mentor</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.socialLink}
+                                onPress={() => {
+                                    if (profile?.resume_url) {
+                                        handleOpenResume();
+                                    } else {
+                                        Alert.alert('No Resume', 'Add your resume in Edit Profile');
+                                    }
+                                }}
+                            >
+                                <Ionicons
+                                    name="document-text"
+                                    size={22}
+                                    color={profile?.resume_url ? theme.text : theme.subtext}
+                                />
+                                <Text style={[styles.socialLinkText, { color: theme.text }, !profile?.resume_url && { color: theme.subtext }]}>
+                                    Resume
+                                </Text>
+                            </TouchableOpacity>
+                        )}
 
                         {/* Portfolio */}
                         <TouchableOpacity
@@ -378,6 +465,169 @@ export default function ProfileScreen() {
                     resumeUrl={signedUrl}
                 />
             )}
+
+            {/* Mentorship Modal */}
+            <Modal
+                visible={showMentorshipModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setShowMentorshipModal(false);
+                    setSelectedMentorshipWays([]);
+                }}
+            >
+                <TouchableOpacity
+                    style={styles.mentorModalOverlay}
+                    activeOpacity={1}
+                    onPress={() => {
+                        setShowMentorshipModal(false);
+                        setSelectedMentorshipWays([]);
+                    }}
+                >
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        <ScrollView
+                            contentContainerStyle={styles.mentorModalScrollContent}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            <View style={[styles.mentorModalContent, { backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF' }]}>
+                                <View style={styles.mentorModalHeader}>
+                                    <Ionicons name="sparkles" size={32} color="#667BC6" />
+                                    <Text style={[styles.mentorModalTitle, { color: theme.text }]}>
+                                        {profile?.mentorship_available ? 'Mentorship Available' : 'Become a Mentor'}
+                                    </Text>
+                                </View>
+
+                                {profile?.mentorship_available ? (
+                                    // Show mentorship info
+                                    <>
+                                        <Text style={[styles.mentorModalSubtitle, { color: theme.subtext }]}>
+                                            {getDisplayName()} is available to help students through:
+                                        </Text>
+
+                                        <View style={styles.mentorshipWaysList}>
+                                            {profile?.user_type === 'alumni' && profile?.mentorship_ways?.map((way) => {
+                                                const wayLabels: Record<string, { label: string; icon: string }> = {
+                                                    'resume-reviews': { label: 'Resume Reviews', icon: '📄' },
+                                                    'mock-interviews': { label: 'Mock Interviews', icon: '🎤' },
+                                                    'coffee-chats': { label: 'Coffee Chats', icon: '☕' },
+                                                    'company-tours': { label: 'Company Tours', icon: '🏢' },
+                                                };
+                                                const wayInfo = wayLabels[way] || { label: way, icon: '✨' };
+
+                                                return (
+                                                    <View key={way} style={[styles.mentorshipWayItem, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                                                        <Text style={styles.mentorshipWayIcon}>{wayInfo.icon}</Text>
+                                                        <Text style={[styles.mentorshipWayText, { color: theme.text }]}>{wayInfo.label}</Text>
+                                                    </View>
+                                                );
+                                            })}
+                                        </View>
+
+                                        <Text style={[styles.mentorModalFooter, { color: theme.subtext }]}>
+                                            Connect via LinkedIn or reach out at SHPE events!
+                                        </Text>
+
+                                        <TouchableOpacity
+                                            style={styles.mentorModalCloseButton}
+                                            onPress={() => setShowMentorshipModal(false)}
+                                        >
+                                            <LinearGradient
+                                                colors={['#667BC6', '#5A67B8']}
+                                                style={styles.mentorModalCloseButtonGradient}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                            >
+                                                <Text style={styles.mentorModalCloseButtonText}>Got it!</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    </>
+                                ) : (
+                                    // Show enable mentorship UI
+                                    <>
+                                        <Text style={[styles.mentorModalSubtitle, { color: theme.subtext }]}>
+                                            Your experience is invaluable. Help students by becoming a mentor!
+                                        </Text>
+
+                                        <Text style={[styles.mentorModalSectionTitle, { color: theme.text }]}>
+                                            How would you like to help?
+                                        </Text>
+
+                                        <View style={styles.mentorshipWaysList}>
+                                            {[
+                                                { id: 'resume-reviews', label: 'Resume Reviews', icon: '📄' },
+                                                { id: 'mock-interviews', label: 'Mock Interviews', icon: '🎤' },
+                                                { id: 'coffee-chats', label: 'Coffee Chats', icon: '☕' },
+                                                { id: 'company-tours', label: 'Company Tours', icon: '🏢' },
+                                            ].map((way) => {
+                                                const isSelected = selectedMentorshipWays.includes(way.id);
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={way.id}
+                                                        onPress={() => toggleMentorshipWay(way.id)}
+                                                        style={[
+                                                            styles.mentorshipWayItem,
+                                                            {
+                                                                backgroundColor: isSelected
+                                                                    ? 'rgba(102, 123, 198, 0.15)'
+                                                                    : isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                                                                borderWidth: isSelected ? 2 : 0,
+                                                                borderColor: '#667BC6',
+                                                            }
+                                                        ]}
+                                                    >
+                                                        <Text style={styles.mentorshipWayIcon}>{way.icon}</Text>
+                                                        <Text style={[styles.mentorshipWayText, { color: theme.text }]}>
+                                                            {way.label}
+                                                        </Text>
+                                                        {isSelected && (
+                                                            <Ionicons name="checkmark-circle" size={20} color="#667BC6" style={{ marginLeft: 'auto' }} />
+                                                        )}
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+
+                                        <Text style={[styles.mentorModalFooter, { color: theme.subtext }]}>
+                                            Students will be able to see your availability and reach out!
+                                        </Text>
+
+                                        <View style={styles.mentorModalButtons}>
+                                            <TouchableOpacity
+                                                style={styles.mentorModalCloseButton}
+                                                onPress={handleEnableMentorship}
+                                            >
+                                                <LinearGradient
+                                                    colors={['#667BC6', '#5A67B8']}
+                                                    style={styles.mentorModalCloseButtonGradient}
+                                                    start={{ x: 0, y: 0 }}
+                                                    end={{ x: 1, y: 1 }}
+                                                >
+                                                    <Text style={styles.mentorModalCloseButtonText}>Enable Mentorship</Text>
+                                                </LinearGradient>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    setShowMentorshipModal(false);
+                                                    setSelectedMentorshipWays([]);
+                                                }}
+                                                style={styles.mentorModalSecondaryButton}
+                                            >
+                                                <Text style={[styles.mentorModalSecondaryButtonText, { color: theme.subtext }]}>
+                                                    Maybe later
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+                        </ScrollView>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -448,6 +698,11 @@ const styles = StyleSheet.create({
     },
     subtitleText: {
         fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    secondarySubtitleText: {
+        fontSize: 15,
         textAlign: 'center',
         marginBottom: 24,
     },
@@ -582,5 +837,131 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#000',
+    },
+    mentorButton: {
+        overflow: 'hidden',
+        borderRadius: 20,
+        shadowColor: '#667BC6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    mentorButtonGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+    },
+    mentorButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    mentorButtonInactive: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    mentorButtonInactiveContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    mentorModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    mentorModalScrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        padding: 20,
+    },
+    mentorModalContent: {
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        maxWidth: 400,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    mentorModalHeader: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    mentorModalTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        marginTop: 8,
+        textAlign: 'center',
+    },
+    mentorModalSubtitle: {
+        fontSize: 15,
+        textAlign: 'center',
+        marginBottom: 20,
+        lineHeight: 22,
+    },
+    mentorshipWaysList: {
+        gap: 12,
+        marginBottom: 20,
+    },
+    mentorshipWayItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 12,
+        gap: 12,
+    },
+    mentorshipWayIcon: {
+        fontSize: 24,
+    },
+    mentorshipWayText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    mentorModalFooter: {
+        fontSize: 13,
+        textAlign: 'center',
+        marginBottom: 20,
+        fontStyle: 'italic',
+    },
+    mentorModalCloseButton: {
+        overflow: 'hidden',
+        borderRadius: 16,
+    },
+    mentorModalCloseButtonGradient: {
+        paddingVertical: 14,
+        alignItems: 'center',
+        borderRadius: 16,
+    },
+    mentorModalCloseButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    mentorModalSectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 16,
+        marginTop: 8,
+    },
+    mentorModalButtons: {
+        gap: 12,
+    },
+    mentorModalSecondaryButton: {
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    mentorModalSecondaryButtonText: {
+        fontSize: 15,
+        fontWeight: '500',
     },
 });
