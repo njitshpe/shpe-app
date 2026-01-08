@@ -61,6 +61,12 @@ export type ErrorCode =
   | 'INVALID_ACTION_TYPE'
   | 'RULES_NOT_FOUND'
 
+  // Admin event errors
+  | 'EVENT_CREATE_FAILED'
+  | 'EVENT_UPDATE_FAILED'
+  | 'EVENT_DELETE_FAILED'
+  | 'FORBIDDEN'
+
   // Configuration errors
   | 'CONFIGURATION_ERROR'
   | 'REQUEST_CANCELLED'
