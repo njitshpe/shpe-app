@@ -4,9 +4,20 @@ import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
 class ProfileService {
+    private inFlight: Map<string, Promise<ServiceResponse<UserProfile>>> = new Map();
+
     // Get user profile by user ID
     async getProfile(userId: string): Promise<ServiceResponse<UserProfile>> {
         try {
+            const existingRequest = this.inFlight.get(userId);
+            if (existingRequest) {
+                if (__DEV__) {
+                    console.log('[ProfileService] Reusing in-flight profile request for user:', userId);
+                }
+                return await existingRequest;
+            }
+
+            const request = (async () => {
             if (__DEV__) {
                 console.log('[ProfileService] Fetching profile for user:', userId);
             }
@@ -29,6 +40,14 @@ class ProfileService {
             }
 
             return handleSupabaseError(data, error);
+            })();
+
+            this.inFlight.set(userId, request);
+            request.finally(() => {
+                this.inFlight.delete(userId);
+            });
+
+            return await request;
         } catch (error) {
             if (__DEV__) {
                 console.error('[ProfileService] Exception in getProfile:', error);

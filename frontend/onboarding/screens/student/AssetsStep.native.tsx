@@ -20,9 +20,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
 import ResumePreview from '@/components/shared/ResumePreview';
 
-const MOCK_BIO_TEMPLATE =
-  'Mechanical Engineering student at NJIT passionate about automotive systems, sustainable design, and innovation. Experienced in CAD modeling and team collaboration through SHPE projects.';
-
 // Note: File validation in RN uses a different approach
 const assetsSchema = z.object({
   linkedinUrl: z
@@ -86,11 +83,6 @@ export default function AssetsStep({ data, update, onNext }: AssetsStepProps) {
 
   const handleRemoveFile = () => {
     update({ resumeFile: null });
-  };
-
-  const handleAutoGenerateBio = () => {
-    update({ bio: MOCK_BIO_TEMPLATE });
-    setError(null);
   };
 
   const handleSkip = () => {
@@ -270,15 +262,6 @@ export default function AssetsStep({ data, update, onNext }: AssetsStepProps) {
         <View style={styles.fieldContainer}>
           <View style={styles.bioHeader}>
             <Text style={[styles.label, { color: theme.text }]}>Professional Bio (Optional)</Text>
-              <TouchableOpacity
-              onPress={handleAutoGenerateBio}
-              style={[
-                styles.aiButton,
-                { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.18)' : 'rgba(92, 141, 255, 0.12)' }
-              ]}
-            >
-              <Text style={[styles.aiButtonText, { color: SHPE_COLORS.accentBlueBright }]}>✨ Auto-generate</Text>
-            </TouchableOpacity>
           </View>
           <View style={[
             styles.filledInput,
@@ -456,16 +439,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: SPACING.sm,
-  },
-  aiButton: {
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 6,
-  },
-  aiButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   textArea: {
     padding: SPACING.md,
