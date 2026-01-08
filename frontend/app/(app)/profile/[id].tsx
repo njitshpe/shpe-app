@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -122,10 +122,7 @@ export default function PublicProfileScreen() {
                 headerBackTitle: 'Back'
             }} />
 
-            <LinearGradient
-                colors={isDark ? ['#1A1A1A', '#000000', '#000000'] : ['#F7FAFF', '#E9F0FF', '#DDE8FF']}
-                style={styles.gradient}
-            >
+            <View style={[styles.gradient, { backgroundColor: theme.background }]}>
                 <ScrollView
                     style={styles.scrollView}
                     showsVerticalScrollIndicator={false}
@@ -173,8 +170,12 @@ export default function PublicProfileScreen() {
 
                     {/* Bio */}
                     {profile.bio && (
-                        <Text style={[styles.bioText, { color: theme.subtext }]}>{profile.bio}</Text>
+                        <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                            <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
+                        </View>
                     )}
+
+
 
                     {/* Badges Section - Read Only View */}
                     <View style={styles.badgesSection}>
@@ -184,9 +185,21 @@ export default function PublicProfileScreen() {
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.badgesScrollContent}
                         >
+                            {/* Points / Rank Badge */}
+                            <View style={styles.badgeItem}>
+                                <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
+                                    <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>
+                                        {profileDisplay.points}
+                                    </Text>
+                                </View>
+                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
+                                    {profileDisplay.rank}
+                                </Text>
+                            </View>
+
                             <View style={styles.badgeItem}>
                                 <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="trophy" size={32} color="#FFD700" />
+                                    <Ionicons name="trophy" size={24} color="#FFD700" />
                                 </View>
                                 <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
                             </View>
@@ -220,7 +233,7 @@ export default function PublicProfileScreen() {
 
                     <View style={{ height: 40 }} />
                 </ScrollView>
-            </LinearGradient>
+            </View>
 
             {/* Resume Viewer Modal */}
             {signedUrl && (
@@ -262,41 +275,46 @@ const styles = StyleSheet.create({
         color: '#34C759',
         fontWeight: '700',
     },
+    bioSection: {
+        marginHorizontal: 20,
+        marginBottom: 24,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
     bioText: {
         fontSize: 15,
         textAlign: 'center',
         lineHeight: 22,
-        paddingHorizontal: 32,
-        marginBottom: 24,
     },
     badgesSection: {
         paddingTop: 8,
-        paddingBottom: 24,
+        paddingBottom: 12,
     },
     badgesSectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 16,
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 12,
         paddingHorizontal: 20,
     },
     badgesScrollContent: {
         paddingHorizontal: 20,
-        gap: 16,
+        gap: 12,
     },
     badgeItem: {
         alignItems: 'center',
-        width: 80,
+        width: 60,
     },
     badgeIconContainer: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     badgeLabel: {
-        fontSize: 11,
+        fontSize: 10,
         textAlign: 'center',
         fontWeight: '500',
     },

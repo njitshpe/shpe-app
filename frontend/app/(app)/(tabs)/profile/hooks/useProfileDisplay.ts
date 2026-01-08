@@ -104,6 +104,11 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
         return profile?.rank_points || 0;
     };
 
+    const getRank = () => {
+        const points = profile?.rank_points || 0;
+        return profile?.rank || getRankFromPoints(points);
+    };
+
     return {
         displayName: getDisplayName(),
         initials: getInitials(),
@@ -112,5 +117,6 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
         userTypeBadge: getUserTypeBadge(),
         rankColor: getRankColor(),
         points: getPoints(),
+        rank: getRank(),
     };
 }
