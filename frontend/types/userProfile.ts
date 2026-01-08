@@ -42,6 +42,7 @@ export interface BaseProfile {
     interests: InterestType[];
     university?: string; // University affiliation (required for guests, defaults to NJIT for students/alumni)
     linkedin_url?: string;
+    portfolio_url?: string;
     phone_number?: string;
     profile_picture_url?: string;
     resume_url?: string;
