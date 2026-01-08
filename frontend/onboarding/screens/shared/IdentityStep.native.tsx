@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchableSelectionModal from '../../components/SearchableSelectionModal';
 import { NJIT_MAJORS } from '@/constants/majors';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MAX_GRAD_YEAR = CURRENT_YEAR + 8;
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   },
   yearWheel: {
     borderWidth: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     borderRadius: RADIUS.md,
     height: YEAR_ITEM_HEIGHT * YEAR_WHEEL_VISIBLE_ITEMS,
     overflow: 'hidden',
@@ -552,7 +552,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

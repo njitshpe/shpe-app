@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
 import ResumePreview from '@/components/shared/ResumePreview';
 
 const MOCK_BIO_TEMPLATE =
@@ -465,7 +465,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

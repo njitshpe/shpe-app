@@ -19,7 +19,7 @@ import { z } from 'zod';
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
 
 const INTEREST_OPTIONS = [
   { id: 'internships', label: 'Internships 💼' },
@@ -386,7 +386,6 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
   interestPillActive: {
-    ...SHADOWS.accentGlow,
   },
   interestText: {
     fontSize: 14,
@@ -404,7 +403,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   nextButtonText: {
     fontSize: 16,

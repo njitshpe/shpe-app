@@ -366,7 +366,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     minHeight: 52,
     alignItems: 'center',
-    ...SHADOWS.accentGlow,
   },
   confirmButtonText: {
     fontSize: 16,
