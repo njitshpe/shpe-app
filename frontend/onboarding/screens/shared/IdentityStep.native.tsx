@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchableSelectionModal from '../../components/SearchableSelectionModal';
 import { NJIT_MAJORS } from '@/constants/majors';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
+import { useProfilePhoto } from '@/hooks/media/useProfilePhoto';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MAX_GRAD_YEAR = CURRENT_YEAR + 8;
@@ -131,69 +132,27 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
     }
   }, [availableYears, data.graduationYear, update]);
 
+  const { pickPhoto } = useProfilePhoto();
+
   const handleMajorSelect = (major: string) => {
     update({ major });
     setError(null);
   };
 
-  const handlePickProfilePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need camera roll permissions to select a photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        update({ profilePhoto: result.assets[0] });
-      }
-    } catch (err) {
-      console.error('Image picker error:', err);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need camera permissions to take a photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        update({ profilePhoto: result.assets[0] });
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
-    }
-  };
-
   const handlePhotoOptions = () => {
-    Alert.alert(
-      'Profile Photo',
-      'Choose an option',
-      [
-        { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Choose from Library', onPress: handlePickProfilePhoto },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+    pickPhoto((uri) => {
+      // Create a minimal asset object since the hook provides the URI
+      // In a real app we might want to get dimensions etc but URI is enough for now
+      update({
+        profilePhoto: {
+          uri,
+          width: 500,
+          height: 500,
+          type: 'image',
+          fileName: 'profile.jpg',
+        } as ImagePicker.ImagePickerAsset
+      });
+    });
   };
 
   const handleNext = () => {

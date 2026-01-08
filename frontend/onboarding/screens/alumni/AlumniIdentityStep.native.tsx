@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchableSelectionModal from '../../components/SearchableSelectionModal';
 import { NJIT_MAJORS } from '@/constants/majors';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
+import { useProfilePhoto } from '@/hooks/media/useProfilePhoto';
 
 const DEGREE_TYPES = ['B.S.', 'M.S.', 'Ph.D.'] as const;
 
@@ -103,64 +104,23 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
     }
   };
 
-  const handlePickProfilePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need camera roll permissions to select a photo.');
-        return;
-      }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
 
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        update({ profilePhoto: result.assets[0] });
-      }
-    } catch (err) {
-      console.error('Image picker error:', err);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'We need camera permissions to take a photo.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        update({ profilePhoto: result.assets[0] });
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
-    }
-  };
+  const { pickPhoto } = useProfilePhoto();
 
   const handlePhotoOptions = () => {
-    Alert.alert(
-      'Profile Photo',
-      'Choose an option',
-      [
-        { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Choose from Library', onPress: handlePickProfilePhoto },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+    pickPhoto((uri) => {
+      // Create a minimal asset object since the hook provides the URI
+      update({
+        profilePhoto: {
+          uri,
+          width: 500,
+          height: 500,
+          type: 'image',
+          fileName: 'profile.jpg',
+        } as ImagePicker.ImagePickerAsset
+      });
+    });
   };
 
   const handleNext = () => {
@@ -219,173 +179,173 @@ export default function AlumniIdentityStep({ data, update, onNext }: AlumniIdent
           keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
           style={styles.keyboardView}
         >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-        {/* Profile Photo Picker */}
-        <View style={styles.photoContainer}>
-          <TouchableOpacity onPress={handlePhotoOptions} style={styles.photoButton}>
-            {data.profilePhoto ? (
-              <Image source={{ uri: data.profilePhoto.uri }} style={[styles.profileImage, { borderColor: colors.borderGlow }]} />
-            ) : (
-              <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow, backgroundColor: colors.surface }]}>
-                <Text style={styles.photoIcon}>📸</Text>
-                <Text style={[styles.photoText, { color: colors.textSecondary }]}>Add Photo</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Welcome back, Alumni!</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Let's get your profile set up.</Text>
-        </View>
-
-        {/* Error Message */}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {/* Name Inputs */}
-        <View style={styles.nameRow}>
-          <View style={styles.nameInputContainer}>
-            <TextInput
-              ref={firstNameRef}
-              value={data.firstName ?? ''}
-              onChangeText={(text) => {
-                update({ firstName: text });
-                setError(null);
-              }}
-              placeholder="First Name"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              returnKeyType="next"
-              onSubmitEditing={() => lastNameRef.current?.focus()}
-              blurOnSubmit={false}
-            />
-          </View>
-          <View style={styles.nameInputContainer}>
-            <TextInput
-              ref={lastNameRef}
-              value={data.lastName ?? ''}
-              onChangeText={(text) => {
-                update({ lastName: text });
-                setError(null);
-              }}
-              placeholder="Last Name"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              returnKeyType="done"
-              blurOnSubmit={false}
-            />
-          </View>
-        </View>
-
-        {/* Major Selection */}
-        <View style={styles.fieldContainer}>
-          <Text style={[styles.label, { color: colors.text }]}>Major</Text>
-          <TouchableOpacity
-            onPress={() => setIsMajorModalVisible(true)}
-            style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={[styles.selectInputText, { color: data.major ? colors.text : colors.textSecondary }]}>
-              {data.major || 'Select your major'}
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+            {/* Profile Photo Picker */}
+            <View style={styles.photoContainer}>
+              <TouchableOpacity onPress={handlePhotoOptions} style={styles.photoButton}>
+                {data.profilePhoto ? (
+                  <Image source={{ uri: data.profilePhoto.uri }} style={[styles.profileImage, { borderColor: colors.borderGlow }]} />
+                ) : (
+                  <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow, backgroundColor: colors.surface }]}>
+                    <Text style={styles.photoIcon}>📸</Text>
+                    <Text style={[styles.photoText, { color: colors.textSecondary }]}>Add Photo</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
 
-        {/* Major Selection Modal */}
-        <SearchableSelectionModal
-          visible={isMajorModalVisible}
-          onClose={() => setIsMajorModalVisible(false)}
-          onSelect={handleMajorSelect}
-          options={majorOptions}
-          selectedValue={data.major}
-          title="Select Your Major"
-          placeholder="Search majors (e.g., Comp Sci)"
-          emptyMessage="No majors found"
-        />
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>Welcome back, Alumni!</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Let's get your profile set up.</Text>
+            </View>
 
-        {/* Custom Major Input - Show if "Other" is selected */}
-        {data.major === 'Other' && (
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Specify Your Major</Text>
-            <TextInput
-              value={data.customMajor ?? ''}
-              onChangeText={(text) => {
-                update({ customMajor: text });
-                setError(null);
-              }}
-              placeholder="Enter your major"
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-              returnKeyType="done"
-            />
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Please enter the name of your major
-            </Text>
-          </View>
-        )}
+            {/* Error Message */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {/* Degree Type Selection */}
-        <View style={styles.fieldContainer}>
-          <Text style={[styles.label, { color: colors.text }]}>Degree Type</Text>
-          <View style={styles.pillsContainer}>
-            {DEGREE_TYPES.map((degree) => {
-              const isSelected = data.degreeType === degree;
-              return (
-                <TouchableOpacity
-                  key={degree}
-                  onPress={() => {
-                    update({ degreeType: degree });
+            {/* Name Inputs */}
+            <View style={styles.nameRow}>
+              <View style={styles.nameInputContainer}>
+                <TextInput
+                  ref={firstNameRef}
+                  value={data.firstName ?? ''}
+                  onChangeText={(text) => {
+                    update({ firstName: text });
                     setError(null);
                   }}
-                  style={[
-                    styles.pill,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
-                    isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.pillText,
-                      { color: colors.text },
-                      isSelected && styles.pillTextActive,
-                    ]}
-                  >
-                    {degree}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+                  placeholder="First Name"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  returnKeyType="next"
+                  onSubmitEditing={() => lastNameRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+              </View>
+              <View style={styles.nameInputContainer}>
+                <TextInput
+                  ref={lastNameRef}
+                  value={data.lastName ?? ''}
+                  onChangeText={(text) => {
+                    update({ lastName: text });
+                    setError(null);
+                  }}
+                  placeholder="Last Name"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  returnKeyType="done"
+                  blurOnSubmit={false}
+                />
+              </View>
+            </View>
 
-        {/* Graduation Year (Required) */}
-        <View style={styles.fieldContainer}>
-          <Text style={[styles.label, { color: colors.text }]}>Graduation Year</Text>
-          <TextInput
-            ref={graduationYearRef}
-            value={data.graduationYear ?? ''}
-            onChangeText={(text) => {
-              // Only allow numbers, max 4 digits
-              const cleaned = text.replace(/\D/g, '').slice(0, 4);
-              update({ graduationYear: cleaned });
-              setError(null);
-            }}
-            placeholder="e.g., 2015"
-            placeholderTextColor={colors.textSecondary}
-            style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-            keyboardType="number-pad"
-            returnKeyType="done"
-            maxLength={4}
-          />
-        </View>
+            {/* Major Selection */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, { color: colors.text }]}>Major</Text>
+              <TouchableOpacity
+                onPress={() => setIsMajorModalVisible(true)}
+                style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              >
+                <Text style={[styles.selectInputText, { color: data.major ? colors.text : colors.textSecondary }]}>
+                  {data.major || 'Select your major'}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-        </ScrollView>
+            {/* Major Selection Modal */}
+            <SearchableSelectionModal
+              visible={isMajorModalVisible}
+              onClose={() => setIsMajorModalVisible(false)}
+              onSelect={handleMajorSelect}
+              options={majorOptions}
+              selectedValue={data.major}
+              title="Select Your Major"
+              placeholder="Search majors (e.g., Comp Sci)"
+              emptyMessage="No majors found"
+            />
+
+            {/* Custom Major Input - Show if "Other" is selected */}
+            {data.major === 'Other' && (
+              <View style={styles.fieldContainer}>
+                <Text style={[styles.label, { color: colors.text }]}>Specify Your Major</Text>
+                <TextInput
+                  value={data.customMajor ?? ''}
+                  onChangeText={(text) => {
+                    update({ customMajor: text });
+                    setError(null);
+                  }}
+                  placeholder="Enter your major"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  returnKeyType="done"
+                />
+                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                  Please enter the name of your major
+                </Text>
+              </View>
+            )}
+
+            {/* Degree Type Selection */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, { color: colors.text }]}>Degree Type</Text>
+              <View style={styles.pillsContainer}>
+                {DEGREE_TYPES.map((degree) => {
+                  const isSelected = data.degreeType === degree;
+                  return (
+                    <TouchableOpacity
+                      key={degree}
+                      onPress={() => {
+                        update({ degreeType: degree });
+                        setError(null);
+                      }}
+                      style={[
+                        styles.pill,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        isSelected && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          { color: colors.text },
+                          isSelected && styles.pillTextActive,
+                        ]}
+                      >
+                        {degree}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Graduation Year (Required) */}
+            <View style={styles.fieldContainer}>
+              <Text style={[styles.label, { color: colors.text }]}>Graduation Year</Text>
+              <TextInput
+                ref={graduationYearRef}
+                value={data.graduationYear ?? ''}
+                onChangeText={(text) => {
+                  // Only allow numbers, max 4 digits
+                  const cleaned = text.replace(/\D/g, '').slice(0, 4);
+                  update({ graduationYear: cleaned });
+                  setError(null);
+                }}
+                placeholder="e.g., 2015"
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                keyboardType="number-pad"
+                returnKeyType="done"
+                maxLength={4}
+              />
+            </View>
+
+          </ScrollView>
         </KeyboardAvoidingView>
       </MotiView>
 
