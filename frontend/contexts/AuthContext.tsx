@@ -38,7 +38,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper function to add timeout to profile loading
-const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 5000): Promise<T> => {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
@@ -76,8 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.log('[AuthContext] Loading profile for user:', session.user.id);
             }
             const result = await withTimeout(
-              profileService.getProfile(session.user.id),
-              15000 // Increased to 15 second timeout for slower networks
+              profileService.getProfile(session.user.id)
             );
             if (result.success && result.data) {
               setProfile(result.data);
@@ -138,8 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileLoading(true);
           try {
             const result = await withTimeout(
-              profileService.getProfile(session.user.id),
-              15000 // Increased to 15 second timeout for slower networks
+              profileService.getProfile(session.user.id)
             );
             if (result.success && result.data) {
               setProfile(result.data);
@@ -388,8 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileLoading(true);
     try {
       const result = await withTimeout(
-        profileService.getProfile(userId),
-        15000 // Increased to 15 second timeout for slower networks
+        profileService.getProfile(userId)
       );
       if (result.success && result.data) {
         setProfile(result.data);
