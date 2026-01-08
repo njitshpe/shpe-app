@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'rea
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
 
@@ -33,6 +34,7 @@ const INTEREST_LABELS: Record<string, string> = {
 
 export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) {
   const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const accent = isDark ? '#8B5CF6' : '#7C3AED';
 
   const formatPhoneDisplay = (phone: string) => {
@@ -46,16 +48,17 @@ export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) 
   const roleLabel = data.major?.trim() || 'External Guest';
 
   return (
-    <MotiView
-      from={{ translateX: 50, opacity: 0 }}
-      animate={{ translateX: 0, opacity: 1 }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.container}
-    >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+    <View style={styles.outerContainer}>
+      <MotiView
+        from={{ translateX: 50, opacity: 0 }}
+        animate={{ translateX: 0, opacity: 1 }}
+        transition={{ type: 'timing', duration: 300 }}
+        style={styles.container}
       >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Almost there!</Text>
@@ -147,29 +150,33 @@ export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) 
           </LinearGradient>
         </MotiView>
 
-        {/* Navigation Buttons */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={onNext} activeOpacity={0.8}>
-            <LinearGradient
-              colors={GRADIENTS.accentButton}
-              style={styles.confirmButton}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
         <Text style={[styles.helperText, { color: theme.subtext }]}>
           You can update this information anytime in your profile settings.
         </Text>
-      </ScrollView>
-    </MotiView>
+        </ScrollView>
+      </MotiView>
+
+      {/* Fixed Navigation Button - Outside MotiView */}
+      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
+        <TouchableOpacity onPress={onNext} activeOpacity={0.8} style={styles.buttonWrapper}>
+          <LinearGradient
+            colors={GRADIENTS.accentButton}
+            style={styles.confirmButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     width: '100%',
@@ -181,6 +188,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    paddingBottom: SPACING.md,
+  },
+  buttonContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    backgroundColor: 'transparent',
+  },
+  buttonWrapper: {
+    width: '100%',
   },
   header: {
     marginBottom: SPACING.lg,
@@ -286,10 +302,6 @@ const styles = StyleSheet.create({
   detail: {
     fontSize: 14,
     flex: 1,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    marginTop: SPACING.sm,
   },
   confirmButton: {
     borderRadius: RADIUS.lg,

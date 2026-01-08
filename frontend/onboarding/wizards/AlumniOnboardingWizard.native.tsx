@@ -238,7 +238,7 @@ export default function AlumniOnboardingWizard() {
       hasFormData={hasFormData()}
       showConfirmation={currentStep === 0}
       variant="alumni"
-      progressType="bar"
+      progressType="segmented"
     >
       {/* Step Rendering with AnimatePresence */}
       <View style={styles.stepsContainer}>
