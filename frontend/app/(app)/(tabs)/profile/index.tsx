@@ -67,10 +67,9 @@ export default function ProfileScreen() {
         }
 
         if (profile.user_type === 'guest') {
-            if (profile.major) {
-                return `${profile.major} | ${profile.university || 'Guest'}`;
-            }
-            return profile.university || "Guest";
+            const major = profile.major || "Guest Member";
+            const year = profile.expected_graduation_year || new Date().getFullYear();
+            return `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'other') {
@@ -83,7 +82,7 @@ export default function ProfileScreen() {
     const getSecondarySubtitle = () => {
         if (!profile) return null;
 
-        // Show job info for alumni only
+        // Show job info for alumni
         if (profile.user_type === 'alumni') {
             const position = profile.current_position;
             const company = profile.current_company;
@@ -95,6 +94,11 @@ export default function ProfileScreen() {
             } else if (company) {
                 return company;
             }
+        }
+
+        // Show university for guests
+        if (profile.user_type === 'guest') {
+            return profile.university || 'Guest';
         }
 
         return null;
@@ -283,7 +287,7 @@ export default function ProfileScreen() {
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Mentor Button (for alumni) or Resume (for non-alumni) */}
+                        {/* Mentor Button (for alumni) or Resume (for non-alumni non-guests) */}
                         {profile?.user_type === 'alumni' ? (
                             <TouchableOpacity
                                 style={profile?.mentorship_available ? styles.mentorButton : styles.mentorButtonInactive}
@@ -306,7 +310,7 @@ export default function ProfileScreen() {
                                     </View>
                                 )}
                             </TouchableOpacity>
-                        ) : (
+                        ) : profile?.user_type !== 'guest' ? (
                             <TouchableOpacity
                                 style={styles.socialLink}
                                 onPress={() => {
@@ -326,30 +330,33 @@ export default function ProfileScreen() {
                                     Resume
                                 </Text>
                             </TouchableOpacity>
-                        )}
+                        ) : null}
 
-                        {/* Portfolio */}
-                        <TouchableOpacity
-                            style={styles.socialLink}
-                            onPress={() => {
-                                if (profile?.portfolio_url) {
-                                    let url = (profile as any).portfolio_url;
-                                    if (!url.startsWith('http')) url = 'https://' + url;
-                                    Linking.openURL(url).catch(err => Alert.alert('Error', 'Could not open Portfolio'));
-                                } else {
-                                    Alert.alert('No Portfolio', 'Add your portfolio in Edit Profile');
-                                }
-                            }}
-                        >
-                            <Ionicons
-                                name="link-outline"
-                                size={22}
-                                color={(profile as any)?.portfolio_url ? theme.text : theme.subtext}
-                            />
-                            <Text style={[styles.socialLinkText, { color: theme.text }, !(profile as any)?.portfolio_url && { color: theme.subtext }]}>
-                                Portfolio
-                            </Text>
-                        </TouchableOpacity>
+                        {/* Portfolio - Hidden for guests */}
+                        {profile?.user_type !== 'guest' && (
+                            <TouchableOpacity
+                                style={styles.socialLink}
+                                onPress={() => {
+                                    const portfolioUrl = (profile as any)?.portfolio_url;
+                                    if (portfolioUrl) {
+                                        let url = portfolioUrl;
+                                        if (!url.startsWith('http')) url = 'https://' + url;
+                                        Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Portfolio'));
+                                    } else {
+                                        Alert.alert('No Portfolio', 'Add your portfolio in Edit Profile');
+                                    }
+                                }}
+                            >
+                                <Ionicons
+                                    name="link-outline"
+                                    size={22}
+                                    color={(profile as any)?.portfolio_url ? theme.text : theme.subtext}
+                                />
+                                <Text style={[styles.socialLinkText, { color: theme.text }, !(profile as any)?.portfolio_url && { color: theme.subtext }]}>
+                                    Portfolio
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {/* Bio - Centered */}
