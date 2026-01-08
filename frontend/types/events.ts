@@ -1,5 +1,24 @@
 // types/events.ts
 
+// UI-friendly Event type (mapped from EventRow)
+export interface Event {
+  id: string; // event_id from database
+  title: string; // name from database
+  description?: string;
+  startTimeISO: string; // start_time from database
+  endTimeISO: string; // end_time from database
+  locationName: string; // location_name from database
+  address?: string; // location from database
+  latitude?: number;
+  longitude?: number;
+  coverImageUrl?: string; // cover_image_url from database
+  hostName?: string; // host_name from database
+  tags: string[];
+  priceLabel?: string; // price_label from database
+  capacityLabel?: string;
+  status: 'upcoming' | 'past';
+}
+
 // 1. Rename 'Event' to 'EventDB' to match your imports and avoid conflicts
 export interface EventDB {
   id: string;
