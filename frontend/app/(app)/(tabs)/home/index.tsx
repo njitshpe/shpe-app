@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
 import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from '@/components/events/CompactEventCard';
+import { rankService, UserRankData, RankActionType } from '@/services/rank.service';
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -17,6 +19,18 @@ export default function HomeScreen() {
     const { events } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
+    const [rankData, setRankData] = useState<UserRankData | null>(null);
+
+    React.useEffect(() => {
+        loadRank();
+    }, []);
+
+    const loadRank = async () => {
+        const response = await rankService.getMyRank();
+        if (response.success && response.data) {
+            setRankData(response.data);
+        }
+    };
 
     // Determine relevant event to show
     const relevantEvent = ongoingEvents.length > 0
@@ -24,6 +38,33 @@ export default function HomeScreen() {
         : upcomingEvents.length > 0
             ? upcomingEvents[0]
             : null;
+
+    const handleAwardPoints = async (action: RankActionType, overrides?: any) => {
+        // Validation for event-based actions
+        if ((action === 'attendance' || action === 'rsvp') && !relevantEvent && !overrides?.eventId) {
+            Alert.alert('Debug Error', 'No active/upcoming event found to assign this action to.');
+            return;
+        }
+
+        try {
+            const response = await rankService.awardForAction(action, {
+                event_id: overrides?.eventId !== undefined ? overrides.eventId : relevantEvent?.id
+            });
+            if (response.success && response.data) {
+                Alert.alert('Success', `Awarded! New Balance: ${response.data.newBalance}`);
+                setRankData({
+                    rank_points: response.data.newBalance,
+                    rank: response.data.rank
+                });
+            } else {
+                console.error(response.error);
+                const errorMsg = JSON.stringify(response.error, null, 2);
+                Alert.alert('Invoke Failed', errorMsg);
+            }
+        } catch (e: any) {
+            Alert.alert('Exceptions', e.message);
+        }
+    };
 
     const handleSignOut = () => {
         Alert.alert(
@@ -47,7 +88,7 @@ export default function HomeScreen() {
 
     return (
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
-            <View style={styles.content}>
+            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
                 {/* Welcome Card */}
                 <View style={styles.welcomeCard}>
                     <Text style={styles.welcomeText}>Welcome to</Text>
@@ -121,6 +162,56 @@ export default function HomeScreen() {
                                     <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
                                 </TouchableOpacity>
                             </View>
+
+                            <Text style={[styles.debugTitle, { marginTop: 16 }]}>Points System</Text>
+                            <Text style={[styles.debugText, dynamicStyles.text]}>
+                                Rank: {rankData?.rank || '...'} ({rankData?.rank_points || 0} pts)
+                            </Text>
+                            <View style={styles.debugActions}>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={() => handleAwardPoints('attendance', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Attend (10)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={() => handleAwardPoints('rsvp', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP (3)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={() => handleAwardPoints('verified', { eventId: null })}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Verify (10)</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={async () => {
+                                        try {
+                                            const { data, error } = await supabase
+                                                .from('rank_rules')
+                                                .select('*')
+                                                .eq('active', true)
+                                                .single();
+
+                                            if (error) throw error;
+                                            Alert.alert('Config OK', `Found Active Rule Set: ${data.name} (v${data.version})`);
+                                        } catch (e: any) {
+                                            Alert.alert('Config Missing', 'Table exists but NO ACTIVE RULES found. Run INSERT script.');
+                                        }
+                                    }}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Test DB</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={loadRank}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     )}
 
@@ -136,14 +227,14 @@ export default function HomeScreen() {
                         <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Scan event QR code</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </ScrollView>
 
             {/* Sign Out Button */}
             <TouchableOpacity style={[styles.signOutButton, dynamicStyles.signOut]} onPress={handleSignOut}>
-                <Ionicons name="log-out-outline" size={20} color={theme.subtext} />
+                <Ionicons name="log-out-outline" size={18} color={theme.subtext} />
                 <Text style={[styles.signOutText, dynamicStyles.subtext]}>Sign Out</Text>
             </TouchableOpacity>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -154,7 +245,23 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
+    },
+    scrollContent: {
         padding: 20,
+    },
+    // ... items ...
+    signOutButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        // backgroundColor removed
+        borderWidth: 1,
+        // borderColor removed
+        padding: 10,
+        borderRadius: 8,
+        marginHorizontal: 20,
+        marginBottom: 10,
+        gap: 6,
     },
     welcomeCard: {
         backgroundColor: '#D35400', // Brand color, keep static
@@ -309,22 +416,10 @@ const styles = StyleSheet.create({
         // color removed
         fontWeight: '500',
     },
-    signOutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        // backgroundColor removed
-        borderWidth: 1,
-        // borderColor removed
-        padding: 16,
-        borderRadius: 8,
-        marginHorizontal: 20,
-        marginBottom: 20,
-        gap: 8,
-    },
+    // signOutButton removed (duplicate)
     signOutText: {
         // color removed
         fontWeight: '600',
-        fontSize: 16,
+        fontSize: 14,
     },
 });

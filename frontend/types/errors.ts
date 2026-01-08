@@ -54,6 +54,11 @@ export type ErrorCode =
   | 'CHECK_IN_CLOSED'
   | 'EVENT_FULL'
 
+  // Rank errors
+  | 'RANK_UPDATE_FAILED'
+  | 'INVALID_ACTION_TYPE'
+  | 'RULES_NOT_FOUND'
+
   // Configuration errors
   | 'CONFIGURATION_ERROR'
   | 'REQUEST_CANCELLED'
