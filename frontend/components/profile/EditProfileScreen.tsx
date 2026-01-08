@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  SafeAreaView, ActivityIndicator, Image, Alert 
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  SafeAreaView, ActivityIndicator, Image, Alert
 } from 'react-native';
 import { SHPE_COLORS } from '@/constants';
 import { ProfileForm } from './ProfileForm';
@@ -38,8 +38,8 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 
   const handleSave = async () => {
     if (uploadingResume) {
-        Alert.alert("Please Wait", "Resume is still uploading...");
-        return;
+      Alert.alert("Please Wait", "Resume is still uploading...");
+      return;
     }
 
     const response = await saveProfile();
@@ -74,7 +74,7 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
       if (uploadError) throw uploadError;
 
       // 4. Update Database
-      updateField('resume_url', storagePath); 
+      updateField('resume_url', storagePath);
       updateField('resume_name', result.name);
 
       // 5. ONLY ONE SUCCESS MESSAGE
@@ -112,9 +112,9 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
         <TouchableOpacity onPress={onClose} disabled={isLoading}>
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
-        
+
         <Text style={[styles.title, dynamicStyles.title]}>Edit Profile</Text>
-        
+
         <TouchableOpacity onPress={handleSave} disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator size="small" color={SHPE_COLORS.orange} />
@@ -161,19 +161,19 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 
         {/* 3. Resume Uploader */}
         <View style={{ marginTop: 20 }}>
-            {uploadingResume && (
-                <Text style={{ textAlign: 'center', marginBottom: 10, color: SHPE_COLORS.orange }}>
-                    Uploading PDF...
-                </Text>
-            )}
-            <ResumeUploader
-                resumeName={formData.resume_name || null}
-                onUpload={handleResumePick}
-                onRemove={() => {
-                    updateField('resume_url', '');
-                    updateField('resume_name', '');
-                }}
-            />
+          {uploadingResume && (
+            <Text style={{ textAlign: 'center', marginBottom: 10, color: SHPE_COLORS.orange }}>
+              Uploading PDF...
+            </Text>
+          )}
+          <ResumeUploader
+            resumeName={formData.resume_name || null}
+            onUpload={handleResumePick}
+            onRemove={() => {
+              updateField('resume_url', '');
+              updateField('resume_name', '');
+            }}
+          />
         </View>
 
       </ScrollView>
