@@ -12,6 +12,7 @@ interface ProfileSocialLinksProps {
     isDark: boolean;
     onOpenResume: () => void;
     onMentorshipUpdate: () => Promise<void>;
+    readOnly?: boolean;
 }
 
 export function ProfileSocialLinks({
@@ -22,6 +23,7 @@ export function ProfileSocialLinks({
     isDark,
     onOpenResume,
     onMentorshipUpdate,
+    readOnly = false,
 }: ProfileSocialLinksProps) {
     const handleLinkedInPress = () => {
         if (profile.linkedin_url) {
@@ -75,6 +77,7 @@ export function ProfileSocialLinks({
                     themeText={themeText}
                     themeSubtext={themeSubtext}
                     onMentorshipUpdate={onMentorshipUpdate}
+                    readOnly={readOnly}
                 />
             ) : profile.user_type !== 'guest' ? (
                 <TouchableOpacity style={styles.socialLink} onPress={handleResumePress}>
