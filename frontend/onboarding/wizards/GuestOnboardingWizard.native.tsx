@@ -15,6 +15,7 @@ import InterestsStep from '../screens/shared/InterestsStep.native';
 import GuestReviewStep from '../screens/guest/GuestReviewStep.native';
 
 const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_GRAD_YEAR = String(CURRENT_YEAR);
 
 // Guest-specific FormData interface
 interface GuestOnboardingFormData {
@@ -46,7 +47,7 @@ export default function GuestOnboardingWizard() {
     firstName: '',
     lastName: '',
     major: '', // Role/Major from affiliation step
-    graduationYear: String(CURRENT_YEAR), // Dummy value for guests
+    graduationYear: DEFAULT_GRAD_YEAR, // Dummy value for guests
     profilePhoto: null,
     // Step 2
     interests: [],
@@ -110,6 +111,7 @@ export default function GuestOnboardingWizard() {
       formData.firstName.trim() !== '' ||
       formData.lastName.trim() !== '' ||
       formData.major.trim() !== '' ||
+      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
       formData.profilePhoto !== null
     );
   };

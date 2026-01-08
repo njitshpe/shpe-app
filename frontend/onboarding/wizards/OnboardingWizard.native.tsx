@@ -17,6 +17,8 @@ import InterestsStep from '../screens/shared/InterestsStep.native';
 import AssetsStep from '../screens/student/AssetsStep.native';
 import ReviewStep from '../screens/student/ReviewStep.native';
 
+const DEFAULT_GRAD_YEAR = String(new Date().getFullYear());
+
 // Master FormData interface combining all step fields
 interface OnboardingFormData {
   // Step 1: Identity
@@ -49,7 +51,7 @@ export default function OnboardingWizard() {
     firstName: '',
     lastName: '',
     major: '',
-    graduationYear: '',
+    graduationYear: DEFAULT_GRAD_YEAR,
     profilePhoto: null,
     // Step 2
     interests: [],
@@ -116,7 +118,7 @@ export default function OnboardingWizard() {
       formData.firstName.trim() !== '' ||
       formData.lastName.trim() !== '' ||
       formData.major.trim() !== '' ||
-      formData.graduationYear.trim() !== '' ||
+      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
       formData.profilePhoto !== null
     );
   };

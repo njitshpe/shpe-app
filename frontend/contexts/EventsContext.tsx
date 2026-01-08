@@ -134,10 +134,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   };
 
   const refetchEvents = useCallback(async () => {
+    console.log('[EventsContext] 🔄 Starting refetch...');
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
+      console.log('[EventsContext] 📡 Querying Supabase for events...');
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -145,18 +147,27 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         .order('start_time', { ascending: true });
 
       if (error) {
-        console.error('[EventsContext] Supabase error:', error.message);
+        console.error('[EventsContext] ❌ Supabase error:', error.message);
+        console.error('[EventsContext] Error details:', JSON.stringify(error, null, 2));
         dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(error).message });
         return;
       }
 
+      console.log('[EventsContext] ✅ Query successful!');
+      console.log('[EventsContext] 📊 Raw rows returned:', data?.length ?? 0);
+      console.log('[EventsContext] 📋 First row sample:', data?.[0] ? JSON.stringify(data[0], null, 2) : 'No data');
+
       const mappedEvents = (data ?? []).map(mapEventRowToEvent);
+      console.log('[EventsContext] 🗺️  Mapped events:', mappedEvents.length);
+      console.log('[EventsContext] 📌 First mapped event:', mappedEvents[0] ? JSON.stringify(mappedEvents[0], null, 2) : 'No events');
+
       dispatch({ type: 'SET_EVENTS', payload: mappedEvents });
     } catch (err) {
-      console.error('[EventsContext] Fetch error:', err);
+      console.error('[EventsContext] ❌ Fetch error:', err);
       dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(err).message });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
+      console.log('[EventsContext] ✅ Refetch complete');
     }
   }, []);
 
