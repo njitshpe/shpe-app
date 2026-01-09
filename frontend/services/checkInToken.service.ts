@@ -40,19 +40,36 @@ export class CheckInTokenService {
         }
       );
 
-      // If we got ANY response (even an error), the server was reached
-      serverReached = true;
+      // Only set serverReached = true if we got actual HTTP response data
+      // If data exists (even with error flag), server sent a response
+      if (data !== null && data !== undefined) {
+        serverReached = true;
+      }
 
       if (error) {
-        // Server error - clear cache and throw (don't use cache)
-        await this.clearCachedToken(eventId);
+        // Check if this is a network error (no server response)
+        // Supabase returns FunctionsFetchError for network failures
+        const isNetworkError =
+          error.message?.toLowerCase().includes('network request failed') ||
+          error.message?.toLowerCase().includes('failed to fetch') ||
+          error.message?.toLowerCase().includes('fetch') ||
+          error.name?.includes('FunctionsFetchError');
+
+        if (!isNetworkError && serverReached) {
+          // Server responded with an error - clear cache
+          await this.clearCachedToken(eventId);
+        }
+
         throw new Error(error.message || 'Failed to fetch check-in token');
       }
 
       if (!data.success || !data.token) {
         // Server returned business logic error (401/403/time window/etc)
-        // Clear cache and throw - do NOT use cached token
-        await this.clearCachedToken(eventId);
+        // Clear cache only if server actually responded
+        if (serverReached) {
+          await this.clearCachedToken(eventId);
+        }
+
         const errorMsg = data.error || 'Invalid response from server';
         const err: any = new Error(errorMsg);
         err.errorCode = data.errorCode;
@@ -78,7 +95,9 @@ export class CheckInTokenService {
           error.message?.toLowerCase().includes('network request failed') ||
           error.message?.toLowerCase().includes('failed to fetch') ||
           error.message?.toLowerCase().includes('network error') ||
+          error.message?.toLowerCase().includes('fetch') ||
           error.name === 'TypeError' || // Fetch API network errors
+          error.name?.includes('FunctionsFetchError') ||
           error.code === 'ENOTFOUND' ||
           error.code === 'ETIMEDOUT';
 
