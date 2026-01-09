@@ -17,12 +17,14 @@ import { useEvents } from '@/contexts/EventsContext';
 import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
 import { adminAnnouncementsService } from '@/services/adminAnnouncements.service';
+import { AnnouncementModal } from '@/components/admin/AnnouncementModal';
 
 export default function AdminDashboard() {
     const router = useRouter();
     const { theme, isDark } = useTheme();
     const { events, isCurrentUserAdmin, createEvent } = useEvents();
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
 
     // Redirect if not admin
     React.useEffect(() => {
@@ -54,29 +56,15 @@ export default function AdminDashboard() {
         return success;
     };
 
-    const [announcementTitle, setAnnouncementTitle] = useState('');
-    const [announcementMessage, setAnnouncementMessage] = useState('');
-    const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
-
-    const handleSendAnnouncement = async () => {
-        if (!announcementTitle.trim() || !announcementMessage.trim()) {
-            Alert.alert('Error', 'Please enter a title and message');
-            return;
-        }
-
-        setSendingAnnouncement(true);
-        const response = await adminAnnouncementsService.sendAnnouncement(
-            announcementTitle,
-            announcementMessage
-        );
-        setSendingAnnouncement(false);
-
+    // Handle sending announcement from Modal
+    const handleSendAnnouncement = async (title: string, message: string) => {
+        const response = await adminAnnouncementsService.sendAnnouncement(title, message);
         if (response.success) {
-            Alert.alert('Success', 'Announcement sent successfully');
-            setAnnouncementTitle('');
-            setAnnouncementMessage('');
+            Alert.alert('Sent!', 'Your announcement has been pushed to all users.');
+            return true;
         } else {
-            Alert.alert('Error', response.error?.message || 'Failed to send announcement');
+            Alert.alert('Error', response.error?.message || 'Failed to send.');
+            return false;
         }
     };
 
@@ -136,44 +124,14 @@ export default function AdminDashboard() {
                         <Ionicons name="list-outline" size={24} color={theme.text} />
                         <Text style={[styles.actionButtonText, dynamicStyles.text]}>View All Events</Text>
                     </TouchableOpacity>
-                </View>
 
-                {/* Announcements Section */}
-                <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, dynamicStyles.text]}>Announcements</Text>
-                    <View style={[styles.formCard, dynamicStyles.card]}>
-                        <TextInput
-                            style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
-                            placeholder="Title"
-                            placeholderTextColor={theme.subtext}
-                            value={announcementTitle}
-                            onChangeText={setAnnouncementTitle}
-                        />
-                        <TextInput
-                            style={[styles.input, styles.textArea, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
-                            placeholder="Message"
-                            placeholderTextColor={theme.subtext}
-                            value={announcementMessage}
-                            onChangeText={setAnnouncementMessage}
-                            multiline
-                            numberOfLines={3}
-                        />
-                        <TouchableOpacity
-                            style={[
-                                styles.actionButton,
-                                dynamicStyles.button,
-                                { justifyContent: 'center', marginTop: 8 },
-                                sendingAnnouncement && { opacity: 0.7 }
-                            ]}
-                            onPress={handleSendAnnouncement}
-                            disabled={sendingAnnouncement}
-                        >
-                            <Ionicons name="megaphone-outline" size={24} color="#fff" />
-                            <Text style={styles.actionButtonText}>
-                                {sendingAnnouncement ? 'Sending...' : 'Send Announcement'}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                        style={[styles.actionButton, dynamicStyles.card]}
+                        onPress={() => setShowAnnouncementModal(true)}
+                    >
+                        <Ionicons name="megaphone-outline" size={24} color={theme.text} />
+                        <Text style={[styles.actionButtonText, dynamicStyles.text]}>Send Announcement</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Info Section */}
@@ -204,6 +162,13 @@ export default function AdminDashboard() {
                     onCancel={() => setShowCreateModal(false)}
                 />
             </Modal>
+
+            {/* Announcement Modal */}
+            <AnnouncementModal
+                visible={showAnnouncementModal}
+                onClose={() => setShowAnnouncementModal(false)}
+                onSend={handleSendAnnouncement}
+            />
         </SafeAreaView>
     );
 }
