@@ -27,9 +27,11 @@ const TOKEN_CACHE_PREFIX = 'check_in_token_';
 export class CheckInTokenService {
   /**
    * Fetch a check-in token for an event from the backend
-   * This validates admin permissions and time windows server-side
+   * FETCH-FIRST: Always try server first. Only use cache if connectivity is broken.
    */
   static async getCheckInToken(eventId: string): Promise<CheckInToken> {
+    let serverReached = false;
+
     try {
       const { data, error } = await supabase.functions.invoke(
         `check-in-token/${eventId}`,
@@ -38,19 +40,26 @@ export class CheckInTokenService {
         }
       );
 
+      // If we got ANY response (even an error), the server was reached
+      serverReached = true;
+
       if (error) {
+        // Server error - clear cache and throw (don't use cache)
+        await this.clearCachedToken(eventId);
         throw new Error(error.message || 'Failed to fetch check-in token');
       }
 
       if (!data.success || !data.token) {
-        // Server returned error (401/403/etc) - clear cache and throw
-        if (data.errorCode === 'NOT_ADMIN' || data.errorCode === 'CHECK_IN_NOT_OPEN' || data.errorCode === 'CHECK_IN_CLOSED') {
-          await this.clearCachedToken(eventId);
-        }
-        throw new Error(data.error || 'Invalid response from server');
+        // Server returned business logic error (401/403/time window/etc)
+        // Clear cache and throw - do NOT use cached token
+        await this.clearCachedToken(eventId);
+        const errorMsg = data.error || 'Invalid response from server';
+        const err: any = new Error(errorMsg);
+        err.errorCode = data.errorCode;
+        throw err;
       }
 
-      // Cache the token for offline use
+      // Success - cache the token for offline use
       await this.cacheToken(eventId, {
         token: data.token,
         event: data.event,
@@ -62,24 +71,31 @@ export class CheckInTokenService {
         event: data.event,
       };
     } catch (error: any) {
-      // Only fall back to cache for true network/offline errors
-      // If error message indicates authorization/permission issue, don't use cache
-      const isAuthError = error.message?.includes('Admin') ||
-                         error.message?.includes('Unauthorized') ||
-                         error.message?.includes('not opened') ||
-                         error.message?.includes('closed');
+      // Only use cache if server was NOT reached (true network/offline error)
+      if (!serverReached) {
+        // Check for true network errors
+        const isNetworkError =
+          error.message?.toLowerCase().includes('network request failed') ||
+          error.message?.toLowerCase().includes('failed to fetch') ||
+          error.message?.toLowerCase().includes('network error') ||
+          error.name === 'TypeError' || // Fetch API network errors
+          error.code === 'ENOTFOUND' ||
+          error.code === 'ETIMEDOUT';
 
-      if (!isAuthError) {
-        const cached = await this.getCachedToken(eventId);
-        if (cached && this.isTokenValid(cached)) {
-          console.log('Using cached token due to network error');
-          return {
-            token: cached.token,
-            event: cached.event,
-          };
+        if (isNetworkError) {
+          console.log('Network error detected, attempting cache fallback');
+          const cached = await this.getCachedToken(eventId);
+          if (cached && this.isTokenValid(cached)) {
+            console.log('Using cached token due to offline/network error');
+            return {
+              token: cached.token,
+              event: cached.event,
+            };
+          }
         }
       }
 
+      // Server was reached OR not a network error - throw original error
       throw error;
     }
   }

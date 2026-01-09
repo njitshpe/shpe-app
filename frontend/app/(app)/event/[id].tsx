@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,16 @@ export default function EventDetailScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Force re-render for time updates
+
+  // Auto-refresh button state every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshTrigger((prev) => prev + 1);
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Defensive: handle null/undefined hostName
   const hostName = (event?.hostName ?? '').trim();
