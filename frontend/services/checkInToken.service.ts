@@ -40,23 +40,19 @@ export class CheckInTokenService {
         }
       );
 
-      // Only set serverReached = true if we got actual HTTP response data
-      // If data exists (even with error flag), server sent a response
+      // Set serverReached = true if:
+      // 1. Data exists (server sent response body), OR
+      // 2. Error has status code (FunctionsHttpError - server responded with HTTP error)
       if (data !== null && data !== undefined) {
+        serverReached = true;
+      } else if (error && (error.context?.status || typeof error.status === 'number')) {
+        // FunctionsHttpError has status property - means server responded
         serverReached = true;
       }
 
       if (error) {
-        // Check if this is a network error (no server response)
-        // Supabase returns FunctionsFetchError for network failures
-        const isNetworkError =
-          error.message?.toLowerCase().includes('network request failed') ||
-          error.message?.toLowerCase().includes('failed to fetch') ||
-          error.message?.toLowerCase().includes('fetch') ||
-          error.name?.includes('FunctionsFetchError');
-
-        if (!isNetworkError && serverReached) {
-          // Server responded with an error - clear cache
+        // Only clear cache if server actually responded (not pure network failure)
+        if (serverReached) {
           await this.clearCachedToken(eventId);
         }
 
@@ -65,10 +61,8 @@ export class CheckInTokenService {
 
       if (!data.success || !data.token) {
         // Server returned business logic error (401/403/time window/etc)
-        // Clear cache only if server actually responded
-        if (serverReached) {
-          await this.clearCachedToken(eventId);
-        }
+        // Clear cache - we know server responded since data exists
+        await this.clearCachedToken(eventId);
 
         const errorMsg = data.error || 'Invalid response from server';
         const err: any = new Error(errorMsg);
@@ -88,20 +82,18 @@ export class CheckInTokenService {
         event: data.event,
       };
     } catch (error: any) {
-      // Only use cache if server was NOT reached (true network/offline error)
+      // Only use cache if server was NOT reached (true offline/network error)
       if (!serverReached) {
-        // Check for true network errors
-        const isNetworkError =
-          error.message?.toLowerCase().includes('network request failed') ||
-          error.message?.toLowerCase().includes('failed to fetch') ||
-          error.message?.toLowerCase().includes('network error') ||
-          error.message?.toLowerCase().includes('fetch') ||
-          error.name === 'TypeError' || // Fetch API network errors
-          error.name?.includes('FunctionsFetchError') ||
+        // Check for TRUE network/connectivity errors only:
+        // - FunctionsFetchError: Supabase's network failure wrapper
+        // - TypeError: Fetch API network errors (DNS, connection refused, etc)
+        const isTrueNetworkError =
+          error.name === 'FunctionsFetchError' ||
+          error.name === 'TypeError' ||
           error.code === 'ENOTFOUND' ||
           error.code === 'ETIMEDOUT';
 
-        if (isNetworkError) {
+        if (isTrueNetworkError) {
           console.log('Network error detected, attempting cache fallback');
           const cached = await this.getCachedToken(eventId);
           if (cached && this.isTokenValid(cached)) {
