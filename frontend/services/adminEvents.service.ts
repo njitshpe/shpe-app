@@ -168,12 +168,17 @@ class AdminEventsService {
                 };
             }
 
+            console.log('Delete event response:', data);
+
             if (!data?.success) {
+                console.error('Delete event failed with response:', data);
                 return {
                     success: false,
                     error: createError(
                         data?.error || 'Failed to delete event',
-                        data?.code || 'EVENT_DELETE_FAILED'
+                        data?.code || 'EVENT_DELETE_FAILED',
+                        undefined,
+                        data?.error
                     ),
                 };
             }

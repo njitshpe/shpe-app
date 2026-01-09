@@ -258,6 +258,16 @@ export default function HomeScreen() {
                                 >
                                     <Text style={[styles.debugButtonText, dynamicStyles.text]}>Check Admin</Text>
                                 </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                    onPress={async () => {
+                                        const { adminService } = await import('@/services/admin.service');
+                                        adminService.clearCache();
+                                        Alert.alert('Cache Cleared', 'Admin status cache cleared. Reload the app to refresh.');
+                                    }}
+                                >
+                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Clear Cache</Text>
+                                </TouchableOpacity>
                             </View>
                         </View>
                     )}
