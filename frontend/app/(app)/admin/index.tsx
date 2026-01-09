@@ -7,6 +7,7 @@ import {
     ScrollView,
     Modal,
     Alert,
+    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
 import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
+import { adminAnnouncementsService } from '@/services/adminAnnouncements.service';
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -50,6 +52,32 @@ export default function AdminDashboard() {
             setShowCreateModal(false);
         }
         return success;
+    };
+
+    const [announcementTitle, setAnnouncementTitle] = useState('');
+    const [announcementMessage, setAnnouncementMessage] = useState('');
+    const [sendingAnnouncement, setSendingAnnouncement] = useState(false);
+
+    const handleSendAnnouncement = async () => {
+        if (!announcementTitle.trim() || !announcementMessage.trim()) {
+            Alert.alert('Error', 'Please enter a title and message');
+            return;
+        }
+
+        setSendingAnnouncement(true);
+        const response = await adminAnnouncementsService.sendAnnouncement(
+            announcementTitle,
+            announcementMessage
+        );
+        setSendingAnnouncement(false);
+
+        if (response.success) {
+            Alert.alert('Success', 'Announcement sent successfully');
+            setAnnouncementTitle('');
+            setAnnouncementMessage('');
+        } else {
+            Alert.alert('Error', response.error?.message || 'Failed to send announcement');
+        }
     };
 
     if (!isCurrentUserAdmin) {
@@ -108,6 +136,44 @@ export default function AdminDashboard() {
                         <Ionicons name="list-outline" size={24} color={theme.text} />
                         <Text style={[styles.actionButtonText, dynamicStyles.text]}>View All Events</Text>
                     </TouchableOpacity>
+                </View>
+
+                {/* Announcements Section */}
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, dynamicStyles.text]}>Announcements</Text>
+                    <View style={[styles.formCard, dynamicStyles.card]}>
+                        <TextInput
+                            style={[styles.input, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
+                            placeholder="Title"
+                            placeholderTextColor={theme.subtext}
+                            value={announcementTitle}
+                            onChangeText={setAnnouncementTitle}
+                        />
+                        <TextInput
+                            style={[styles.input, styles.textArea, { color: theme.text, backgroundColor: theme.background, borderColor: theme.border }]}
+                            placeholder="Message"
+                            placeholderTextColor={theme.subtext}
+                            value={announcementMessage}
+                            onChangeText={setAnnouncementMessage}
+                            multiline
+                            numberOfLines={3}
+                        />
+                        <TouchableOpacity
+                            style={[
+                                styles.actionButton,
+                                dynamicStyles.button,
+                                { justifyContent: 'center', marginTop: 8 },
+                                sendingAnnouncement && { opacity: 0.7 }
+                            ]}
+                            onPress={handleSendAnnouncement}
+                            disabled={sendingAnnouncement}
+                        >
+                            <Ionicons name="megaphone-outline" size={24} color="#fff" />
+                            <Text style={styles.actionButtonText}>
+                                {sendingAnnouncement ? 'Sending...' : 'Send Announcement'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Info Section */}
@@ -234,5 +300,24 @@ const styles = StyleSheet.create({
     infoText: {
         fontSize: 14,
         lineHeight: 20,
+    },
+    formCard: {
+        padding: 16,
+        borderRadius: 16,
+        gap: 12,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    input: {
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        fontSize: 16,
+    },
+    textArea: {
+        height: 80,
+        textAlignVertical: 'top',
     },
 });
