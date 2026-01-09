@@ -44,14 +44,16 @@ export class CheckInTokenService {
       // 1. Data exists (server sent response body)
       // 2. error.name === 'FunctionsHttpError' (definitive 4xx/5xx)
       // 3. error.status exists (HTTP status code present)
-      // 4. error.context?.response?.status exists (nested response status)
+      // 4. error.context?.status exists (Supabase context status)
+      // 5. error.context?.response?.status exists (nested response status)
       if (data !== null && data !== undefined) {
         serverReached = true;
       } else if (error) {
         serverReached =
           error.name === 'FunctionsHttpError' ||
           typeof error.status === 'number' ||
-          !!error.context?.response?.status;
+          typeof error.context?.status === 'number' ||
+          typeof error.context?.response?.status === 'number';
       }
 
       if (error) {
@@ -98,7 +100,7 @@ export class CheckInTokenService {
           error.name === 'FunctionsFetchError' ||
           error.name === 'TypeError' ||
           error.name === 'AbortError' ||
-          error.message?.includes('aborted') ||
+          error.message?.toLowerCase().includes('aborted') ||
           error.code === 'ENOTFOUND' ||
           error.code === 'ETIMEDOUT' ||
           error.code === 'ECONNREFUSED';
