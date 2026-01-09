@@ -28,6 +28,20 @@ interface AdminEventFormProps {
     mode: 'create' | 'edit';
 }
 
+// NJIT Buildings
+const NJIT_BUILDINGS = [
+    { name: 'GITC', fullName: 'Guttenberg Information Technologies Center', address: '218 Central Ave, Newark, NJ 07102' },
+    { name: 'CC', fullName: 'Campus Center', address: '150 Bleeker St, Newark, NJ 07102' },
+    { name: 'FMH', fullName: 'Faculty Memorial Hall', address: '141-153 Warren St, Newark, NJ 07103' },
+    { name: 'TIER', fullName: 'Tiernan Hall', address: '161 Warren St, Newark, NJ 07103' },
+    { name: 'CKB', fullName: 'Central King Building', address: '138 Warren St, Newark, NJ 07103' },
+    { name: 'KUPF', fullName: 'Kupfrian Hall', address: '100 Summit St, Newark, NJ 07103' },
+    { name: 'EBER', fullName: 'Eberhardt Hall', address: '323 Dr Martin Luther King Jr Blvd, Newark, NJ 07102' },
+    { name: 'ECE', fullName: 'Electrical and Computer Engineering Center', address: 'Ece Bldg, Newark, NJ 07103' },
+    { name: 'WEC', fullName: 'Wellness & Events Center', address: '100 Lock St, Newark, NJ 07103' },
+    { name: 'Other', fullName: 'Other Location', address: '' },
+];
+
 export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminEventFormProps) {
     const { theme, isDark } = useTheme();
     const [loading, setLoading] = useState(false);
@@ -40,6 +54,10 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [coverImageUrl, setCoverImageUrl] = useState(initialData?.cover_image_url || '');
     const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [uploadingImage, setUploadingImage] = useState(false);
+
+    // Building selector state
+    const [selectedBuilding, setSelectedBuilding] = useState('');
+    const [roomNumber, setRoomNumber] = useState('');
 
     // Date/Time picker state
     const [startDate, setStartDate] = useState(initialData?.start_time ? new Date(initialData.start_time) : new Date());
@@ -130,6 +148,38 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
             assetId: null,
         });
     };
+
+    const handleBuildingChange = (buildingName: string) => {
+        setSelectedBuilding(buildingName);
+        const building = NJIT_BUILDINGS.find(b => b.name === buildingName);
+
+        if (building && building.name !== 'Other') {
+            // Auto-fill address for NJIT buildings
+            setLocation(building.address);
+        } else {
+            // Clear address for "Other" to allow manual input
+            setLocation('');
+        }
+
+        // Update location name with building + room
+        if (roomNumber) {
+            setLocationName(buildingName === 'Other' ? roomNumber : `${buildingName} ${roomNumber}`);
+        } else {
+            setLocationName(buildingName === 'Other' ? '' : buildingName);
+        }
+    };
+
+    const handleRoomNumberChange = (room: string) => {
+        setRoomNumber(room);
+
+        // Update location name with building + room
+        if (selectedBuilding) {
+            setLocationName(selectedBuilding === 'Other' ? room : `${selectedBuilding} ${room}`);
+        } else {
+            setLocationName(room);
+        }
+    };
+
 
     const openDateTimePicker = (field: 'start' | 'end') => {
         setEditingField(field);
@@ -291,14 +341,43 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                             </Text>
                         </View>
 
-                        {/* Location Name */}
+                        {/* Building Selection */}
                         <View style={styles.field}>
-                            <Text style={[styles.label, dynamicStyles.text]}>Location Name *</Text>
+                            <Text style={[styles.label, dynamicStyles.text]}>Building *</Text>
+                            <TouchableOpacity
+                                style={[styles.dateTimeButtonFull, dynamicStyles.input]}
+                                onPress={() => {
+                                    Alert.alert(
+                                        'Select Building',
+                                        '',
+                                        NJIT_BUILDINGS.map(building => ({
+                                            text: `${building.name} - ${building.fullName}`,
+                                            onPress: () => handleBuildingChange(building.name)
+                                        })).concat([{ text: 'Cancel', style: 'cancel' }])
+                                    );
+                                }}
+                                disabled={loading}
+                            >
+                                <View style={styles.dateTimeContent}>
+                                    <Ionicons name="business-outline" size={20} color={theme.primary} />
+                                    <Text style={[styles.dateTimeButtonText, dynamicStyles.text]}>
+                                        {selectedBuilding ? NJIT_BUILDINGS.find(b => b.name === selectedBuilding)?.fullName || selectedBuilding : 'Select a building...'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Room Number */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>
+                                {selectedBuilding === 'Other' ? 'Location Name *' : 'Room Number'}
+                            </Text>
                             <TextInput
                                 style={[styles.input, dynamicStyles.input]}
-                                value={locationName}
-                                onChangeText={setLocationName}
-                                placeholder="e.g., GITC 1100"
+                                value={roomNumber}
+                                onChangeText={handleRoomNumberChange}
+                                placeholder={selectedBuilding === 'Other' ? 'e.g., Off-campus venue' : 'e.g., 1100'}
                                 placeholderTextColor={theme.subtext}
                                 editable={!loading}
                             />
@@ -313,8 +392,13 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                 onChangeText={setLocation}
                                 placeholder="e.g., 323 Dr Martin Luther King Jr Blvd, Newark, NJ"
                                 placeholderTextColor={theme.subtext}
-                                editable={!loading}
+                                editable={!loading && selectedBuilding === 'Other'}
                             />
+                            {selectedBuilding && selectedBuilding !== 'Other' && (
+                                <Text style={[styles.hint, dynamicStyles.subtext]}>
+                                    Auto-filled based on building selection
+                                </Text>
+                            )}
                         </View>
 
                         {/* Start Date & Time */}
