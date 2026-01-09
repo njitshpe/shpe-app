@@ -12,6 +12,7 @@ import {
     ActionSheetIOS,
     Platform,
     Modal,
+    AlertButton,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData } from '@/services/adminEvents.service';
@@ -58,6 +59,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     // Building selector state
     const [selectedBuilding, setSelectedBuilding] = useState('');
     const [roomNumber, setRoomNumber] = useState('');
+    const [showBuildingModal, setShowBuildingModal] = useState(false);
 
     // Date/Time picker state
     const [startDate, setStartDate] = useState(initialData?.start_time ? new Date(initialData.start_time) : new Date());
@@ -242,11 +244,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
             const success = await onSubmit(eventData);
             if (success) {
-                Alert.alert(
-                    'Success',
-                    `Event ${mode === 'create' ? 'created' : 'updated'} successfully!`,
-                    [{ text: 'OK', onPress: onCancel }]
-                );
+                onCancel();
             } else {
                 Alert.alert('Error', `Failed to ${mode} event. Please try again.`);
             }
@@ -274,33 +272,6 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
                     {/* Form Fields */}
                     <View style={styles.form}>
-                        {/* Event Name */}
-                        <View style={styles.field}>
-                            <Text style={[styles.label, dynamicStyles.text]}>Event Name *</Text>
-                            <TextInput
-                                style={[styles.input, dynamicStyles.input]}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="e.g., General Meeting"
-                                placeholderTextColor={theme.subtext}
-                                editable={!loading}
-                            />
-                        </View>
-
-                        {/* Description */}
-                        <View style={styles.field}>
-                            <Text style={[styles.label, dynamicStyles.text]}>Description</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea, dynamicStyles.input]}
-                                value={description}
-                                onChangeText={setDescription}
-                                placeholder="Event description..."
-                                placeholderTextColor={theme.subtext}
-                                multiline
-                                numberOfLines={4}
-                                editable={!loading}
-                            />
-                        </View>
 
                         {/* Event Poster */}
                         <View style={styles.field}>
@@ -336,9 +307,34 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                     {selectedImage || coverImageUrl ? 'Change Poster' : 'Upload Poster'}
                                 </Text>
                             </TouchableOpacity>
-                            <Text style={[styles.hint, dynamicStyles.subtext]}>
-                                Recommended: Portrait format (e.g., 1080x1920px or 9:16 ratio)
-                            </Text>
+                        </View>
+
+                        {/* Event Name */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Event Name *</Text>
+                            <TextInput
+                                style={[styles.input, dynamicStyles.input]}
+                                value={name}
+                                onChangeText={setName}
+                                placeholder="e.g., General Meeting"
+                                placeholderTextColor={theme.subtext}
+                                editable={!loading}
+                            />
+                        </View>
+
+                        {/* Description */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Description</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea, dynamicStyles.input]}
+                                value={description}
+                                onChangeText={setDescription}
+                                placeholder="Event description..."
+                                placeholderTextColor={theme.subtext}
+                                multiline
+                                numberOfLines={4}
+                                editable={!loading}
+                            />
                         </View>
 
                         {/* Building Selection */}
@@ -347,14 +343,21 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                             <TouchableOpacity
                                 style={[styles.dateTimeButtonFull, dynamicStyles.input]}
                                 onPress={() => {
-                                    Alert.alert(
-                                        'Select Building',
-                                        '',
-                                        NJIT_BUILDINGS.map(building => ({
-                                            text: `${building.name} - ${building.fullName}`,
-                                            onPress: () => handleBuildingChange(building.name)
-                                        })).concat([{ text: 'Cancel', style: 'cancel' }])
-                                    );
+                                    if (Platform.OS === 'ios') {
+                                        ActionSheetIOS.showActionSheetWithOptions(
+                                            {
+                                                options: [...NJIT_BUILDINGS.map(b => `${b.name} - ${b.fullName}`), 'Cancel'],
+                                                cancelButtonIndex: NJIT_BUILDINGS.length,
+                                            },
+                                            (buttonIndex) => {
+                                                if (buttonIndex < NJIT_BUILDINGS.length) {
+                                                    handleBuildingChange(NJIT_BUILDINGS[buttonIndex].name);
+                                                }
+                                            }
+                                        );
+                                    } else {
+                                        setShowBuildingModal(true);
+                                    }
                                 }}
                                 disabled={loading}
                             >
@@ -550,6 +553,40 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                 <Text style={styles.modalButtonTextConfirm}>Done</Text>
                             </TouchableOpacity>
                         </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Android Building Selection Modal */}
+            <Modal
+                visible={showBuildingModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowBuildingModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, dynamicStyles.card, { maxHeight: '80%' }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, dynamicStyles.text]}>Select Building</Text>
+                            <TouchableOpacity onPress={() => setShowBuildingModal(false)}>
+                                <Ionicons name="close" size={24} color={theme.text} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={{ gap: 8 }}>
+                            {NJIT_BUILDINGS.map((building) => (
+                                <TouchableOpacity
+                                    key={building.name}
+                                    style={[styles.modalButton, { backgroundColor: theme.background, alignItems: 'flex-start' }]}
+                                    onPress={() => {
+                                        handleBuildingChange(building.name);
+                                        setShowBuildingModal(false);
+                                    }}
+                                >
+                                    <Text style={[styles.modalButtonText, dynamicStyles.text]}>{building.name}</Text>
+                                    <Text style={[styles.hint, dynamicStyles.subtext]}>{building.fullName}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
