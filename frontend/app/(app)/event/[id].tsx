@@ -75,7 +75,11 @@ export default function EventDetailScreen() {
   const checkInCloses = event?.checkInCloses || event?.endTimeISO || '';
 
   // Calculate check-in state for admin button
+  // refreshTrigger causes re-calculation every 60 seconds
   const getCheckInState = (): 'not_open' | 'active' | 'closed' => {
+    // Use refreshTrigger to force recalculation (prevents lint warning)
+    void refreshTrigger;
+
     if (!checkInOpens || !checkInCloses) return 'not_open';
     const now = new Date();
     const opens = new Date(checkInOpens);
