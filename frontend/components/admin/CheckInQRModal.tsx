@@ -98,7 +98,6 @@ export const CheckInQRModal: React.FC<CheckInQRModalProps> = ({
       setToken(result.token);
     } catch (err: any) {
       console.error('Error loading check-in token:', err);
-      console.error('Error context status:', err?.context?.status);
 
       let errorCode = err?.errorCode;
       let backendMessage: string | undefined;
@@ -107,16 +106,14 @@ export const CheckInQRModal: React.FC<CheckInQRModalProps> = ({
       try {
         if (err?.context?._bodyBlob?._data || err?.context?.json) {
           const responseData = await err.context.json();
-          console.error('Backend response:', responseData);
           errorCode = responseData?.errorCode || responseData?.code;
           backendMessage = responseData?.error || responseData?.message;
         } else if (err?.context?._data) {
-          console.error('Backend response (_data):', err.context._data);
           errorCode = err.context._data?.errorCode;
           backendMessage = err.context._data?.error;
         }
       } catch (parseErr) {
-        console.error('Failed to parse error response:', parseErr);
+        // Failed to parse response, use default error
       }
 
       let errorMessage = backendMessage || err?.message || 'Failed to load QR code';
