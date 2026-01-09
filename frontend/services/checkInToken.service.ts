@@ -33,10 +33,41 @@ export class CheckInTokenService {
     let serverReached = false;
 
     try {
+      // Get current session and refresh if expired
+      let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      // If session exists but might be expired, try to refresh it
+      if (session) {
+        const expiresAt = session.expires_at;
+        const now = Math.floor(Date.now() / 1000);
+
+        // If token expires in less than 5 minutes, refresh it proactively
+        if (expiresAt && expiresAt - now < 300) {
+          console.log('Session token expiring soon, refreshing...');
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+
+          if (refreshError) {
+            console.error('Failed to refresh session:', refreshError);
+            throw new Error('Session expired. Please log in again.');
+          }
+
+          session = refreshData.session;
+        }
+      }
+
+      if (sessionError || !session) {
+        console.error('Session error:', sessionError);
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      // Explicitly pass the authorization header to ensure it's sent
       const { data, error } = await supabase.functions.invoke(
         `check-in-token/${eventId}`,
         {
           method: 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
         }
       );
 
