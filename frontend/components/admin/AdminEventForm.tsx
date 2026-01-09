@@ -8,10 +8,16 @@ import {
     ScrollView,
     Alert,
     ActivityIndicator,
+    Image,
+    ActionSheetIOS,
+    Platform,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData } from '@/services/adminEvents.service';
 import { Ionicons } from '@expo/vector-icons';
+import { PhotoHelper } from '@/services/photo.service';
+import { storageService } from '@/services/storage.service';
+import * as ImagePicker from 'expo-image-picker';
 
 interface AdminEventFormProps {
     initialData?: Partial<CreateEventData>;
@@ -34,6 +40,9 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [hostName, setHostName] = useState(initialData?.host_name || '');
     const [priceLabel, setPriceLabel] = useState(initialData?.price_label || '');
     const [maxAttendees, setMaxAttendees] = useState(initialData?.max_attendees?.toString() || '');
+    const [coverImageUrl, setCoverImageUrl] = useState(initialData?.cover_image_url || '');
+    const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
 
     const dynamicStyles = {
         container: { backgroundColor: theme.background },
@@ -66,6 +75,64 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
         return null;
     };
 
+    const handleImagePick = async () => {
+        const options = Platform.OS === 'ios'
+            ? ['Take Photo', 'Choose from Library', 'Cancel']
+            : ['Take Photo', 'Choose from Library'];
+
+        const showPicker = () => {
+            if (Platform.OS === 'ios') {
+                ActionSheetIOS.showActionSheetWithOptions(
+                    {
+                        options,
+                        cancelButtonIndex: 2,
+                    },
+                    async (buttonIndex) => {
+                        if (buttonIndex === 0) {
+                            const uri = await PhotoHelper.takePhoto({ allowsEditing: false, quality: 1 });
+                            if (uri) handleImageSelected(uri);
+                        } else if (buttonIndex === 1) {
+                            const uri = await PhotoHelper.pickFromLibrary({ allowsEditing: false, quality: 1 });
+                            if (uri) handleImageSelected(uri);
+                        }
+                    }
+                );
+            } else {
+                // Android: Show simple alert
+                Alert.alert(
+                    'Select Image',
+                    'Choose an option',
+                    [
+                        {
+                            text: 'Take Photo', onPress: async () => {
+                                const uri = await PhotoHelper.takePhoto({ allowsEditing: false, quality: 1 });
+                                if (uri) handleImageSelected(uri);
+                            }
+                        },
+                        {
+                            text: 'Choose from Library', onPress: async () => {
+                                const uri = await PhotoHelper.pickFromLibrary({ allowsEditing: false, quality: 1 });
+                                if (uri) handleImageSelected(uri);
+                            }
+                        },
+                        { text: 'Cancel', style: 'cancel' },
+                    ]
+                );
+            }
+        };
+
+        showPicker();
+    };
+
+    const handleImageSelected = async (uri: string) => {
+        setSelectedImage({
+            uri,
+            width: 0,
+            height: 0,
+            assetId: null,
+        });
+    };
+
     const handleSubmit = async () => {
         const error = validateForm();
         if (error) {
@@ -75,6 +142,24 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
         setLoading(true);
         try {
+            let posterUrl = coverImageUrl;
+
+            // Upload image if one was selected
+            if (selectedImage) {
+                setUploadingImage(true);
+                const tempEventId = `temp-${Date.now()}`;
+                const uploadResult = await storageService.uploadEventPoster(tempEventId, selectedImage);
+                setUploadingImage(false);
+
+                if (!uploadResult.success || !uploadResult.data) {
+                    Alert.alert('Upload Error', 'Failed to upload poster image');
+                    setLoading(false);
+                    return;
+                }
+
+                posterUrl = uploadResult.data.url;
+            }
+
             const eventData: CreateEventData = {
                 name: name.trim(),
                 description: description.trim() || undefined,
@@ -85,6 +170,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 host_name: hostName.trim() || undefined,
                 price_label: priceLabel.trim() || undefined,
                 max_attendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+                cover_image_url: posterUrl || undefined,
             };
 
             const success = await onSubmit(eventData);
@@ -145,6 +231,45 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                             numberOfLines={4}
                             editable={!loading}
                         />
+                    </View>
+
+                    {/* Event Poster */}
+                    <View style={styles.field}>
+                        <Text style={[styles.label, dynamicStyles.text]}>Event Poster</Text>
+
+                        {(selectedImage || coverImageUrl) && (
+                            <View style={styles.posterPreview}>
+                                <Image
+                                    source={{ uri: selectedImage?.uri || coverImageUrl }}
+                                    style={styles.posterImage}
+                                    resizeMode="cover"
+                                />
+                                <TouchableOpacity
+                                    style={styles.removeImageButton}
+                                    onPress={() => {
+                                        setSelectedImage(null);
+                                        setCoverImageUrl('');
+                                    }}
+                                    disabled={loading}
+                                >
+                                    <Ionicons name="close-circle" size={32} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        <TouchableOpacity
+                            style={[styles.uploadButton, dynamicStyles.card]}
+                            onPress={handleImagePick}
+                            disabled={loading || uploadingImage}
+                        >
+                            <Ionicons name="image-outline" size={24} color={theme.primary} />
+                            <Text style={[styles.uploadButtonText, dynamicStyles.text]}>
+                                {selectedImage || coverImageUrl ? 'Change Poster' : 'Upload Poster'}
+                            </Text>
+                        </TouchableOpacity>
+                        <Text style={[styles.hint, dynamicStyles.subtext]}>
+                            Recommended: 1920x1080px or similar aspect ratio
+                        </Text>
                     </View>
 
                     {/* Location Name */}
@@ -337,6 +462,38 @@ const styles = StyleSheet.create({
     },
     submitButtonText: {
         color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    posterPreview: {
+        position: 'relative',
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 12,
+    },
+    posterImage: {
+        width: '100%',
+        height: 200,
+        borderRadius: 12,
+    },
+    removeImageButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: 16,
+    },
+    uploadButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+    },
+    uploadButtonText: {
         fontSize: 16,
         fontWeight: '600',
     },

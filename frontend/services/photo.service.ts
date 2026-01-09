@@ -123,4 +123,23 @@ export const PhotoHelper = {
       return uri;
     }
   },
+
+  // 5. Compress Image for Posters (Higher quality for event posters)
+  compressImageForPoster: async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1920 } }], // Max width 1920px for poster quality
+        {
+          compress: 0.85, // 85% quality - less compression for posters
+          format: ImageManipulator.SaveFormat.WEBP,
+        }
+      );
+      return result.uri;
+    } catch (error) {
+      console.log('Error compressing poster image:', error);
+      // If compression fails, return original URI as fallback
+      return uri;
+    }
+  },
 };

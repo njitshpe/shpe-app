@@ -189,6 +189,80 @@ class StorageService {
       };
     }
   }
+
+  /**
+   * Upload event poster to Supabase Storage
+   * @param eventId - Event ID for organizing files
+   * @param imageAsset - Image picker asset
+   * @returns Public URL of uploaded poster
+   */
+  async uploadEventPoster(
+    eventId: string,
+    imageAsset: ImagePicker.ImagePickerAsset
+  ): Promise<ServiceResponse<UploadResult>> {
+    try {
+      // Compress the image for posters (higher quality than profile photos)
+      const compressedUri = await PhotoHelper.compressImageForPoster(imageAsset.uri);
+
+      // Create a unique filename
+      const timestamp = Date.now();
+      const fileName = `${eventId}_${timestamp}.webp`;
+      const filePath = `event-posters/${fileName}`;
+
+      // Use FormData for React Native uploads
+      const formData = new FormData();
+      formData.append('file', {
+        uri: compressedUri,
+        type: 'image/webp',
+        name: fileName,
+      } as any);
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('user-uploads')
+        .upload(filePath, formData, {
+          contentType: 'image/webp',
+          upsert: false,
+        });
+
+      if (error) {
+        console.error('Event poster upload error:', error);
+        return {
+          success: false,
+          error: createError(
+            'Failed to upload event poster',
+            'UPLOAD_ERROR',
+            undefined,
+            error.message
+          ),
+        };
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('user-uploads')
+        .getPublicUrl(filePath);
+
+      return {
+        success: true,
+        data: {
+          url: urlData.publicUrl,
+          path: filePath,
+        },
+      };
+    } catch (error) {
+      console.error('Event poster upload exception:', error);
+      return {
+        success: false,
+        error: createError(
+          'Failed to upload event poster',
+          'UNKNOWN_ERROR',
+          undefined,
+          error instanceof Error ? error.message : 'Unknown error'
+        ),
+      };
+    }
+  }
 }
 
 export const storageService = new StorageService();
