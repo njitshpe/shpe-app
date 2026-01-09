@@ -27,6 +27,8 @@ export interface EventRow {
   description: string | null;
   start_time: string;
   end_time: string;
+  check_in_opens?: string | null;
+  check_in_closes?: string | null;
   location: string | null;
   location_name: string;
   latitude: number | null;
