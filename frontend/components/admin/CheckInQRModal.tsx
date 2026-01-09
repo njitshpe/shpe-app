@@ -98,17 +98,42 @@ export const CheckInQRModal: React.FC<CheckInQRModalProps> = ({
       setToken(result.token);
     } catch (err: any) {
       console.error('Error loading check-in token:', err);
+      console.error('Error context status:', err?.context?.status);
 
-      // Extract user-friendly error message
-      let errorMessage = err.message || 'Failed to load QR code';
+      let errorCode = err?.errorCode;
+      let backendMessage: string | undefined;
 
-      // Add context based on error code if available
-      if (err.errorCode === 'CHECK_IN_NOT_OPEN') {
-        errorMessage = 'Check-in window has not opened yet';
-      } else if (err.errorCode === 'CHECK_IN_CLOSED') {
-        errorMessage = 'Check-in window has closed';
-      } else if (err.errorCode === 'NOT_ADMIN') {
-        errorMessage = 'Admin access required';
+      // Try to extract error from response body
+      try {
+        if (err?.context?._bodyBlob?._data || err?.context?.json) {
+          const responseData = await err.context.json();
+          console.error('Backend response:', responseData);
+          errorCode = responseData?.errorCode || responseData?.code;
+          backendMessage = responseData?.error || responseData?.message;
+        } else if (err?.context?._data) {
+          console.error('Backend response (_data):', err.context._data);
+          errorCode = err.context._data?.errorCode;
+          backendMessage = err.context._data?.error;
+        }
+      } catch (parseErr) {
+        console.error('Failed to parse error response:', parseErr);
+      }
+
+      let errorMessage = backendMessage || err?.message || 'Failed to load QR code';
+
+      // Map error codes to user-friendly messages
+      if (errorCode) {
+        const errorMessages: Record<string, string> = {
+          CHECK_IN_NOT_OPEN: 'Check-in window has not opened yet',
+          CHECK_IN_CLOSED: 'Check-in window has closed',
+          NOT_ADMIN: 'Admin access required',
+        };
+
+        errorMessage = errorMessages[errorCode]
+          ? `${errorMessages[errorCode]}`
+          : backendMessage
+          ? `${errorCode}: ${backendMessage}`
+          : errorCode;
       }
 
       setError(errorMessage);
