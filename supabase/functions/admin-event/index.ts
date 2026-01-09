@@ -347,10 +347,10 @@ async function deleteEvent(supabase: any, eventId: string) {
             );
         }
 
-        // Soft delete by setting is_active to false
+        // Hard delete - permanently remove the event
         const { error } = await supabase
             .from('events')
-            .update({ is_active: false })
+            .delete()
             .eq('event_id', eventId);
 
         if (error) {
@@ -368,7 +368,7 @@ async function deleteEvent(supabase: any, eventId: string) {
             );
         }
 
-        console.log(`Event deleted (soft): ${eventId}`);
+        console.log(`Event deleted (hard): ${eventId}`);
 
         return new Response(
             JSON.stringify({
