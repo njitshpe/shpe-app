@@ -40,14 +40,18 @@ export class CheckInTokenService {
         }
       );
 
-      // Set serverReached = true if:
-      // 1. Data exists (server sent response body), OR
-      // 2. error.name === 'FunctionsHttpError' (definitive 4xx/5xx response)
+      // Set serverReached = true if ANY sign of HTTP response:
+      // 1. Data exists (server sent response body)
+      // 2. error.name === 'FunctionsHttpError' (definitive 4xx/5xx)
+      // 3. error.status exists (HTTP status code present)
+      // 4. error.context?.response?.status exists (nested response status)
       if (data !== null && data !== undefined) {
         serverReached = true;
-      } else if (error && error.name === 'FunctionsHttpError') {
-        // FunctionsHttpError means server responded with 4xx/5xx
-        serverReached = true;
+      } else if (error) {
+        serverReached =
+          error.name === 'FunctionsHttpError' ||
+          typeof error.status === 'number' ||
+          !!error.context?.response?.status;
       }
 
       if (error) {
@@ -88,10 +92,13 @@ export class CheckInTokenService {
         // Check for TRUE network/connectivity errors only using error.name:
         // - FunctionsFetchError: Supabase's network failure wrapper (DNS, timeout, no connection)
         // - TypeError: Fetch API network errors (connection refused, etc)
-        // Plus known network error codes as fallback
+        // - AbortError: Request timeout/abort scenarios
+        // Plus known network error codes and abort messages as fallback
         const isTrueNetworkError =
           error.name === 'FunctionsFetchError' ||
           error.name === 'TypeError' ||
+          error.name === 'AbortError' ||
+          error.message?.includes('aborted') ||
           error.code === 'ENOTFOUND' ||
           error.code === 'ETIMEDOUT' ||
           error.code === 'ECONNREFUSED';
