@@ -59,7 +59,6 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     // Building selector state
     const [selectedBuilding, setSelectedBuilding] = useState('');
     const [roomNumber, setRoomNumber] = useState('');
-    const [showBuildingModal, setShowBuildingModal] = useState(false);
 
     // Date/Time picker state
     const [startDate, setStartDate] = useState(initialData?.start_time ? new Date(initialData.start_time) : new Date());
@@ -244,7 +243,11 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
             const success = await onSubmit(eventData);
             if (success) {
-                onCancel();
+                Alert.alert(
+                    'Success',
+                    `Event ${mode === 'create' ? 'created' : 'updated'} successfully!`,
+                    [{ text: 'OK', onPress: onCancel }]
+                );
             } else {
                 Alert.alert('Error', `Failed to ${mode} event. Please try again.`);
             }
@@ -343,21 +346,14 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                             <TouchableOpacity
                                 style={[styles.dateTimeButtonFull, dynamicStyles.input]}
                                 onPress={() => {
-                                    if (Platform.OS === 'ios') {
-                                        ActionSheetIOS.showActionSheetWithOptions(
-                                            {
-                                                options: [...NJIT_BUILDINGS.map(b => `${b.name} - ${b.fullName}`), 'Cancel'],
-                                                cancelButtonIndex: NJIT_BUILDINGS.length,
-                                            },
-                                            (buttonIndex) => {
-                                                if (buttonIndex < NJIT_BUILDINGS.length) {
-                                                    handleBuildingChange(NJIT_BUILDINGS[buttonIndex].name);
-                                                }
-                                            }
-                                        );
-                                    } else {
-                                        setShowBuildingModal(true);
-                                    }
+                                    Alert.alert(
+                                        'Select Building',
+                                        '',
+                                        NJIT_BUILDINGS.map<AlertButton>(building => ({
+                                            text: `${building.name} - ${building.fullName}`,
+                                            onPress: () => handleBuildingChange(building.name)
+                                        })).concat([{ text: 'Cancel', style: 'cancel' }])
+                                    );
                                 }}
                                 disabled={loading}
                             >
@@ -553,40 +549,6 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                 <Text style={styles.modalButtonTextConfirm}>Done</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* Android Building Selection Modal */}
-            <Modal
-                visible={showBuildingModal}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setShowBuildingModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, dynamicStyles.card, { maxHeight: '80%' }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, dynamicStyles.text]}>Select Building</Text>
-                            <TouchableOpacity onPress={() => setShowBuildingModal(false)}>
-                                <Ionicons name="close" size={24} color={theme.text} />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView contentContainerStyle={{ gap: 8 }}>
-                            {NJIT_BUILDINGS.map((building) => (
-                                <TouchableOpacity
-                                    key={building.name}
-                                    style={[styles.modalButton, { backgroundColor: theme.background, alignItems: 'flex-start' }]}
-                                    onPress={() => {
-                                        handleBuildingChange(building.name);
-                                        setShowBuildingModal(false);
-                                    }}
-                                >
-                                    <Text style={[styles.modalButtonText, dynamicStyles.text]}>{building.name}</Text>
-                                    <Text style={[styles.hint, dynamicStyles.subtext]}>{building.fullName}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
                     </View>
                 </View>
             </Modal>
