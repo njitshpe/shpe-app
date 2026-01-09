@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -71,11 +71,8 @@ export default function EventDetailScreen() {
   const checkInCloses = event?.checkInCloses || event?.endTimeISO || '';
 
   // Calculate check-in state for admin button
-  // refreshTrigger causes re-calculation every 60 seconds
-  const getCheckInState = (): 'not_open' | 'active' | 'closed' => {
-    // Use refreshTrigger to force recalculation (prevents lint warning)
-    void refreshTrigger;
-
+  // useMemo with refreshTrigger dependency causes re-calculation every 60 seconds
+  const checkInState = useMemo((): 'not_open' | 'active' | 'closed' => {
     if (!checkInOpens || !checkInCloses) return 'not_open';
     const now = new Date();
     const opens = new Date(checkInOpens);
@@ -83,12 +80,10 @@ export default function EventDetailScreen() {
     if (now < opens) return 'not_open';
     if (now > closes) return 'closed';
     return 'active';
-  };
-
-  const checkInState = getCheckInState();
+  }, [checkInOpens, checkInCloses, refreshTrigger]);
 
   // Get button label based on state
-  const getCheckInButtonLabel = (): string => {
+  const checkInButtonLabel = useMemo((): string => {
     if (checkInState === 'not_open') {
       const now = new Date();
       const opens = new Date(checkInOpens);
@@ -102,7 +97,7 @@ export default function EventDetailScreen() {
     }
     if (checkInState === 'closed') return 'Check-In Closed';
     return 'Show Check-In QR Code';
-  };
+  }, [checkInState, checkInOpens, refreshTrigger]);
 
   const dynamicStyles = {
     container: { backgroundColor: theme.background },
@@ -374,7 +369,7 @@ export default function EventDetailScreen() {
                     checkInState !== 'active' && { color: '#adb5bd' },
                   ]}
                 >
-                  {getCheckInButtonLabel()}
+                  {checkInButtonLabel}
                 </Text>
               </TouchableOpacity>
               <Text style={[styles.adminHint, dynamicStyles.subtext]}>
