@@ -107,6 +107,8 @@ function mapEventRowToEvent(row: EventRow): Event {
     description: row.description ?? undefined,
     startTimeISO: row.start_time,
     endTimeISO: row.end_time,
+    checkInOpens: row.check_in_opens ?? undefined,
+    checkInCloses: row.check_in_closes ?? undefined,
     locationName: row.location_name,
     address: row.location ?? undefined,
     latitude: row.latitude ?? undefined,
