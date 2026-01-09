@@ -311,7 +311,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                     <Image
                                         source={{ uri: selectedImage?.uri || coverImageUrl }}
                                         style={styles.posterImage}
-                                        resizeMode="cover"
+                                        resizeMode="contain"
                                     />
                                     <TouchableOpacity
                                         style={styles.removeImageButton}
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
     },
     posterImage: {
         width: '100%',
-        height: 200,
+        height: 400,
         borderRadius: 12,
     },
     removeImageButton: {

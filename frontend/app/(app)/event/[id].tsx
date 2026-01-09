@@ -222,8 +222,12 @@ export default function EventDetailScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             const success = await deleteEventAdmin(event.id);
             if (success) {
-              Alert.alert('Event Deleted', 'The event has been deleted successfully.');
+              // Navigate back immediately to prevent rendering issues
               router.back();
+              // Show success message after navigation
+              setTimeout(() => {
+                Alert.alert('Event Deleted', 'The event has been deleted successfully.');
+              }, 300);
             } else {
               Alert.alert('Error', 'Failed to delete event. Please try again.');
             }

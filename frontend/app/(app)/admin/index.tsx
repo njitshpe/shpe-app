@@ -103,7 +103,7 @@ export default function AdminDashboard() {
 
                     <TouchableOpacity
                         style={[styles.actionButton, dynamicStyles.card]}
-                        onPress={() => router.push('/calendar')}
+                        onPress={() => router.push('/calendar?view=feed')}
                     >
                         <Ionicons name="list-outline" size={24} color={theme.text} />
                         <Text style={[styles.actionButtonText, dynamicStyles.text]}>View All Events</Text>

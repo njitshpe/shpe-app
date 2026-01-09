@@ -7,7 +7,7 @@ import {
     Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '@/contexts/EventsContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,7 +20,12 @@ export default function EventsScreen() {
     const { events, isLoading, error, refetchEvents } = useEvents();
     const { theme } = useTheme();
     const router = useRouter();
-    const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+    const { view } = useLocalSearchParams<{ view?: string }>();
+
+    // Set initial view mode based on query parameter
+    const [viewMode, setViewMode] = useState<ViewMode>(
+        view === 'feed' ? 'feed' : 'calendar'
+    );
     const [selectedDate, setSelectedDate] = useState(new Date());
 
     const handleQRScanPress = () => {
