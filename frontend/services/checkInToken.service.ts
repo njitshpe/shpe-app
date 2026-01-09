@@ -42,11 +42,11 @@ export class CheckInTokenService {
 
       // Set serverReached = true if:
       // 1. Data exists (server sent response body), OR
-      // 2. Error has status code (FunctionsHttpError - server responded with HTTP error)
+      // 2. error.name === 'FunctionsHttpError' (definitive 4xx/5xx response)
       if (data !== null && data !== undefined) {
         serverReached = true;
-      } else if (error && (error.context?.status || typeof error.status === 'number')) {
-        // FunctionsHttpError has status property - means server responded
+      } else if (error && error.name === 'FunctionsHttpError') {
+        // FunctionsHttpError means server responded with 4xx/5xx
         serverReached = true;
       }
 
@@ -56,7 +56,8 @@ export class CheckInTokenService {
           await this.clearCachedToken(eventId);
         }
 
-        throw new Error(error.message || 'Failed to fetch check-in token');
+        // Throw original error to preserve name/code for offline detection
+        throw error;
       }
 
       if (!data.success || !data.token) {
@@ -84,14 +85,16 @@ export class CheckInTokenService {
     } catch (error: any) {
       // Only use cache if server was NOT reached (true offline/network error)
       if (!serverReached) {
-        // Check for TRUE network/connectivity errors only:
-        // - FunctionsFetchError: Supabase's network failure wrapper
-        // - TypeError: Fetch API network errors (DNS, connection refused, etc)
+        // Check for TRUE network/connectivity errors only using error.name:
+        // - FunctionsFetchError: Supabase's network failure wrapper (DNS, timeout, no connection)
+        // - TypeError: Fetch API network errors (connection refused, etc)
+        // Plus known network error codes as fallback
         const isTrueNetworkError =
           error.name === 'FunctionsFetchError' ||
           error.name === 'TypeError' ||
           error.code === 'ENOTFOUND' ||
-          error.code === 'ETIMEDOUT';
+          error.code === 'ETIMEDOUT' ||
+          error.code === 'ECONNREFUSED';
 
         if (isTrueNetworkError) {
           console.log('Network error detected, attempting cache fallback');
