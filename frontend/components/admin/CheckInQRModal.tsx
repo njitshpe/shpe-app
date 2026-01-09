@@ -89,25 +89,32 @@ export const CheckInQRModal: React.FC<CheckInQRModalProps> = ({
   const loadToken = async () => {
     setLoading(true);
     setError(null);
+    setToken(null); // Clear any existing token
 
     try {
-      // First try to get cached token
-      const cached = await CheckInTokenService.getCachedToken(eventId);
-      if (cached && CheckInTokenService.getEventState(checkInOpens, checkInCloses) === 'active') {
-        setToken(cached.token);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch fresh token from server
+      // FETCH-FIRST: Always try server first
+      // Cache fallback handled inside getCheckInToken only for true network errors
       const result = await CheckInTokenService.getCheckInToken(eventId);
       setToken(result.token);
     } catch (err: any) {
       console.error('Error loading check-in token:', err);
-      setError(err.message || 'Failed to load QR code');
+
+      // Extract user-friendly error message
+      let errorMessage = err.message || 'Failed to load QR code';
+
+      // Add context based on error code if available
+      if (err.errorCode === 'CHECK_IN_NOT_OPEN') {
+        errorMessage = 'Check-in window has not opened yet';
+      } else if (err.errorCode === 'CHECK_IN_CLOSED') {
+        errorMessage = 'Check-in window has closed';
+      } else if (err.errorCode === 'NOT_ADMIN') {
+        errorMessage = 'Admin access required';
+      }
+
+      setError(errorMessage);
       Alert.alert(
         'Error',
-        err.message || 'Failed to load QR code. Please check your connection and try again.'
+        errorMessage + '\n\nPlease check your permissions and try again.'
       );
     } finally {
       setLoading(false);
