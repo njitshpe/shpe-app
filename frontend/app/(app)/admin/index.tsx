@@ -7,7 +7,6 @@ import {
     ScrollView,
     Modal,
     Alert,
-    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,6 +17,7 @@ import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
 import { adminAnnouncementsService } from '@/services/adminAnnouncements.service';
 import { AnnouncementModal } from '@/components/admin/AnnouncementModal';
+import { SuccessToast } from '@/components/ui/SuccessToast';
 
 export default function AdminDashboard() {
     const router = useRouter();
@@ -25,6 +25,7 @@ export default function AdminDashboard() {
     const { events, isCurrentUserAdmin, createEvent } = useEvents();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // Redirect if not admin
     React.useEffect(() => {
@@ -52,6 +53,7 @@ export default function AdminDashboard() {
         const success = await createEvent(data);
         if (success) {
             setShowCreateModal(false);
+            setSuccessMessage('Event created successfully!');
         }
         return success;
     };
@@ -60,7 +62,7 @@ export default function AdminDashboard() {
     const handleSendAnnouncement = async (title: string, message: string) => {
         const response = await adminAnnouncementsService.sendAnnouncement(title, message);
         if (response.success) {
-            Alert.alert('Sent!', 'Your announcement has been pushed to all users.');
+            setSuccessMessage('Announcement sent successfully!');
             return true;
         } else {
             Alert.alert('Error', response.error?.message || 'Failed to send.');
@@ -142,8 +144,8 @@ export default function AdminDashboard() {
                         <Text style={[styles.infoText, dynamicStyles.subtext]}>
                             • Create, edit, and delete events{'\n'}
                             • Manage event details and settings{'\n'}
-                            • View event analytics (coming soon){'\n'}
-                            • Send announcements (coming soon)
+                            • Send announcements{'\n'}
+                            • View event analytics (coming soon)
                         </Text>
                     </View>
                 </View>
@@ -168,6 +170,12 @@ export default function AdminDashboard() {
                 visible={showAnnouncementModal}
                 onClose={() => setShowAnnouncementModal(false)}
                 onSend={handleSendAnnouncement}
+            />
+
+            <SuccessToast
+                visible={!!successMessage}
+                message={successMessage || ''}
+                onHide={() => setSuccessMessage(null)}
             />
         </SafeAreaView>
     );
