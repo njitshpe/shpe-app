@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Image,
   Dimensions,
   Alert,
@@ -22,6 +23,7 @@ import {
   RegistrationSuccessModal,
   EventMoreMenu,
 } from '@/components/events';
+import { CheckInQRModal } from '@/components/admin/CheckInQRModal';
 import { useEventRegistration } from '@/hooks/events';
 import { deviceCalendarService, shareService } from '@/services';
 import * as Haptics from 'expo-haptics';
@@ -33,7 +35,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { events } = useEvents();
+  const { events, isCurrentUserAdmin } = useEvents();
   const { theme, isDark } = useTheme();
 
   // Find the event from context
@@ -45,6 +47,7 @@ export default function EventDetailScreen() {
   // UI state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // Defensive: handle null/undefined hostName
   const hostName = (event?.hostName ?? '').trim();
@@ -52,6 +55,40 @@ export default function EventDetailScreen() {
 
   // Check if event has passed (based on end time)
   const hasEventPassed = event ? new Date(event.endTimeISO) < new Date() : false;
+
+  // Get check-in window times (use checkInOpens/checkInCloses if set, otherwise fall back to event times)
+  const checkInOpens = event?.checkInOpens || event?.startTimeISO || '';
+  const checkInCloses = event?.checkInCloses || event?.endTimeISO || '';
+
+  // Calculate check-in state for admin button
+  const getCheckInState = (): 'not_open' | 'active' | 'closed' => {
+    if (!checkInOpens || !checkInCloses) return 'not_open';
+    const now = new Date();
+    const opens = new Date(checkInOpens);
+    const closes = new Date(checkInCloses);
+    if (now < opens) return 'not_open';
+    if (now > closes) return 'closed';
+    return 'active';
+  };
+
+  const checkInState = getCheckInState();
+
+  // Get button label based on state
+  const getCheckInButtonLabel = (): string => {
+    if (checkInState === 'not_open') {
+      const now = new Date();
+      const opens = new Date(checkInOpens);
+      const diff = opens.getTime() - now.getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(minutes / 60);
+      if (hours > 0) {
+        return `Check-In Opens in ${hours}h ${minutes % 60}m`;
+      }
+      return `Check-In Opens in ${minutes}m`;
+    }
+    if (checkInState === 'closed') return 'Check-In Closed';
+    return 'Show Check-In QR Code';
+  };
 
   const dynamicStyles = {
     container: { backgroundColor: theme.background },
@@ -298,6 +335,42 @@ export default function EventDetailScreen() {
             <AttendeesPreview eventId={event.id} />
           </View>
 
+          {/* Admin QR Code Section */}
+          {isCurrentUserAdmin && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, dynamicStyles.text]}>Admin Tools</Text>
+              <TouchableOpacity
+                style={[
+                  styles.adminButton,
+                  checkInState === 'not_open' && styles.adminButtonDisabled,
+                  checkInState === 'active' && { backgroundColor: '#28a745' },
+                  checkInState === 'closed' && styles.adminButtonExpired,
+                ]}
+                onPress={() => checkInState === 'active' && setShowQRModal(true)}
+                disabled={checkInState !== 'active'}
+              >
+                <Ionicons
+                  name="qr-code-outline"
+                  size={24}
+                  color={checkInState === 'active' ? '#fff' : '#adb5bd'}
+                />
+                <Text
+                  style={[
+                    styles.adminButtonText,
+                    checkInState !== 'active' && { color: '#adb5bd' },
+                  ]}
+                >
+                  {getCheckInButtonLabel()}
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.adminHint, dynamicStyles.subtext]}>
+                {checkInState === 'not_open' && 'Check-in window has not opened yet'}
+                {checkInState === 'active' && 'Display a QR code for students to check in'}
+                {checkInState === 'closed' && 'Check-in window has closed'}
+              </Text>
+            </View>
+          )}
+
           {/* Capacity Warning */}
           {event.capacityLabel && (
             <View style={[styles.capacityWarning, dynamicStyles.capacityWarning]}>
@@ -347,6 +420,18 @@ export default function EventDetailScreen() {
         onAddToCalendar={handleAddToCalendar}
         onCancelRegistration={handleCancelRegistration}
       />
+
+      {/* Admin Check-In QR Code Modal */}
+      {isCurrentUserAdmin && event && (
+        <CheckInQRModal
+          visible={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          eventId={event.id}
+          eventName={event.title}
+          checkInOpens={checkInOpens}
+          checkInCloses={checkInCloses}
+        />
+      )}
     </View>
 
   );
@@ -604,5 +689,34 @@ const styles = StyleSheet.create({
     color: '#FDFBF7',
     fontSize: 16,
     fontWeight: '600',
+  },
+
+  // ADMIN SECTION
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  adminButtonDisabled: {
+    backgroundColor: '#e9ecef',
+    opacity: 0.6,
+  },
+  adminButtonExpired: {
+    backgroundColor: '#dc3545',
+    opacity: 0.6,
+  },
+  adminButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  adminHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });

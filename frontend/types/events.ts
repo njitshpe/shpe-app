@@ -7,6 +7,8 @@ export interface Event {
   description?: string;
   startTimeISO: string; // start_time from database
   endTimeISO: string; // end_time from database
+  checkInOpens?: string; // check_in_opens from database
+  checkInCloses?: string; // check_in_closes from database
   locationName: string; // location_name from database
   address?: string; // location from database
   latitude?: number;
