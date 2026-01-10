@@ -11,6 +11,8 @@ import {
     Image,
     ActionSheetIOS,
     Platform,
+    Modal,
+    AlertButton,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData } from '@/services/adminEvents.service';
@@ -18,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PhotoHelper } from '@/services/photo.service';
 import { storageService } from '@/services/storage.service';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface AdminEventFormProps {
     initialData?: Partial<CreateEventData>;
@@ -25,6 +28,20 @@ interface AdminEventFormProps {
     onCancel: () => void;
     mode: 'create' | 'edit';
 }
+
+// NJIT Buildings
+const NJIT_BUILDINGS = [
+    { name: 'GITC', fullName: 'Guttenberg Information Technologies Center', address: '218 Central Ave, Newark, NJ 07102' },
+    { name: 'CC', fullName: 'Campus Center', address: '150 Bleeker St, Newark, NJ 07102' },
+    { name: 'FMH', fullName: 'Faculty Memorial Hall', address: '141-153 Warren St, Newark, NJ 07103' },
+    { name: 'TIER', fullName: 'Tiernan Hall', address: '161 Warren St, Newark, NJ 07103' },
+    { name: 'CKB', fullName: 'Central King Building', address: '138 Warren St, Newark, NJ 07103' },
+    { name: 'KUPF', fullName: 'Kupfrian Hall', address: '100 Summit St, Newark, NJ 07103' },
+    { name: 'EBER', fullName: 'Eberhardt Hall', address: '323 Dr Martin Luther King Jr Blvd, Newark, NJ 07102' },
+    { name: 'ECE', fullName: 'Electrical and Computer Engineering Center', address: 'Ece Bldg, Newark, NJ 07103' },
+    { name: 'WEC', fullName: 'Wellness & Events Center', address: '100 Lock St, Newark, NJ 07103' },
+    { name: 'Other', fullName: 'Other Location', address: '' },
+];
 
 export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminEventFormProps) {
     const { theme, isDark } = useTheme();
@@ -35,14 +52,21 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [description, setDescription] = useState(initialData?.description || '');
     const [locationName, setLocationName] = useState(initialData?.location_name || '');
     const [location, setLocation] = useState(initialData?.location || '');
-    const [startTime, setStartTime] = useState(initialData?.start_time || '');
-    const [endTime, setEndTime] = useState(initialData?.end_time || '');
-    const [hostName, setHostName] = useState(initialData?.host_name || '');
-    const [priceLabel, setPriceLabel] = useState(initialData?.price_label || '');
-    const [maxAttendees, setMaxAttendees] = useState(initialData?.max_attendees?.toString() || '');
     const [coverImageUrl, setCoverImageUrl] = useState(initialData?.cover_image_url || '');
     const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [uploadingImage, setUploadingImage] = useState(false);
+
+    // Building selector state
+    const [selectedBuilding, setSelectedBuilding] = useState('');
+    const [roomNumber, setRoomNumber] = useState('');
+
+    // Date/Time picker state
+    const [startDate, setStartDate] = useState(initialData?.start_time ? new Date(initialData.start_time) : new Date());
+    const [endDate, setEndDate] = useState(initialData?.end_time ? new Date(initialData.end_time) : new Date(Date.now() + 2 * 60 * 60 * 1000)); // 2 hours later
+    const [showDateTimeModal, setShowDateTimeModal] = useState(false);
+    const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
+    const [tempDate, setTempDate] = useState(new Date());
+    const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
 
     const dynamicStyles = {
         container: { backgroundColor: theme.background },
@@ -61,15 +85,8 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const validateForm = (): string | null => {
         if (!name.trim()) return 'Event name is required';
         if (!locationName.trim()) return 'Location name is required';
-        if (!startTime.trim()) return 'Start time is required';
-        if (!endTime.trim()) return 'End time is required';
 
-        // Validate date format (ISO 8601)
-        const startDate = new Date(startTime);
-        const endDate = new Date(endTime);
-
-        if (isNaN(startDate.getTime())) return 'Invalid start time format. Use ISO 8601 (e.g., 2026-02-01T18:00:00Z)';
-        if (isNaN(endDate.getTime())) return 'Invalid end time format. Use ISO 8601 (e.g., 2026-02-01T20:00:00Z)';
+        // Validate dates
         if (endDate <= startDate) return 'End time must be after start time';
 
         return null;
@@ -133,6 +150,60 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
         });
     };
 
+    const handleBuildingChange = (buildingName: string) => {
+        setSelectedBuilding(buildingName);
+        const building = NJIT_BUILDINGS.find(b => b.name === buildingName);
+
+        if (building && building.name !== 'Other') {
+            // Auto-fill address for NJIT buildings
+            setLocation(building.address);
+        } else {
+            // Clear address for "Other" to allow manual input
+            setLocation('');
+        }
+
+        // Update location name with building + room
+        if (roomNumber) {
+            setLocationName(buildingName === 'Other' ? roomNumber : `${buildingName} ${roomNumber}`);
+        } else {
+            setLocationName(buildingName === 'Other' ? '' : buildingName);
+        }
+    };
+
+    const handleRoomNumberChange = (room: string) => {
+        setRoomNumber(room);
+
+        // Update location name with building + room
+        if (selectedBuilding) {
+            setLocationName(selectedBuilding === 'Other' ? room : `${selectedBuilding} ${room}`);
+        } else {
+            setLocationName(room);
+        }
+    };
+
+
+    const openDateTimePicker = (field: 'start' | 'end') => {
+        setEditingField(field);
+        setTempDate(field === 'start' ? startDate : endDate);
+        setPickerMode('date');
+        setShowDateTimeModal(true);
+    };
+
+    const handleDateTimeConfirm = () => {
+        if (editingField === 'start') {
+            setStartDate(tempDate);
+        } else if (editingField === 'end') {
+            setEndDate(tempDate);
+        }
+        setShowDateTimeModal(false);
+        setEditingField(null);
+    };
+
+    const handleDateTimeCancel = () => {
+        setShowDateTimeModal(false);
+        setEditingField(null);
+    };
+
     const handleSubmit = async () => {
         const error = validateForm();
         if (error) {
@@ -165,11 +236,8 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 description: description.trim() || undefined,
                 location_name: locationName.trim(),
                 location: location.trim() || undefined,
-                start_time: startTime.trim(),
-                end_time: endTime.trim(),
-                host_name: hostName.trim() || undefined,
-                price_label: priceLabel.trim() || undefined,
-                max_attendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+                start_time: startDate.toISOString(),
+                end_time: endDate.toISOString(),
                 cover_image_url: posterUrl || undefined,
             };
 
@@ -190,184 +258,186 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
         }
     };
 
+
     return (
-        <ScrollView style={[styles.container, dynamicStyles.container]}>
-            <View style={styles.content}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={[styles.title, dynamicStyles.text]}>
-                        {mode === 'create' ? 'Create Event' : 'Edit Event'}
-                    </Text>
-                    <TouchableOpacity onPress={onCancel} disabled={loading}>
-                        <Ionicons name="close" size={28} color={theme.text} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Form Fields */}
-                <View style={styles.form}>
-                    {/* Event Name */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Event Name *</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={name}
-                            onChangeText={setName}
-                            placeholder="e.g., General Meeting"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                        />
-                    </View>
-
-                    {/* Description */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Description</Text>
-                        <TextInput
-                            style={[styles.input, styles.textArea, dynamicStyles.input]}
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder="Event description..."
-                            placeholderTextColor={theme.subtext}
-                            multiline
-                            numberOfLines={4}
-                            editable={!loading}
-                        />
-                    </View>
-
-                    {/* Event Poster */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Event Poster</Text>
-
-                        {(selectedImage || coverImageUrl) && (
-                            <View style={styles.posterPreview}>
-                                <Image
-                                    source={{ uri: selectedImage?.uri || coverImageUrl }}
-                                    style={styles.posterImage}
-                                    resizeMode="cover"
-                                />
-                                <TouchableOpacity
-                                    style={styles.removeImageButton}
-                                    onPress={() => {
-                                        setSelectedImage(null);
-                                        setCoverImageUrl('');
-                                    }}
-                                    disabled={loading}
-                                >
-                                    <Ionicons name="close-circle" size={32} color="#fff" />
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-                        <TouchableOpacity
-                            style={[styles.uploadButton, dynamicStyles.card]}
-                            onPress={handleImagePick}
-                            disabled={loading || uploadingImage}
-                        >
-                            <Ionicons name="image-outline" size={24} color={theme.primary} />
-                            <Text style={[styles.uploadButtonText, dynamicStyles.text]}>
-                                {selectedImage || coverImageUrl ? 'Change Poster' : 'Upload Poster'}
-                            </Text>
+        <>
+            <ScrollView style={[styles.container, dynamicStyles.container]}>
+                <View style={styles.content}>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <Text style={[styles.title, dynamicStyles.text]}>
+                            {mode === 'create' ? 'Create Event' : 'Edit Event'}
+                        </Text>
+                        <TouchableOpacity onPress={onCancel} disabled={loading}>
+                            <Ionicons name="close" size={28} color={theme.text} />
                         </TouchableOpacity>
-                        <Text style={[styles.hint, dynamicStyles.subtext]}>
-                            Recommended: 1920x1080px or similar aspect ratio
-                        </Text>
                     </View>
 
-                    {/* Location Name */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Location Name *</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={locationName}
-                            onChangeText={setLocationName}
-                            placeholder="e.g., GITC 1100"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                        />
+                    {/* Form Fields */}
+                    <View style={styles.form}>
+
+                        {/* Event Poster */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Event Poster</Text>
+
+                            {(selectedImage || coverImageUrl) && (
+                                <View style={styles.posterPreview}>
+                                    <Image
+                                        source={{ uri: selectedImage?.uri || coverImageUrl }}
+                                        style={styles.posterImage}
+                                        resizeMode="contain"
+                                    />
+                                    <TouchableOpacity
+                                        style={styles.removeImageButton}
+                                        onPress={() => {
+                                            setSelectedImage(null);
+                                            setCoverImageUrl('');
+                                        }}
+                                        disabled={loading}
+                                    >
+                                        <Ionicons name="close-circle" size={32} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            <TouchableOpacity
+                                style={[styles.uploadButton, dynamicStyles.card]}
+                                onPress={handleImagePick}
+                                disabled={loading || uploadingImage}
+                            >
+                                <Ionicons name="image-outline" size={24} color={theme.primary} />
+                                <Text style={[styles.uploadButtonText, dynamicStyles.text]}>
+                                    {selectedImage || coverImageUrl ? 'Change Poster' : 'Upload Poster'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Event Name */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Event Name *</Text>
+                            <TextInput
+                                style={[styles.input, dynamicStyles.input]}
+                                value={name}
+                                onChangeText={setName}
+                                placeholder="e.g., General Meeting"
+                                placeholderTextColor={theme.subtext}
+                                editable={!loading}
+                            />
+                        </View>
+
+                        {/* Description */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Description</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea, dynamicStyles.input]}
+                                value={description}
+                                onChangeText={setDescription}
+                                placeholder="Event description..."
+                                placeholderTextColor={theme.subtext}
+                                multiline
+                                numberOfLines={4}
+                                editable={!loading}
+                            />
+                        </View>
+
+                        {/* Building Selection */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Building *</Text>
+                            <TouchableOpacity
+                                style={[styles.dateTimeButtonFull, dynamicStyles.input]}
+                                onPress={() => {
+                                    Alert.alert(
+                                        'Select Building',
+                                        '',
+                                        NJIT_BUILDINGS.map<AlertButton>(building => ({
+                                            text: `${building.name} - ${building.fullName}`,
+                                            onPress: () => handleBuildingChange(building.name)
+                                        })).concat([{ text: 'Cancel', style: 'cancel' }])
+                                    );
+                                }}
+                                disabled={loading}
+                            >
+                                <View style={styles.dateTimeContent}>
+                                    <Ionicons name="business-outline" size={20} color={theme.primary} />
+                                    <Text style={[styles.dateTimeButtonText, dynamicStyles.text]}>
+                                        {selectedBuilding ? NJIT_BUILDINGS.find(b => b.name === selectedBuilding)?.fullName || selectedBuilding : 'Select a building...'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Room Number */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>
+                                {selectedBuilding === 'Other' ? 'Location Name *' : 'Room Number'}
+                            </Text>
+                            <TextInput
+                                style={[styles.input, dynamicStyles.input]}
+                                value={roomNumber}
+                                onChangeText={handleRoomNumberChange}
+                                placeholder={selectedBuilding === 'Other' ? 'e.g., Off-campus venue' : 'e.g., 1100'}
+                                placeholderTextColor={theme.subtext}
+                                editable={!loading}
+                            />
+                        </View>
+
+                        {/* Full Address */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Full Address</Text>
+                            <TextInput
+                                style={[styles.input, dynamicStyles.input]}
+                                value={location}
+                                onChangeText={setLocation}
+                                placeholder="e.g., 323 Dr Martin Luther King Jr Blvd, Newark, NJ"
+                                placeholderTextColor={theme.subtext}
+                                editable={!loading && selectedBuilding === 'Other'}
+                            />
+                            {selectedBuilding && selectedBuilding !== 'Other' && (
+                                <Text style={[styles.hint, dynamicStyles.subtext]}>
+                                    Auto-filled based on building selection
+                                </Text>
+                            )}
+                        </View>
+
+                        {/* Start Date & Time */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>Start Date & Time *</Text>
+                            <TouchableOpacity
+                                style={[styles.dateTimeButtonFull, dynamicStyles.input]}
+                                onPress={() => openDateTimePicker('start')}
+                                disabled={loading}
+                            >
+                                <View style={styles.dateTimeContent}>
+                                    <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                                    <Text style={[styles.dateTimeButtonText, dynamicStyles.text]}>
+                                        {startDate.toLocaleDateString()} at {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* End Date & Time */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, dynamicStyles.text]}>End Date & Time *</Text>
+                            <TouchableOpacity
+                                style={[styles.dateTimeButtonFull, dynamicStyles.input]}
+                                onPress={() => openDateTimePicker('end')}
+                                disabled={loading}
+                            >
+                                <View style={styles.dateTimeContent}>
+                                    <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+                                    <Text style={[styles.dateTimeButtonText, dynamicStyles.text]}>
+                                        {endDate.toLocaleDateString()} at {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                            </TouchableOpacity>
+                        </View>
+
                     </View>
 
-                    {/* Full Address */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Full Address</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={location}
-                            onChangeText={setLocation}
-                            placeholder="e.g., 323 Dr Martin Luther King Jr Blvd, Newark, NJ"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                        />
-                    </View>
-
-                    {/* Start Time */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Start Time (ISO 8601) *</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={startTime}
-                            onChangeText={setStartTime}
-                            placeholder="2026-02-01T18:00:00Z"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                            autoCapitalize="none"
-                        />
-                        <Text style={[styles.hint, dynamicStyles.subtext]}>
-                            Format: YYYY-MM-DDTHH:MM:SSZ
-                        </Text>
-                    </View>
-
-                    {/* End Time */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>End Time (ISO 8601) *</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={endTime}
-                            onChangeText={setEndTime}
-                            placeholder="2026-02-01T20:00:00Z"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                            autoCapitalize="none"
-                        />
-                    </View>
-
-                    {/* Host Name */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Host Name</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={hostName}
-                            onChangeText={setHostName}
-                            placeholder="e.g., SHPE NJIT"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                        />
-                    </View>
-
-                    {/* Price Label */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Price Label</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={priceLabel}
-                            onChangeText={setPriceLabel}
-                            placeholder="e.g., Free, $5, Members Only"
-                            placeholderTextColor={theme.subtext}
-                            editable={!loading}
-                        />
-                    </View>
-
-                    {/* Max Attendees */}
-                    <View style={styles.field}>
-                        <Text style={[styles.label, dynamicStyles.text]}>Max Attendees</Text>
-                        <TextInput
-                            style={[styles.input, dynamicStyles.input]}
-                            value={maxAttendees}
-                            onChangeText={setMaxAttendees}
-                            placeholder="Leave empty for unlimited"
-                            placeholderTextColor={theme.subtext}
-                            keyboardType="number-pad"
-                            editable={!loading}
-                        />
-                    </View>
                 </View>
 
                 {/* Action Buttons */}
@@ -394,8 +464,95 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                         )}
                     </TouchableOpacity>
                 </View>
-            </View>
-        </ScrollView>
+            </ScrollView>
+
+            {/* Date/Time Picker Modal */}
+            <Modal
+                visible={showDateTimeModal}
+                transparent
+                animationType="slide"
+                onRequestClose={handleDateTimeCancel}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, dynamicStyles.card]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, dynamicStyles.text]}>
+                                {editingField === 'start' ? 'Start' : 'End'} Date & Time
+                            </Text>
+                            <TouchableOpacity onPress={handleDateTimeCancel}>
+                                <Ionicons name="close" size={24} color={theme.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Mode Toggle */}
+                        <View style={styles.modeToggle}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modeButton,
+                                    pickerMode === 'date' && styles.modeButtonActive,
+                                    pickerMode === 'date' && { backgroundColor: theme.primary },
+                                ]}
+                                onPress={() => setPickerMode('date')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modeButtonText,
+                                        pickerMode === 'date' && styles.modeButtonTextActive,
+                                    ]}
+                                >
+                                    Date
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modeButton,
+                                    pickerMode === 'time' && styles.modeButtonActive,
+                                    pickerMode === 'time' && { backgroundColor: theme.primary },
+                                ]}
+                                onPress={() => setPickerMode('time')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modeButtonText,
+                                        pickerMode === 'time' && styles.modeButtonTextActive,
+                                    ]}
+                                >
+                                    Time
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Date/Time Picker */}
+                        <View style={styles.pickerWrapper}>
+                            <DateTimePicker
+                                value={tempDate}
+                                mode={pickerMode}
+                                display="spinner"
+                                onChange={(event, date) => {
+                                    if (date) setTempDate(date);
+                                }}
+                            />
+                        </View>
+
+                        {/* Action Buttons */}
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonCancel, dynamicStyles.card]}
+                                onPress={handleDateTimeCancel}
+                            >
+                                <Text style={[styles.modalButtonText, dynamicStyles.text]}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonConfirm, { backgroundColor: theme.primary }]}
+                                onPress={handleDateTimeConfirm}
+                            >
+                                <Text style={styles.modalButtonTextConfirm}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        </>
     );
 }
 
@@ -473,7 +630,7 @@ const styles = StyleSheet.create({
     },
     posterImage: {
         width: '100%',
-        height: 200,
+        height: 400,
         borderRadius: 12,
     },
     removeImageButton: {
@@ -496,5 +653,115 @@ const styles = StyleSheet.create({
     uploadButtonText: {
         fontSize: 16,
         fontWeight: '600',
+    },
+    dateTimeRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    dateTimeButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    dateTimeButtonFull: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    dateTimeContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    dateTimeButtonText: {
+        fontSize: 16,
+        flex: 1,
+    },
+    pickerContainer: {
+        marginTop: 12,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    // Modal styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        paddingBottom: 40,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+    },
+    modeToggle: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 20,
+    },
+    modeButton: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        backgroundColor: '#f0f0f0',
+    },
+    modeButtonActive: {
+        // backgroundColor set dynamically
+    },
+    modeButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#666',
+    },
+    modeButtonTextActive: {
+        color: '#fff',
+    },
+    pickerWrapper: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalButton: {
+        flex: 1,
+        padding: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    modalButtonCancel: {
+        borderWidth: 1,
+    },
+    modalButtonConfirm: {
+        // backgroundColor set dynamically
+    },
+    modalButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    modalButtonTextConfirm: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
     },
 });

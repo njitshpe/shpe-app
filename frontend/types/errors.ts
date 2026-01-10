@@ -48,7 +48,9 @@ export type ErrorCode =
   // Permission errors
   | 'PERMISSION_DENIED'
   | 'CAMERA_PERMISSION_DENIED'
+  | 'CAMERA_PERMISSION_DENIED'
   | 'NOTIFICATION_PERMISSION_DENIED'
+  | 'NOTIFICATION_FAILED'
 
   // Logic errors
   | 'EVENT_NOT_FOUND'

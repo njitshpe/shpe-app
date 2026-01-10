@@ -9,6 +9,7 @@ import {
   Image,
   Dimensions,
   Alert,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,8 @@ import { useEventRegistration } from '@/hooks/events';
 import { deviceCalendarService, shareService } from '@/services';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
+import { AdminEventForm } from '@/components/admin/AdminEventForm';
+import { CreateEventData } from '@/services/adminEvents.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -35,7 +38,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { events, isCurrentUserAdmin } = useEvents();
+  const { events, isCurrentUserAdmin, updateEventAdmin, deleteEventAdmin } = useEvents();
   const { theme, isDark } = useTheme();
 
   // Find the event from context
@@ -47,6 +50,7 @@ export default function EventDetailScreen() {
   // UI state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Force re-render for time updates
 
@@ -237,6 +241,60 @@ export default function EventDetailScreen() {
     }
   };
 
+  /**
+   * Handle Edit Event (Admin only)
+   */
+  const handleEditEvent = () => {
+    if (!isCurrentUserAdmin) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowEditModal(true);
+  };
+
+  /**
+   * Handle Delete Event (Admin only)
+   */
+  const handleDeleteEvent = () => {
+    if (!isCurrentUserAdmin || !event) return;
+
+    Alert.alert(
+      'Delete Event',
+      `Are you sure you want to delete "${event.title}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            const success = await deleteEventAdmin(event.id);
+            if (success) {
+              // Navigate back immediately to prevent rendering issues
+              router.back();
+              // Show success message after navigation
+              setTimeout(() => {
+                Alert.alert('Event Deleted', 'The event has been deleted successfully.');
+              }, 300);
+            } else {
+              Alert.alert('Error', 'Failed to delete event. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Handle Edit Form Submit
+   */
+  const handleEditSubmit = async (data: CreateEventData): Promise<boolean> => {
+    if (!event) return false;
+    const success = await updateEventAdmin(event.id, data);
+    if (success) {
+      setShowEditModal(false);
+    }
+    return success;
+  };
+
   if (!event) {
     return (
       <View style={[styles.container, dynamicStyles.container]}>
@@ -272,9 +330,21 @@ export default function EventDetailScreen() {
               <Ionicons name="arrow-back" size={24} color={theme.text} />
             </Pressable>
 
-            <Pressable style={[styles.shareButton, dynamicStyles.buttonBackground]} onPress={handleShare}>
-              <Ionicons name="share-outline" size={22} color={theme.text} />
-            </Pressable>
+            <View style={styles.rightControls}>
+              {isCurrentUserAdmin && (
+                <>
+                  <Pressable style={[styles.adminButton, dynamicStyles.buttonBackground]} onPress={handleEditEvent}>
+                    <Ionicons name="create-outline" size={22} color={theme.primary} />
+                  </Pressable>
+                  <Pressable style={[styles.adminButton, dynamicStyles.buttonBackground]} onPress={handleDeleteEvent}>
+                    <Ionicons name="trash-outline" size={22} color="#EF4444" />
+                  </Pressable>
+                </>
+              )}
+              <Pressable style={[styles.shareButton, dynamicStyles.buttonBackground]} onPress={handleShare}>
+                <Ionicons name="share-outline" size={22} color={theme.text} />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -350,7 +420,7 @@ export default function EventDetailScreen() {
               <Text style={[styles.sectionTitle, dynamicStyles.text]}>Admin Tools</Text>
               <TouchableOpacity
                 style={[
-                  styles.adminButton,
+                  styles.adminCheckInButton,
                   checkInState === 'not_open' && styles.adminButtonDisabled,
                   checkInState === 'active' && { backgroundColor: '#28a745' },
                   checkInState === 'closed' && styles.adminButtonExpired,
@@ -441,7 +511,34 @@ export default function EventDetailScreen() {
           checkInCloses={checkInCloses}
         />
       )}
-    </View>
+
+      {/* Edit Event Modal (Admin only) */}
+      {isCurrentUserAdmin && (
+        <Modal
+          visible={showEditModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowEditModal(false)}
+        >
+          <AdminEventForm
+            mode="edit"
+            initialData={{
+              name: event.title,
+              description: event.description,
+              location_name: event.locationName,
+              location: event.address,
+              start_time: event.startTimeISO,
+              end_time: event.endTimeISO,
+              host_name: event.hostName,
+              price_label: event.priceLabel,
+              cover_image_url: event.coverImageUrl,
+            }}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setShowEditModal(false)}
+          />
+        </Modal>
+      )}
+    </View >
 
   );
 }
@@ -482,6 +579,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  rightControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  adminButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -701,7 +814,7 @@ const styles = StyleSheet.create({
   },
 
   // ADMIN SECTION
-  adminButton: {
+  adminCheckInButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
