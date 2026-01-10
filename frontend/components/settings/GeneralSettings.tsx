@@ -16,12 +16,13 @@ import { useRouter } from 'expo-router';
 import { notificationService } from '@/services/notification.service';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Disclaimer } from './Disclaimer';
 
 export const GeneralSettings = () => {
   const router = useRouter();
   const { theme, isDark, setMode, mode } = useTheme();
   const [loading, setLoading] = useState(true);
-  
+
   // State for single notification permission
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -58,7 +59,7 @@ export const GeneralSettings = () => {
       // Request permission
       const { granted } = await notificationService.requestPermission();
       setNotificationsEnabled(granted);
-      
+
       if (!granted) {
         // If they denied it previously, we might need to send them to settings
         Alert.alert(
@@ -149,10 +150,10 @@ export const GeneralSettings = () => {
         <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
           <View style={styles.labelContainer}>
             <View style={[styles.iconBox, { backgroundColor: notificationsEnabled ? '#DCFCE7' : '#F3F4F6' }]}>
-              <Ionicons 
-                name={notificationsEnabled ? "notifications" : "notifications-off"} 
-                size={20} 
-                color={notificationsEnabled ? theme.success : theme.subtext} 
+              <Ionicons
+                name={notificationsEnabled ? "notifications" : "notifications-off"}
+                size={20}
+                color={notificationsEnabled ? theme.success : theme.subtext}
               />
             </View>
             <View>
@@ -160,18 +161,18 @@ export const GeneralSettings = () => {
                 {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
               </Text>
               <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                {notificationsEnabled 
-                  ? "Tap to manage in settings" 
+                {notificationsEnabled
+                  ? "Tap to manage in settings"
                   : "Tap to allow permission"}
               </Text>
             </View>
           </View>
-          
+
           {/* Visual Indicator of state */}
-          <Ionicons 
-            name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"} 
-            size={24} 
-            color={notificationsEnabled ? theme.success : theme.subtext} 
+          <Ionicons
+            name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"}
+            size={24}
+            color={notificationsEnabled ? theme.success : theme.subtext}
           />
         </TouchableOpacity>
       </View>
@@ -198,6 +199,8 @@ export const GeneralSettings = () => {
       >
         <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Return to Profile</Text>
       </TouchableOpacity>
+
+      <Disclaimer />
 
       <Text style={styles.versionText}>Version 1.0.0</Text>
       <View style={{ height: 40 }} />
