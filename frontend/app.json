@@ -14,6 +14,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "bundleIdentifier": "com.shpenjit.officialapp",
+      "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
@@ -27,7 +29,8 @@
         ],
         "NSCameraUsageDescription": "This app needs camera access to scan QR codes for event check-in.",
         "NSCalendarsUsageDescription": "This app needs calendar access to add events to your calendar.",
-        "NSCalendarsWriteOnlyAccessUsageDescription": "This app needs permission to add events to your calendar."
+        "NSCalendarsWriteOnlyAccessUsageDescription": "This app needs permission to add events to your calendar.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -70,9 +73,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f34ddf0e-8a29-472b-922f-2a0137b273bd"
+        "projectId": "51b41aaa-89a6-4960-af06-17fcd5c3112c"
       }
     },
-    "owner": "elpescad"
+    "owner": "yrcv"
   }
 }
