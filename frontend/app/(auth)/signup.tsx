@@ -19,6 +19,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthInput, AuthLogo } from '@/components/auth';
 import { getAuthBackgroundColors, getAuthPalette } from '@/constants/authTheme';
+import { LegalTextDisplay } from '@/components/legal/LegalTextDisplay';
+import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '@/constants/legal';
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -227,9 +229,7 @@ export default function SignupScreen() {
                         </TouchableOpacity>
                     </View>
                     <ScrollView contentContainerStyle={styles.modalContent}>
-                        <Text style={[styles.modalText, { color: palette.subtext }]}>
-                            Add your Terms of Conditions content here.
-                        </Text>
+                        <LegalTextDisplay sections={TERMS_OF_SERVICE} />
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
@@ -254,9 +254,7 @@ export default function SignupScreen() {
                         </TouchableOpacity>
                     </View>
                     <ScrollView contentContainerStyle={styles.modalContent}>
-                        <Text style={[styles.modalText, { color: palette.subtext }]}>
-                            Add your Privacy Policy content here.
-                        </Text>
+                        <LegalTextDisplay sections={PRIVACY_POLICY} />
                     </ScrollView>
                 </SafeAreaView>
             </Modal>
