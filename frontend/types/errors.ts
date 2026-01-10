@@ -48,7 +48,9 @@ export type ErrorCode =
   // Permission errors
   | 'PERMISSION_DENIED'
   | 'CAMERA_PERMISSION_DENIED'
+  | 'CAMERA_PERMISSION_DENIED'
   | 'NOTIFICATION_PERMISSION_DENIED'
+  | 'NOTIFICATION_FAILED'
 
   // Logic errors
   | 'EVENT_NOT_FOUND'
@@ -60,6 +62,12 @@ export type ErrorCode =
   | 'RANK_UPDATE_FAILED'
   | 'INVALID_ACTION_TYPE'
   | 'RULES_NOT_FOUND'
+
+  // Admin event errors
+  | 'EVENT_CREATE_FAILED'
+  | 'EVENT_UPDATE_FAILED'
+  | 'EVENT_DELETE_FAILED'
+  | 'FORBIDDEN'
 
   // Configuration errors
   | 'CONFIGURATION_ERROR'
