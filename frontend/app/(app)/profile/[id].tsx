@@ -13,12 +13,12 @@ import { fetchUserPosts } from '@/lib/feedService';
 // Import components from the main profile tab
 // Import components from the main profile tab
 // Note: We're importing from the (tabs) group which is a sibling of this directory's parent
-import { ProfileHeader } from '../(tabs)/profile/components/ProfileHeader';
-import { ProfileSocialLinks } from '../(tabs)/profile/components/ProfileSocialLinks';
+import { ProfileHeader } from '../(tabs)/profile/_components/ProfileHeader';
+import { ProfileSocialLinks } from '../(tabs)/profile/_components/ProfileSocialLinks';
 import { FeedCard } from '@/components/feed'; // Assuming FeedCard is exported from here
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
-import { useProfileDisplay } from '../(tabs)/profile/hooks/useProfileDisplay';
+import { useProfileDisplay } from '../(tabs)/profile/_hooks/useProfileDisplay';
 
 import type { UserProfile } from '@/types/userProfile';
 import type { FeedPostUI } from '@/types/feed';
