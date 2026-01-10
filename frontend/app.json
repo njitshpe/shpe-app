@@ -64,7 +64,8 @@
           "photosPermission": "The app needs to access your photos to let you change your profile picture.",
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

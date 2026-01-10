@@ -7,6 +7,7 @@ import {
     ScrollView,
     Modal,
     Alert,
+    TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,12 +16,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
 import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
+import { adminAnnouncementsService } from '@/services/adminAnnouncements.service';
+import { AnnouncementModal } from '@/components/admin/AnnouncementModal';
 
 export default function AdminDashboard() {
     const router = useRouter();
     const { theme, isDark } = useTheme();
     const { events, isCurrentUserAdmin, createEvent } = useEvents();
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
 
     // Redirect if not admin
     React.useEffect(() => {
@@ -50,6 +54,18 @@ export default function AdminDashboard() {
             setShowCreateModal(false);
         }
         return success;
+    };
+
+    // Handle sending announcement from Modal
+    const handleSendAnnouncement = async (title: string, message: string) => {
+        const response = await adminAnnouncementsService.sendAnnouncement(title, message);
+        if (response.success) {
+            Alert.alert('Sent!', 'Your announcement has been pushed to all users.');
+            return true;
+        } else {
+            Alert.alert('Error', response.error?.message || 'Failed to send.');
+            return false;
+        }
     };
 
     if (!isCurrentUserAdmin) {
@@ -103,10 +119,18 @@ export default function AdminDashboard() {
 
                     <TouchableOpacity
                         style={[styles.actionButton, dynamicStyles.card]}
-                        onPress={() => router.push('/calendar')}
+                        onPress={() => router.push('/calendar?view=feed')}
                     >
                         <Ionicons name="list-outline" size={24} color={theme.text} />
                         <Text style={[styles.actionButtonText, dynamicStyles.text]}>View All Events</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.actionButton, dynamicStyles.card]}
+                        onPress={() => setShowAnnouncementModal(true)}
+                    >
+                        <Ionicons name="megaphone-outline" size={24} color={theme.text} />
+                        <Text style={[styles.actionButtonText, dynamicStyles.text]}>Send Announcement</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -118,8 +142,8 @@ export default function AdminDashboard() {
                         <Text style={[styles.infoText, dynamicStyles.subtext]}>
                             • Create, edit, and delete events{'\n'}
                             • Manage event details and settings{'\n'}
-                            • View event analytics (coming soon){'\n'}
-                            • Send announcements (coming soon)
+                            • Send announcements{'\n'}
+                            • View event analytics (coming soon)
                         </Text>
                     </View>
                 </View>
@@ -138,6 +162,13 @@ export default function AdminDashboard() {
                     onCancel={() => setShowCreateModal(false)}
                 />
             </Modal>
+
+            {/* Announcement Modal */}
+            <AnnouncementModal
+                visible={showAnnouncementModal}
+                onClose={() => setShowAnnouncementModal(false)}
+                onSend={handleSendAnnouncement}
+            />
         </SafeAreaView>
     );
 }
@@ -234,5 +265,24 @@ const styles = StyleSheet.create({
     infoText: {
         fontSize: 14,
         lineHeight: 20,
+    },
+    formCard: {
+        padding: 16,
+        borderRadius: 16,
+        gap: 12,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    input: {
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        fontSize: 16,
+    },
+    textArea: {
+        height: 80,
+        textAlignVertical: 'top',
     },
 });

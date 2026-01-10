@@ -224,8 +224,11 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
     // Check admin status
     const checkAdminStatus = async () => {
+      console.log('[EventsContext] Checking admin status...');
       const response = await adminService.isCurrentUserAdmin();
+      console.log('[EventsContext] Admin status response:', response);
       if (response.success && response.data !== undefined) {
+        console.log('[EventsContext] Setting admin status to:', response.data);
         dispatch({ type: 'SET_ADMIN_STATUS', payload: response.data });
       }
     };

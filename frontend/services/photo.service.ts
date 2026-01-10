@@ -129,7 +129,7 @@ export const PhotoHelper = {
     try {
       const result = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1920 } }], // Max width 1920px for poster quality
+        [{ resize: { height: 2400 } }], // Max height 2400px for portrait posters
         {
           compress: 0.85, // 85% quality - less compression for posters
           format: ImageManipulator.SaveFormat.WEBP,

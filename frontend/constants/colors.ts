@@ -86,8 +86,8 @@ export const lightTheme: ThemeColors = {
 
 export const darkTheme: ThemeColors = {
     primary: SHPE_COLORS.sunsetOrange,
-    background: '#001339ff', // Deeper midnight navy (dark mode)
-    card: 'rgba(0, 19, 57, 1)', // Glass surface
+    background: '#000000', // Pure black (dark mode)
+    card: 'rgba(28, 28, 30, 1)', // Dark gray card surface
     text: '#F5F8FF',
     subtext: 'rgba(229, 239, 255, 0.85)', // Soft white at 85% opacity
     border: 'rgba(255, 255, 255, 0.18)', // Subtle glass border
