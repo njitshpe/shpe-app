@@ -8,6 +8,8 @@ import {
   useColorScheme,
   Pressable,
   Animated,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
+import { LegalTextDisplay } from '@/components/legal/LegalTextDisplay';
+import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '@/constants/legal';
 
 type Role = 'student' | 'alumni' | 'guest' | null;
 
@@ -25,6 +29,8 @@ export default function RoleSelectionScreen() {
   const isDark = colorScheme === 'dark';
   const { user, updateUserMetadata } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role>(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Animated scale values for cards
   const [studentScale] = useState(new Animated.Value(1));
@@ -241,6 +247,60 @@ export default function RoleSelectionScreen() {
             </Pressable>
           </Animated.View>
         </View>
+
+        {/* Legal Text Footer */}
+        <View style={styles.footer}>
+          <Text style={[styles.legalText, { color: colors.textSecondary }]}>
+            By continuing, you accept our{' '}
+            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => setShowTermsModal(true)}>
+              Terms of Service
+            </Text>
+            {' '}and{' '}
+            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => setShowPrivacyModal(true)}>
+              Privacy Policy
+            </Text>
+          </Text>
+        </View>
+
+        {/* Terms Modal */}
+        <Modal
+          visible={showTermsModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowTermsModal(false)}
+        >
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Terms of Service</Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <LegalTextDisplay sections={TERMS_OF_SERVICE} />
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* Privacy Modal */}
+        <Modal
+          visible={showPrivacyModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowPrivacyModal(false)}
+        >
+          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Privacy Policy</Text>
+              <TouchableOpacity onPress={() => setShowPrivacyModal(false)} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <LegalTextDisplay sections={PRIVACY_POLICY} />
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -319,5 +379,39 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  footer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  legalText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  linkText: {
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalClose: {
+    padding: 4,
+  },
+  modalContent: {
+    padding: 20,
+    paddingBottom: 40,
   },
 });
