@@ -213,7 +213,7 @@ export default function OnboardingWizard() {
         bio: formData.bio?.trim() || '',
         interests: mappedInterests,
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
-        website_url: formData.portfolioUrl?.trim() || undefined,
+        portfolio_url: formData.portfolioUrl?.trim() || undefined,
         phone_number: formData.phoneNumber?.trim() || undefined,
         profile_picture_url: profilePictureUrl,
         resume_url: resumeUrl,

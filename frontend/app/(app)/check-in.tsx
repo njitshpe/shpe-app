@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
 import { cameraService } from '@/services';
-import { eventsService } from '@/services/events.service';
+import { CheckInTokenService } from '@/services/checkInToken.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -53,11 +53,13 @@ export default function CheckInScreen() {
             return false;
         }
 
-        if (!cameraService.validateEventId(data)) {
+        // Token validation will happen server-side
+        // We just check that data is not empty
+        if (!data || data.trim().length === 0) {
             isScanningRef.current = true;
             lastScannedRef.current = data;
 
-            Alert.alert('Invalid QR Code', 'This does not appear to be a valid event QR code.', [
+            Alert.alert('Invalid QR Code', 'The scanned QR code is empty.', [
                 {
                     text: 'OK',
                     onPress: () => {
@@ -124,23 +126,48 @@ export default function CheckInScreen() {
         );
     };
 
-    const processCheckIn = async (eventId: string) => {
+    const processCheckIn = async (token: string) => {
         if (!user) {
             Alert.alert('Error', 'You must be logged in to check in to events.');
             resetScanner();
             return;
         }
 
-        const result = await eventsService.checkInToEvent(eventId, user.id);
+        // Use token-based validation
+        const result = await CheckInTokenService.validateCheckIn(token);
 
-        if (result.success && result.data) {
-            handleCheckInSuccess(result.data.event.name);
+        if (result.success && result.event) {
+            handleCheckInSuccess(result.event.name);
         } else {
-            handleCheckInFailure(result.error?.message);
+            // Provide user-friendly error messages based on error codes
+            let errorMessage = result.error || 'Unable to check in to this event.';
+
+            switch (result.errorCode) {
+                case 'INVALID_TOKEN':
+                    errorMessage = 'This QR code is invalid or has expired. Please ask the admin to generate a new one.';
+                    break;
+                case 'CHECK_IN_CLOSED':
+                    errorMessage = 'Check-in for this event has closed.';
+                    break;
+                case 'ALREADY_CHECKED_IN':
+                    errorMessage = 'You have already checked in to this event.';
+                    break;
+                case 'MAX_CAPACITY_REACHED':
+                    errorMessage = 'This event has reached maximum capacity.';
+                    break;
+                case 'EVENT_NOT_FOUND':
+                    errorMessage = 'This event could not be found or is no longer active.';
+                    break;
+                case 'NETWORK_ERROR':
+                    errorMessage = 'Network error. Please check your connection and try again.';
+                    break;
+            }
+
+            handleCheckInFailure(errorMessage);
         }
     };
 
-    const handleBarCodeScanned = async ({ type, data }: BarcodeScanningResult) => {
+    const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
         if (isScanningRef.current) {
             return;
         }
@@ -156,10 +183,9 @@ export default function CheckInScreen() {
 
         Vibration.vibrate(100);
 
-        const eventId = cameraService.normalizeEventId(data);
-
+        // Use the scanned data directly as the token (JWT from QR code)
         try {
-            await processCheckIn(eventId);
+            await processCheckIn(data);
         } catch (error) {
             handleCheckInError(error);
         } finally {
