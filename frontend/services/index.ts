@@ -8,6 +8,8 @@ export { notificationService } from './notification.service';
 export { profileService } from './profile.service';
 export { eventNotificationHelper } from './eventNotification.helper';
 export { rankService } from './rank.service';
+export { adminService } from './admin.service';
+export { adminEventsService } from './adminEvents.service';
 export type {
   RankActionType,
   RankActionMetadata,
@@ -15,6 +17,7 @@ export type {
   UserRankData,
   PhotoType,
 } from './rank.service';
+export type { CreateEventData } from './adminEvents.service';
 
 // Event-driven points system
 export { eventBus } from './eventBus.service';

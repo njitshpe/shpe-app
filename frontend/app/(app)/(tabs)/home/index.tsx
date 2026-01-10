@@ -16,10 +16,11 @@ export default function HomeScreen() {
     const router = useRouter();
     const { user, signOut, updateUserMetadata, profile, loadProfile } = useAuth();
     const { theme, isDark } = useTheme();
-    const { events } = useEvents();
+    const { events, isCurrentUserAdmin } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
     const [rankData, setRankData] = useState<UserRankData | null>(null);
+    const [debugExpanded, setDebugExpanded] = useState(false);
 
     React.useEffect(() => {
         loadRank();
@@ -86,6 +87,10 @@ export default function HomeScreen() {
         signOut: { backgroundColor: theme.card, borderColor: theme.border },
     };
 
+    // Calculate card width based on number of buttons
+    // Use flex: 1 for equal distribution, flexWrap handles 2 vs 3 columns
+    const cardWidthStyle = { flex: 1, minWidth: 0 };
+
     return (
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
             <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
@@ -98,15 +103,10 @@ export default function HomeScreen() {
 
                 {/* Featured Event Card */}
                 {relevantEvent && (
-                    <View style={styles.eventContainer}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                                {ongoingEvents.length > 0 ? 'Happening Now' : 'Up Next'}
-                            </Text>
-                            <TouchableOpacity onPress={() => router.push('/calendar')}>
-                                <Text style={[styles.seeAllText, { color: theme.primary }]}>See All</Text>
-                            </TouchableOpacity>
-                        </View>
+                    <View style={styles.eventSection}>
+                        <Text style={[styles.sectionTitle, dynamicStyles.text]}>
+                            {ongoingEvents.length > 0 ? 'Happening Now' : 'Up Next'}
+                        </Text>
                         <CompactEventCard
                             event={relevantEvent}
                             onPress={() => router.push(`/event/${relevantEvent.id}`)}
@@ -115,8 +115,8 @@ export default function HomeScreen() {
                 )}
 
                 {/* Announcement Section */}
-                <View style={[styles.announcementCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                    <View style={styles.announcementIconContainer}>
+                <View style={[styles.announcementCard, dynamicStyles.card]}>
+                    <View style={[styles.announcementIcon, { backgroundColor: theme.primary + '20' }]}>
                         <Text style={styles.announcementEmoji}>👤</Text>
                     </View>
                     <View style={styles.announcementContent}>
@@ -132,92 +132,39 @@ export default function HomeScreen() {
 
                 {/* Quick Actions */}
                 <View style={styles.actionsGrid}>
-                    {/* Debug Card - Left Side */}
+                    {/* Debug Tools Button */}
                     {__DEV__ && (
-                        <View style={[styles.actionCard, { backgroundColor: isDark ? '#1C1C1E' : '#f0f0f0', borderColor: theme.border, borderWidth: 1, borderStyle: 'dashed' }]}>
-                            <Text style={styles.debugTitle}>Debug Tools</Text>
-                            <View style={styles.debugActions}>
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={async () => {
-                                        try {
-                                            await updateUserMetadata({ onboarding_completed: false });
-                                            Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
-                                        } catch (e) {
-                                            Alert.alert('Error', 'Failed to reset onboarding');
-                                        }
-                                    }}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Reset Onboarding</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={() => {
-                                        console.log('User:', JSON.stringify(user, null, 2));
-                                        console.log('Profile:', JSON.stringify(profile, null, 2));
-                                        Alert.alert('Logged', 'User data logged to console');
-                                    }}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
-                                </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
+                            onPress={() => setDebugExpanded(!debugExpanded)}
+                        >
+                            <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
+                                <Ionicons name="bug" size={32} color={(theme as any).warning || '#F59E0B'} />
                             </View>
-
-                            <Text style={[styles.debugTitle, { marginTop: 16 }]}>Points System</Text>
-                            <Text style={[styles.debugText, dynamicStyles.text]}>
-                                Rank: {rankData?.rank || '...'} ({rankData?.rank_points || 0} pts)
+                            <Text style={[styles.actionTitle, dynamicStyles.text]}>Debug</Text>
+                            <Text style={[styles.actionDescription, dynamicStyles.subtext]}>
+                                {debugExpanded ? 'Hide tools' : 'Show tools'}
                             </Text>
-                            <View style={styles.debugActions}>
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={() => handleAwardPoints('attendance', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Attend (10)</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={() => handleAwardPoints('rsvp', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP (3)</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={() => handleAwardPoints('verified', { eventId: null })}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Verify (10)</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={async () => {
-                                        try {
-                                            const { data, error } = await supabase
-                                                .from('rank_rules')
-                                                .select('*')
-                                                .eq('active', true)
-                                                .single();
-
-                                            if (error) throw error;
-                                            Alert.alert('Config OK', `Found Active Rule Set: ${data.name} (v${data.version})`);
-                                        } catch (e: any) {
-                                            Alert.alert('Config Missing', 'Table exists but NO ACTIVE RULES found. Run INSERT script.');
-                                        }
-                                    }}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Test DB</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                    onPress={loadRank}
-                                >
-                                    <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
+                        </TouchableOpacity>
                     )}
 
-                    {/* Check In - Right Side */}
+                    {/* Admin Dashboard - Only for admins */}
+                    {isCurrentUserAdmin && (
+                        <TouchableOpacity
+                            style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
+                            onPress={() => router.push('/admin')}
+                        >
+                            <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
+                                <Ionicons name="shield-checkmark" size={32} color={theme.primary} />
+                            </View>
+                            <Text style={[styles.actionTitle, dynamicStyles.text]}>Admin</Text>
+                            <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Manage events</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Check In */}
                     <TouchableOpacity
-                        style={[styles.actionCard, dynamicStyles.card]}
+                        style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
                         onPress={() => router.push('/check-in')}
                     >
                         <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
@@ -227,6 +174,146 @@ export default function HomeScreen() {
                         <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Scan event QR code</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Debug Tools Expanded Content */}
+                {__DEV__ && debugExpanded && (
+                    <View style={[styles.debugExpandedCard, { backgroundColor: isDark ? '#1C1C1E' : '#f0f0f0', borderColor: theme.border }]}>
+                        <Text style={styles.debugTitle}>Debug Tools</Text>
+                        <View style={styles.debugActions}>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={async () => {
+                                    try {
+                                        await updateUserMetadata({ onboarding_completed: false });
+                                        Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
+                                    } catch (e) {
+                                        Alert.alert('Error', 'Failed to reset onboarding');
+                                    }
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Reset Onboarding</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={() => {
+                                    console.log('User:', JSON.stringify(user, null, 2));
+                                    console.log('Profile:', JSON.stringify(profile, null, 2));
+                                    Alert.alert('Logged', 'User data logged to console');
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={[styles.debugTitle, { marginTop: 16 }]}>Points System</Text>
+                        <Text style={[styles.debugText, dynamicStyles.text]}>
+                            Rank: {rankData?.rank || '...'} ({rankData?.rank_points || 0} pts)
+                        </Text>
+                        <View style={styles.debugActions}>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={() => handleAwardPoints('attendance', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Attend (10)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={() => handleAwardPoints('rsvp', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP (3)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={() => handleAwardPoints('verified', { eventId: null })}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Verify (10)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={async () => {
+                                    try {
+                                        const { data, error } = await supabase
+                                            .from('rank_rules')
+                                            .select('*')
+                                            .eq('active', true)
+                                            .single();
+
+                                        if (error) throw error;
+                                        Alert.alert('Config OK', `Found Active Rule Set: ${data.name} (v${data.version})`);
+                                    } catch (e: any) {
+                                        Alert.alert('Config Missing', 'Table exists but NO ACTIVE RULES found. Run INSERT script.');
+                                    }
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Test DB</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={loadRank}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={[styles.debugTitle, { marginTop: 16 }]}>Admin Status</Text>
+                        <Text style={[styles.debugText, dynamicStyles.text]}>
+                            Is Admin: {isCurrentUserAdmin ? '✅ YES' : '❌ NO'}
+                        </Text>
+                        <View style={styles.debugActions}>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={async () => {
+                                    try {
+                                        const { data: { user } } = await supabase.auth.getUser();
+                                        if (!user) {
+                                            Alert.alert('Error', 'Not logged in');
+                                            return;
+                                        }
+
+                                        const { data: adminRole, error } = await supabase
+                                            .from('admin_roles')
+                                            .select('*')
+                                            .eq('user_id', user.id)
+                                            .is('revoked_at', null)
+                                            .maybeSingle();
+
+                                        if (error) {
+                                            Alert.alert('Database Error', error.message);
+                                            return;
+                                        }
+
+                                        if (adminRole) {
+                                            Alert.alert(
+                                                'Admin Status: YES ✅',
+                                                `User ID: ${user.id}\nRole: ${adminRole.role_type}\nGranted: ${new Date(adminRole.granted_at).toLocaleDateString()}`
+                                            );
+                                        } else {
+                                            Alert.alert(
+                                                'Admin Status: NO ❌',
+                                                `User ID: ${user.id}\n\nTo grant admin access, run:\n\nINSERT INTO admin_roles (user_id, role_type) VALUES ('${user.id}', 'event_manager');`
+                                            );
+                                        }
+                                    } catch (e: any) {
+                                        Alert.alert('Error', e.message);
+                                    }
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Check Admin</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={async () => {
+                                    const { adminService } = await import('@/services/admin.service');
+                                    adminService.clearCache();
+                                    Alert.alert('Cache Cleared', 'Admin status cache cleared. Reload the app to refresh.');
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Clear Cache</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
             </ScrollView>
 
             {/* Sign Out Button */}
@@ -327,6 +414,9 @@ const styles = StyleSheet.create({
         fontSize: 14,
         lineHeight: 20,
     },
+    eventSection: {
+        marginBottom: 24,
+    },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -336,6 +426,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
+        marginBottom: 12,
     },
     seeAllText: {
         fontSize: 14,
@@ -351,11 +442,11 @@ const styles = StyleSheet.create({
         // backgroundColor removed
         borderRadius: 12,
         padding: 16,
-        width: '48%',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 2,
+        width: '48%', // Added this line based on "fix actionCard width"
     },
     actionIconContainer: {
         width: 48,
@@ -382,6 +473,21 @@ const styles = StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         // borderColor removed
+        borderStyle: 'dashed',
+    },
+    announcementIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    debugExpandedCard: {
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
         borderStyle: 'dashed',
     },
     debugTitle: {
