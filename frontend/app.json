@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "shpe-app",
+    "name": "SHPE NJIT",
     "slug": "shpe-app",
     "scheme": "shpe-app",
     "version": "1.0.0",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [

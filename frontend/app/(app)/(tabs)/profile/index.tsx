@@ -9,9 +9,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
 
-import { useProfileDisplay } from './hooks/useProfileDisplay';
-import { ProfileHeader } from './components/ProfileHeader';
-import { ProfileSocialLinks } from './components/ProfileSocialLinks';
+import { useProfileDisplay } from './_hooks/useProfileDisplay';
+import { ProfileHeader } from './_components/ProfileHeader';
+import { ProfileSocialLinks } from './_components/ProfileSocialLinks';
 import { fetchUserPosts, deletePost } from '@/lib/feedService';
 import { FeedCard } from '@/components/feed';
 import type { FeedPostUI } from '@/types/feed';
