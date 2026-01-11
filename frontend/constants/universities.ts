@@ -4,7 +4,6 @@
  */
 export const UNIVERSITIES = [
   // New Jersey - Major Universities
-  'New Jersey Institute of Technology (NJIT)',
   'Rutgers University - New Brunswick',
   'Rutgers University - Newark',
   'Rutgers University - Camden',

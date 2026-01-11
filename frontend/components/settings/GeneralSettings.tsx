@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
 // --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Disclaimer } from './Disclaimer';
+import { LEGAL_URLS } from '@/constants/legal';
 
 export const GeneralSettings = () => {
   const router = useRouter();
@@ -174,6 +176,40 @@ export const GeneralSettings = () => {
             size={24}
             color={notificationsEnabled ? theme.success : theme.subtext}
           />
+        </TouchableOpacity>
+      </View>
+
+      {/* --- LEGAL --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E8F5E9' }]}>
+              <Ionicons name="document-text-outline" size={20} color={theme.text} />
+            </View>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E3F2FD' }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={theme.text} />
+            </View>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
         </TouchableOpacity>
       </View>
 
