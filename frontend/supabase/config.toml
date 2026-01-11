@@ -9,3 +9,10 @@ entrypoint = "./functions/push-notifications/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/push-notifications/*.html" ]
+
+[functions.delete-account]
+enabled = true
+verify_jwt = false
+# JWT verification is disabled because we handle authentication manually in the function
+# This allows the Authorization header to be passed through to the function
+entrypoint = "../../supabase/functions/delete-account/index.ts"
