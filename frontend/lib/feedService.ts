@@ -4,7 +4,8 @@ import { PhotoHelper } from '../services/photo.service';
 
 import type { ServiceResponse } from '../types/errors';
 import { createError, mapSupabaseError } from '../types/errors';
-import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent } from '../utils/feed';
+import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent, validateImageUpload } from '../utils/feed';
+import { checkPostRateLimit, recordPostCreation } from '../utils/rateLimiter';
 
 /**
  * Fetches feed posts with pagination (chronological order)
@@ -25,6 +26,7 @@ export async function fetchFeedPosts(
         event:events(id, event_id, name)
       `)
             .eq('is_active', true)
+            .eq('is_hidden', false)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
@@ -107,6 +109,7 @@ export async function fetchUserPosts(
       `)
             .eq('user_id', userId)
             .eq('is_active', true)
+            .eq('is_hidden', false)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
@@ -168,6 +171,18 @@ export async function createPost(
             };
         }
 
+        // Check rate limit
+        const rateLimitCheck = checkPostRateLimit(user.id);
+        if (!rateLimitCheck.canPost) {
+            return {
+                success: false,
+                error: {
+                    code: 'RATE_LIMIT_ERROR',
+                    message: rateLimitCheck.error || 'Rate limit exceeded',
+                },
+            };
+        }
+
         // Upload images
         const imageUrls = await uploadImages(user.id, imageUris);
 
@@ -189,6 +204,9 @@ export async function createPost(
                 error: createError('Failed to create post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
+
+        // Record post creation for rate limiting
+        recordPostCreation(user.id);
 
         // Create tags
         if (taggedUserIds && taggedUserIds.length > 0) {
@@ -523,6 +541,12 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
     try {
         const uploadPromises = imageUris.map(async (uri, index) => {
             try {
+                // Validate image before upload
+                const validationError = validateImageUpload(uri);
+                if (validationError) {
+                    throw new Error(validationError);
+                }
+
                 // Compress image using shared helper
                 const compressedImage = await PhotoHelper.compressImage(uri);
 

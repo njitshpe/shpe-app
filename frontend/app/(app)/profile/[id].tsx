@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBlock } from '@/contexts/BlockContext';
 import { profileService } from '@/services/profile.service';
 import { fetchUserPosts } from '@/lib/feedService';
 
@@ -17,6 +18,8 @@ import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
 import { FeedCard } from '@/components/feed'; // Assuming FeedCard is exported from here
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
+import { BlockUserModal } from '@/components/shared/BlockUserModal';
+import { ReportModal } from '@/components/shared/ReportModal';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
 
@@ -28,6 +31,7 @@ export default function PublicProfileScreen() {
     const router = useRouter();
     const { theme, isDark } = useTheme();
     const { user: currentUser } = useAuth(); // Just to check if it's me
+    const { isUserBlocked, blockUser, unblockUser } = useBlock();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [posts, setPosts] = useState<FeedPostUI[]>([]);
@@ -35,6 +39,9 @@ export default function PublicProfileScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [postsLoading, setPostsLoading] = useState(true);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
+    const [showBlockModal, setShowBlockModal] = useState(false);
+    const [blockActionLoading, setBlockActionLoading] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
 
     // --- SECURE RESUME HOOK ---
     const { signedUrl, loading: resumeLoading } = useSecureResume(profile?.resume_url || null);
@@ -92,8 +99,41 @@ export default function PublicProfileScreen() {
         setShowResumeViewer(true);
     };
 
+    const handleBlockPress = () => {
+        setShowBlockModal(true);
+    };
+
+    const handleBlockConfirm = async () => {
+        if (!id) return;
+
+        setBlockActionLoading(true);
+        const isBlocked = isUserBlocked(id);
+        const success = isBlocked ? await unblockUser(id) : await blockUser(id);
+
+        setBlockActionLoading(false);
+        setShowBlockModal(false);
+
+        if (success) {
+            if (!isBlocked) {
+                // After blocking, go back to previous screen
+                Alert.alert(
+                    'User Blocked',
+                    'You will no longer see their content.',
+                    [{ text: 'OK', onPress: () => router.back() }]
+                );
+            } else {
+                Alert.alert('User Unblocked', 'You can now see their content again.');
+                // Refresh the data
+                await loadData();
+            }
+        } else {
+            Alert.alert('Error', `Failed to ${isBlocked ? 'unblock' : 'block'} user. Please try again.`);
+        }
+    };
+
     // Derived state
     const isMe = currentUser?.id === id;
+    const isBlocked = id ? isUserBlocked(id) : false;
 
     if (loading) {
         return (
@@ -111,6 +151,56 @@ export default function PublicProfileScreen() {
         );
     }
 
+    // Show "User unavailable" screen if this user is blocked
+    if (isBlocked && !isMe) {
+        return (
+            <View style={{ flex: 1, backgroundColor: theme.background }}>
+                <Stack.Screen options={{
+                    headerShown: true,
+                    title: 'Profile',
+                    headerStyle: { backgroundColor: theme.card },
+                    headerTintColor: theme.text,
+                    headerShadowVisible: false,
+                    headerBackTitle: 'Back',
+                    headerRight: () => (
+                        <TouchableOpacity
+                            onPress={handleBlockPress}
+                            style={{ marginRight: 8 }}
+                        >
+                            <Ionicons name="eye" size={24} color={theme.text} />
+                        </TouchableOpacity>
+                    ),
+                }} />
+
+                <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+                    <Ionicons name="eye-off" size={64} color={theme.subtext} style={{ marginBottom: 16 }} />
+                    <Text style={[styles.unavailableTitle, { color: theme.text }]}>User Unavailable</Text>
+                    <Text style={[styles.unavailableMessage, { color: theme.subtext }]}>
+                        You have blocked this user.
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.unblockButton, { backgroundColor: theme.primary }]}
+                        onPress={handleBlockPress}
+                    >
+                        <Text style={styles.unblockButtonText}>Unblock User</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Block User Modal */}
+                {profile && (
+                    <BlockUserModal
+                        visible={showBlockModal}
+                        onClose={() => setShowBlockModal(false)}
+                        onConfirm={handleBlockConfirm}
+                        userName={profile.first_name || 'User'}
+                        isBlocked={isBlocked}
+                        isLoading={blockActionLoading}
+                    />
+                )}
+            </View>
+        );
+    }
+
     return (
         <View style={{ flex: 1, backgroundColor: theme.background }}>
             <Stack.Screen options={{
@@ -119,7 +209,24 @@ export default function PublicProfileScreen() {
                 headerStyle: { backgroundColor: theme.card },
                 headerTintColor: theme.text,
                 headerShadowVisible: false,
-                headerBackTitle: 'Back'
+                headerBackTitle: 'Back',
+                headerRight: !isMe ? () => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                        <TouchableOpacity onPress={() => setShowReportModal(true)}>
+                            <Ionicons name="flag-outline" size={24} color={theme.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleBlockPress}
+                            style={{ marginRight: 8 }}
+                        >
+                            <Ionicons
+                                name={isBlocked ? "eye" : "eye-off"}
+                                size={24}
+                                color={theme.text}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                ) : undefined,
             }} />
 
             <View style={[styles.gradient, { backgroundColor: theme.background }]}>
@@ -243,6 +350,29 @@ export default function PublicProfileScreen() {
                     resumeUrl={signedUrl}
                 />
             )}
+
+            {/* Block User Modal */}
+            {!isMe && profile && (
+                <BlockUserModal
+                    visible={showBlockModal}
+                    onClose={() => setShowBlockModal(false)}
+                    onConfirm={handleBlockConfirm}
+                    userName={profile.first_name || 'User'}
+                    isBlocked={isBlocked}
+                    isLoading={blockActionLoading}
+                />
+            )}
+
+            {/* Report User Modal */}
+            {!isMe && id && (
+                <ReportModal
+                    visible={showReportModal}
+                    onClose={() => setShowReportModal(false)}
+                    targetType="user"
+                    targetId={id}
+                    targetName={profile?.first_name || undefined}
+                />
+            )}
         </View>
     );
 }
@@ -337,5 +467,28 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontStyle: 'italic',
         marginTop: 20,
-    }
+    },
+    unavailableTitle: {
+        fontSize: 24,
+        fontWeight: '600',
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    unavailableMessage: {
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 24,
+        paddingHorizontal: 40,
+    },
+    unblockButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    unblockButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '600',
+    },
 });
