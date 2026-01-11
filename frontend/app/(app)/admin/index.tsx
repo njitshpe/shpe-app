@@ -132,6 +132,14 @@ export default function AdminDashboard() {
                         <Ionicons name="megaphone-outline" size={24} color={theme.text} />
                         <Text style={[styles.actionButtonText, dynamicStyles.text]}>Send Announcement</Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.actionButton, dynamicStyles.card]}
+                        onPress={() => router.push('/admin/moderation')}
+                    >
+                        <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
+                        <Text style={[styles.actionButtonText, dynamicStyles.text]}>Moderation</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Info Section */}

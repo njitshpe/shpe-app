@@ -20,7 +20,7 @@ export type {
   PhotoType,
 } from './rank.service';
 export type { CreateEventData } from './adminEvents.service';
-export type { ReportTargetType, ReportReason } from './report.service';
+export type { ReportTargetType, ReportReason, ReportStatus, Report } from './report.service';
 
 // Event-driven points system
 export { eventBus } from './eventBus.service';
