@@ -20,14 +20,12 @@ export async function fetchFeedPosts(
         const currentUser = (await supabase.auth.getUser()).data.user;
 
         const { data, error } = await supabase
-            .from('feed_posts')
+            .from('feed_posts_visible')
             .select(`
         *,
         author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
         event:events(id, event_id, name)
       `)
-            .eq('is_active', true)
-            .eq('is_hidden', false)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
@@ -99,7 +97,7 @@ export async function fetchUserPosts(
         const currentUser = (await supabase.auth.getUser()).data.user;
 
         const { data, error } = await supabase
-            .from('feed_posts')
+            .from('feed_posts_visible')
             .select(`
         *,
         author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
@@ -109,8 +107,6 @@ export async function fetchUserPosts(
         event:events(id, name)
       `)
             .eq('user_id', userId)
-            .eq('is_active', true)
-            .eq('is_hidden', false)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
