@@ -106,7 +106,7 @@ export function ReportModal({
               </View>
               <Text style={[styles.title, { color: theme.text }]}>Report Submitted</Text>
               <Text style={[styles.successMessage, { color: theme.subtext }]}>
-                Thanks for reporting. We'll review this shortly.
+                Thank you for reporting. Your report will be reviewed within 24-72 hours.
               </Text>
             </View>
           ) : (
