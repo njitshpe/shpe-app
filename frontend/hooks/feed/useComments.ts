@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { fetchComments, createComment, deleteComment } from '../../lib/feedService';
+import { useBlock } from '../../contexts/BlockContext';
 import type { FeedCommentUI, CreateCommentRequest } from '../../types/feed';
 
 export function useComments(postId: string) {
@@ -8,6 +9,7 @@ export function useComments(postId: string) {
     const [isLoading, setIsLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { blockedUserIds } = useBlock();
 
     const loadComments = async () => {
         setIsLoading(true);
@@ -56,8 +58,13 @@ export function useComments(postId: string) {
         loadComments();
     }, [postId]);
 
+    // Filter out comments from blocked users
+    const filteredComments = useMemo(() => {
+        return comments.filter(comment => !blockedUserIds.has(comment.userId));
+    }, [comments, blockedUserIds]);
+
     return {
-        comments,
+        comments: filteredComments,
         isLoading,
         isCreating,
         error,
