@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { FeedPostUI, FeedCommentUI, CreatePostRequest, CreateCommentRequest } from '../types/feed';
 import { PhotoHelper } from '../services/photo.service';
+import * as FileSystem from 'expo-file-system';
 
 import type { ServiceResponse } from '../types/errors';
 import { createError, mapSupabaseError } from '../types/errors';
@@ -184,7 +185,23 @@ export async function createPost(
         }
 
         // Upload images
-        const imageUrls = await uploadImages(user.id, imageUris);
+        let imageUrls: string[];
+        try {
+            imageUrls = await uploadImages(user.id, imageUris);
+        } catch (uploadError: any) {
+            // Check if this is a validation error
+            if (uploadError.code === 'VALIDATION_ERROR') {
+                return {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: uploadError.message,
+                    },
+                };
+            }
+            // Re-throw other errors to be caught by outer catch
+            throw uploadError;
+        }
 
         // Create post
         const { data: post, error } = await supabase
@@ -541,10 +558,25 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
     try {
         const uploadPromises = imageUris.map(async (uri, index) => {
             try {
-                // Validate image before upload
-                const validationError = validateImageUpload(uri);
+                // Get file info to check size
+                let fileSize: number | undefined;
+                try {
+                    const fileInfo = await FileSystem.getInfoAsync(uri);
+                    if (fileInfo.exists && 'size' in fileInfo) {
+                        fileSize = fileInfo.size;
+                    }
+                } catch (err) {
+                    // If we can't get file info, continue without size validation
+                    console.warn('Could not get file size for:', uri);
+                }
+
+                // Validate image before upload (with size if available)
+                const validationError = validateImageUpload(uri, fileSize);
                 if (validationError) {
-                    throw new Error(validationError);
+                    // Throw a custom error with VALIDATION_ERROR marker
+                    const error = new Error(validationError);
+                    (error as any).code = 'VALIDATION_ERROR';
+                    throw error;
                 }
 
                 // Compress image using shared helper
