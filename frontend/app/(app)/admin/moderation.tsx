@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
@@ -24,7 +25,7 @@ export default function ModerationScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState<ReportStatus | 'all'>('all');
-    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+    const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
 
     // Check if user is super admin
     useEffect(() => {
@@ -35,19 +36,22 @@ export default function ModerationScreen() {
         checkSuperAdmin();
     }, []);
 
-    // Redirect if not super admin
+    // Redirect if not super admin (immediate redirect)
     useEffect(() => {
-        if (!loading && !isSuperAdmin) {
+        if (isSuperAdmin === false) {
+            setLoading(false);
             Alert.alert(
                 'Access Denied',
                 'Only super admins can access the moderation console',
-                [{ text: 'OK', onPress: () => router.back() }]
+                [{ text: 'OK', onPress: () => router.replace('/(app)/admin') }]
             );
         }
-    }, [isSuperAdmin, loading]);
+    }, [isSuperAdmin]);
 
     // Load reports
-    const loadReports = async () => {
+    const loadReports = useCallback(async () => {
+        if (!isSuperAdmin) return;
+
         const response = await reportService.fetchReports(
             filter === 'all' ? undefined : filter
         );
@@ -59,55 +63,29 @@ export default function ModerationScreen() {
         }
         setLoading(false);
         setRefreshing(false);
-    };
+    }, [isSuperAdmin, filter]);
 
+    // Load reports when filter changes
     useEffect(() => {
         if (isSuperAdmin) {
             loadReports();
         }
     }, [isSuperAdmin, filter]);
 
+    // Auto-refresh on focus (after returning from detail view)
+    useFocusEffect(
+        useCallback(() => {
+            if (isSuperAdmin) {
+                loadReports();
+            }
+        }, [isSuperAdmin, loadReports])
+    );
+
     const handleRefresh = () => {
         setRefreshing(true);
         loadReports();
     };
 
-    const handleUpdateStatus = async (reportId: string, status: ReportStatus) => {
-        const response = await reportService.updateReportStatus(reportId, status);
-
-        if (response.success) {
-            Alert.alert('Success', `Report marked as ${status}`);
-            loadReports(); // Reload to get fresh data
-        } else {
-            Alert.alert('Error', response.error?.message || 'Failed to update status');
-        }
-    };
-
-    const handleHidePost = async (reportId: string, postId: string) => {
-        Alert.alert(
-            'Confirm',
-            'Are you sure you want to hide this post? This action cannot be undone.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Hide Post',
-                    style: 'destructive',
-                    onPress: async () => {
-                        const hideResponse = await reportService.hideReportedPost(postId);
-
-                        if (hideResponse.success) {
-                            // Also mark report as actioned
-                            await reportService.updateReportStatus(reportId, 'actioned');
-                            Alert.alert('Success', 'Post has been hidden');
-                            loadReports();
-                        } else {
-                            Alert.alert('Error', hideResponse.error?.message || 'Failed to hide post');
-                        }
-                    },
-                },
-            ]
-        );
-    };
 
     const dynamicStyles = {
         container: { backgroundColor: theme.background },
@@ -211,7 +189,12 @@ export default function ModerationScreen() {
                         </View>
                     ) : (
                         reports.map((report) => (
-                            <View key={report.id} style={[styles.reportCard, dynamicStyles.card]}>
+                            <TouchableOpacity
+                                key={report.id}
+                                style={[styles.reportCard, dynamicStyles.card]}
+                                onPress={() => router.push(`/admin/report/${report.id}`)}
+                                activeOpacity={0.7}
+                            >
                                 {/* Header Row */}
                                 <View style={styles.reportHeader}>
                                     <View style={[styles.statusBadge, getStatusBadgeStyle(report.status)]}>
@@ -229,6 +212,7 @@ export default function ModerationScreen() {
                                             {report.target_type}
                                         </Text>
                                     </View>
+                                    <Ionicons name="chevron-forward" size={20} color={theme.subtext} style={styles.chevron} />
                                 </View>
 
                                 {/* Report Details */}
@@ -237,7 +221,7 @@ export default function ModerationScreen() {
                                         Reason: {report.reason}
                                     </Text>
                                     {report.details && (
-                                        <Text style={[styles.detailsText, dynamicStyles.subtext]}>
+                                        <Text style={[styles.detailsText, dynamicStyles.subtext]} numberOfLines={2}>
                                             {report.details}
                                         </Text>
                                     )}
@@ -248,40 +232,7 @@ export default function ModerationScreen() {
                                         {formatDate(report.created_at)}
                                     </Text>
                                 </View>
-
-                                {/* Actions */}
-                                <View style={styles.actionsContainer}>
-                                    {report.status === 'open' && (
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, { backgroundColor: '#FFA500' }]}
-                                            onPress={() => handleUpdateStatus(report.id, 'reviewing')}
-                                        >
-                                            <Ionicons name="eye-outline" size={16} color="#fff" />
-                                            <Text style={styles.actionButtonText}>Mark Reviewing</Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {(report.status === 'open' || report.status === 'reviewing') && (
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, { backgroundColor: theme.subtext }]}
-                                            onPress={() => handleUpdateStatus(report.id, 'closed')}
-                                        >
-                                            <Ionicons name="close-circle-outline" size={16} color="#fff" />
-                                            <Text style={styles.actionButtonText}>Mark Closed</Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {report.target_type === 'post' && report.status !== 'actioned' && (
-                                        <TouchableOpacity
-                                            style={[styles.actionButton, { backgroundColor: theme.error }]}
-                                            onPress={() => handleHidePost(report.id, report.target_id)}
-                                        >
-                                            <Ionicons name="eye-off-outline" size={16} color="#fff" />
-                                            <Text style={styles.actionButtonText}>Hide Post</Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            </View>
+                            </TouchableOpacity>
                         ))
                     )}
                 </ScrollView>
@@ -357,6 +308,9 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         gap: 8,
     },
+    chevron: {
+        marginLeft: 'auto',
+    },
     statusBadge: {
         paddingHorizontal: 12,
         paddingVertical: 4,
@@ -397,23 +351,5 @@ const styles = StyleSheet.create({
     dateText: {
         fontSize: 12,
         marginTop: 4,
-    },
-    actionsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-    },
-    actionButtonText: {
-        color: '#fff',
-        fontSize: 13,
-        fontWeight: '600',
     },
 });
