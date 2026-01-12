@@ -58,7 +58,7 @@ export default function TabsLayout() {
             <Tabs.Screen
                 name="leaderboard/index"
                 options={{
-                    title: 'Leaderboard',
+                    title: 'Rank',
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="trophy" size={size} color={color} />
                     ),

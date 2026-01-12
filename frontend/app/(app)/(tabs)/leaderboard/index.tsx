@@ -306,12 +306,15 @@ export default function LeaderboardScreen() {
       third: '#CD7F32',
     };
 
-    // Monolith gradient: lighter charcoal at top → deep navy/black at bottom
+    // Unified stone gradient: dark grey for realistic 3D block
     const blockGradientColors: Record<'first' | 'second' | 'third', readonly [string, string, ...string[]]> = {
-      first: ['#4A4A5A', '#1A1A2E', '#0F0F1E'] as const,
-      second: ['#3F3F4F', '#1A1A2E', '#0A0A1A'] as const,
-      third: ['#3A3A48', '#151525', '#080810'] as const,
+      first: ['#2A2A2A', '#111111'] as const,
+      second: ['#2A2A2A', '#111111'] as const,
+      third: ['#2A2A2A', '#111111'] as const,
     };
+
+    // Top Lid solid color: lighter grey for 3D surface
+    const lidColor = '#3D3D3D';
 
     const delay = isSecond ? 100 : isThird ? 200 : 0;
     const blockHeight = isFirst ? 180 : isSecond ? 140 : 120;
@@ -427,7 +430,27 @@ export default function LeaderboardScreen() {
             </View>
           </MotiView>
 
-          {/* Pedestal Block (Monolith) */}
+          {/* Top Lid (3D trapezoid surface) */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{
+              type: 'spring',
+              damping: 18,
+              stiffness: 120,
+              delay: delay + 50,
+            }}
+            style={styles.topLidContainer}
+          >
+            <View
+              style={[
+                styles.topLid,
+                { borderBottomColor: lidColor }
+              ]}
+            />
+          </MotiView>
+
+          {/* Pedestal Block (Front Face) */}
           <MotiView
             from={{ opacity: 0, height: 0, scale: 0.9 }}
             animate={{ opacity: 1, height: blockHeight, scale: 1 }}
@@ -1211,8 +1234,27 @@ const styles = StyleSheet.create({
   },
   floatingTextContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg, // Increased spacing to float avatar higher
     zIndex: 5,
+  },
+  // Top Lid Container (centers the trapezoid)
+  topLidContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 0, // No gap between lid and face
+  },
+  // Top Lid (3D trapezoid using borders)
+  topLid: {
+    width: 110, // Slightly narrower than block for perspective
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderBottomWidth: 25,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    // borderBottomColor set dynamically
   },
   podiumName: {
     fontSize: 15,
@@ -1240,10 +1282,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     opacity: 0.75,
   },
-  // Pedestal Block (Monolith)
+  // Pedestal Block (Front Face)
   pedestalBlockContainer: {
     width: '100%',
-    borderRadius: 2, // Sharp edges
+    borderBottomLeftRadius: 2, // Sharp bottom corners only
+    borderBottomRightRadius: 2,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.4,
