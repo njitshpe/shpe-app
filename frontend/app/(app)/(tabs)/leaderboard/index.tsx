@@ -21,12 +21,16 @@ import { NJIT_MAJORS } from '@/constants/majors';
 import { Skeleton } from '@/components/ui/Skeleton';
 import SearchableSelectionModal from '@/onboarding/components/SearchableSelectionModal';
 import type { LeaderboardEntry, LeaderboardContext } from '@/types/leaderboard';
-import { LeaderboardHeader } from './components/LeaderboardHeader';
-import { PodiumCard } from './components/PodiumCard';
-import { LeaderboardListItem } from './components/LeaderboardListItem';
-import { RulesModal } from './components/RulesModal';
-import { loadPreviousRanks, savePreviousRanks, ITEM_HEIGHT } from './utils';
-import { styles } from './styles';
+import {
+  LeaderboardHeader,
+  PodiumCard,
+  LeaderboardListItem,
+  RulesModal,
+  loadPreviousRanks,
+  savePreviousRanks,
+  ITEM_HEIGHT,
+  styles,
+} from '@/components/leaderboard';
 
 export default function LeaderboardScreen() {
   const router = useRouter();
