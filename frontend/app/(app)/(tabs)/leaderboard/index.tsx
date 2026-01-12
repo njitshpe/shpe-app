@@ -26,11 +26,9 @@ import {
   PodiumCard,
   LeaderboardListItem,
   RulesModal,
-  loadPreviousRanks,
-  savePreviousRanks,
-  ITEM_HEIGHT,
   styles,
 } from '@/components/leaderboard';
+import { loadPreviousRanks, savePreviousRanks, ITEM_HEIGHT } from '@/utils/leaderboard';
 
 export default function LeaderboardScreen() {
   const router = useRouter();

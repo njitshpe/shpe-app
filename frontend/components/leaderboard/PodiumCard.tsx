@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SPACING, RADIUS } from '@/constants/colors';
-import { getInitials } from './utils';
+import { getInitials } from '@/utils/leaderboard';
 import type { LeaderboardEntry } from '@/types/leaderboard';
 
 interface PodiumCardProps {

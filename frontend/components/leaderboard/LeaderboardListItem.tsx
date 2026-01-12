@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
-import { getInitials, getRankChange } from './utils';
+import { getInitials, getRankChange } from '@/utils/leaderboard';
 import { RankChangeIndicator } from './RankChangeIndicator';
 import type { LeaderboardEntry } from '@/types/leaderboard';
 
