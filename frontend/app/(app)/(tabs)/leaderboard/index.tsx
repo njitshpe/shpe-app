@@ -445,6 +445,7 @@ export default function LeaderboardScreen() {
             <View
               style={[
                 styles.topLid,
+                isFirst && styles.topLidLarge,
                 { borderBottomColor: lidColor }
               ]}
             />
@@ -841,7 +842,7 @@ export default function LeaderboardScreen() {
                 <View style={styles.heroBackdrop}>
                   <View style={styles.podiumHeroContainer}>
                     {/* Second Place - Left */}
-                    <View style={styles.podiumSlotSide}>
+                    <View style={[styles.podiumSlotSide, styles.podiumSlotSecond]}>
                       {renderPodiumCard(topThree[1], 'second')}
                     </View>
 
@@ -851,7 +852,7 @@ export default function LeaderboardScreen() {
                     </View>
 
                     {/* Third Place - Right */}
-                    <View style={styles.podiumSlotSide}>
+                    <View style={[styles.podiumSlotSide, styles.podiumSlotThird]}>
                       {renderPodiumCard(topThree[2], 'third')}
                     </View>
                   </View>
@@ -1139,20 +1140,26 @@ const styles = StyleSheet.create({
   // Hero Podium Styles
   heroBackdrop: {
     marginHorizontal: SPACING.md,
-    marginTop: SPACING.lg,
+    marginTop: -55, // Pull up to overlap with header
     marginBottom: 0, // Remove bottom margin to anchor to list
   },
   podiumHeroContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end', // Critical: align to bottom so pillars grow upward
     justifyContent: 'center',
-    gap: SPACING.xs,
+    gap: 1,
     paddingTop: SPACING.xl * 2, // Extra top padding for avatar pop-out
     paddingBottom: 0, // Anchor to bottom - no padding at base
     paddingHorizontal: SPACING.sm,
   },
   podiumSlotSide: {
     flex: 1,
+  },
+  podiumSlotSecond: {
+    marginTop: 70,
+  },
+  podiumSlotThird: {
+    marginTop: 90,
   },
   podiumSlotCenter: {
     flex: 1.1,
@@ -1245,7 +1252,7 @@ const styles = StyleSheet.create({
   },
   // Top Lid (3D trapezoid using borders)
   topLid: {
-    width: 110, // Slightly narrower than block for perspective
+    width: 112, // Slightly narrower than block for perspective
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
@@ -1255,6 +1262,12 @@ const styles = StyleSheet.create({
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     // borderBottomColor set dynamically
+  },
+  topLidLarge: {
+    width: 122,
+    borderBottomWidth: 28,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
   },
   podiumName: {
     fontSize: 15,
