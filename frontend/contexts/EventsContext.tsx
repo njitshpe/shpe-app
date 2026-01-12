@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
+import { useAuth } from './AuthContext';
 import { eventsService } from '../services/events.service';
 import { adminService } from '../services/admin.service';
 import { adminEventsService, CreateEventData } from '../services/adminEvents.service';
@@ -132,6 +133,8 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     error: null,
   });
 
+  const { session } = useAuth();
+
   const addEvent = (event: Event) => {
     dispatch({ type: 'ADD_EVENT', payload: event });
   };
@@ -219,9 +222,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Initial fetch and listen for auth changes
   useEffect(() => {
-    refetchEvents();
+    if (session?.user?.id) {
+      console.log('[EventsContext] 👤 User authenticated, fetching events...');
+      refetchEvents();
+    }
+  }, [session?.user?.id, refetchEvents]);
 
+  useEffect(() => {
     // Check admin status
     const checkAdminStatus = async () => {
       console.log('[EventsContext] Checking admin status...');
@@ -232,8 +241,11 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_ADMIN_STATUS', payload: response.data });
       }
     };
-    checkAdminStatus();
-  }, [refetchEvents]);
+
+    if (session?.user?.id) {
+      checkAdminStatus();
+    }
+  }, [session?.user?.id]);
 
   return (
     <EventsContext.Provider

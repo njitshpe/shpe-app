@@ -11,12 +11,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 
 // --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAnonKey } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Disclaimer } from './Disclaimer';
+import { LEGAL_URLS } from '@/constants/legal';
+import { DeleteAccountModal } from './DeleteAccountModal';
+import type { DeleteAccountResponse } from '@/types/deleteAccount';
 
 export const GeneralSettings = () => {
   const router = useRouter();
@@ -25,6 +29,9 @@ export const GeneralSettings = () => {
 
   // State for single notification permission
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  // State for delete account modal
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   useEffect(() => {
     checkPermissionStatus();
@@ -88,6 +95,92 @@ export const GeneralSettings = () => {
         }
       }
     ]);
+  };
+
+  // --- DELETE ACCOUNT ---
+  const handleDeleteAccount = async () => {
+    try {
+      // Get current user session and refresh if needed
+      let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (session?.expires_at) {
+        const now = Math.floor(Date.now() / 1000);
+        if (session.expires_at - now < 300) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            Alert.alert('Error', 'Session expired. Please log in again.');
+            return;
+          }
+          session = refreshData.session;
+        }
+      }
+
+      if (sessionError || !session?.access_token) {
+        Alert.alert('Error', 'You must be logged in to delete your account.');
+        return;
+      }
+
+      // Call the delete-account edge function
+      // In React Native, we must explicitly pass the Authorization header
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${session.access_token}`,
+      };
+
+      if (supabaseAnonKey) {
+        headers.apikey = supabaseAnonKey;
+      }
+
+      const { data, error } = await supabase.functions.invoke<DeleteAccountResponse>(
+        'delete-account',
+        { headers }
+      );
+
+      if (error) {
+        console.error('Delete account error:', error);
+        Alert.alert(
+          'Deletion Failed',
+          'An error occurred while deleting your account. Please try again or contact support.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      if (!data?.success) {
+        console.error('Delete account failed:', data);
+        Alert.alert(
+          'Deletion Failed',
+          data?.error || 'Unable to delete account. Please try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Success - sign out and navigate to login
+      console.log('Account deleted successfully:', data.deletionSummary);
+
+      Alert.alert(
+        'Account Deleted',
+        'Your account has been permanently deleted. You will now be signed out.',
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await supabase.auth.signOut();
+              router.dismissAll();
+              router.replace('/(auth)/login');
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    } catch (error) {
+      console.error('Delete account exception:', error);
+      Alert.alert(
+        'Unexpected Error',
+        'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   if (loading) {
@@ -177,6 +270,40 @@ export const GeneralSettings = () => {
         </TouchableOpacity>
       </View>
 
+      {/* --- LEGAL --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E8F5E9' }]}>
+              <Ionicons name="document-text-outline" size={20} color={theme.text} />
+            </View>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E3F2FD' }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={theme.text} />
+            </View>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
       {/* --- ACCOUNT --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
@@ -189,6 +316,23 @@ export const GeneralSettings = () => {
             </View>
             <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
           </View>
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="trash-outline" size={20} color={theme.error} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Permanently delete your account and data
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.error} />
         </TouchableOpacity>
       </View>
 
@@ -204,6 +348,13 @@ export const GeneralSettings = () => {
 
       <Text style={styles.versionText}>Version 1.0.0</Text>
       <View style={{ height: 40 }} />
+
+      {/* --- DELETE ACCOUNT MODAL --- */}
+      <DeleteAccountModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+        onConfirmDelete={handleDeleteAccount}
+      />
     </ScrollView>
   );
 };

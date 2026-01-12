@@ -9,13 +9,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
 
-import { useProfileDisplay } from './hooks/useProfileDisplay';
-import { ProfileHeader } from './components/ProfileHeader';
-import { ProfileSocialLinks } from './components/ProfileSocialLinks';
+import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
+import { ProfileHeader } from '@/components/profile/ProfileHeader';
+import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
 import { fetchUserPosts, deletePost } from '@/lib/feedService';
 import { FeedCard } from '@/components/feed';
 import type { FeedPostUI } from '@/types/feed';
 import { useRouter } from 'expo-router';
+import { ProfileSkeleton } from '@/components/ui/ProfileSkeleton';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile, profileLoading } = useAuth();
@@ -105,156 +106,160 @@ export default function ProfileScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-            <View style={[styles.gradient, { backgroundColor: theme.background }]}>
-                <ScrollView
-                    style={styles.scrollView}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            tintColor={theme.primary}
-                            colors={[theme.primary]}
-                        />
-                    }
-                >
-
-                    {/* Settings Icon - Top Right */}
-                    <Link href="/settings" asChild>
-                        <TouchableOpacity style={styles.settingsButton}>
-                            <Ionicons name="settings-outline" size={28} color={theme.text} />
-                        </TouchableOpacity>
-                    </Link>
-
-                    {/* Profile Header */}
-                    {profile && (
-                        <ProfileHeader
-                            profilePictureUrl={profile.profile_picture_url}
-                            initials={profileDisplay.initials}
-                            userTypeBadge={profileDisplay.userTypeBadge}
-                            displayName={profileDisplay.displayName}
-                            subtitle={profileDisplay.subtitle}
-                            secondarySubtitle={profileDisplay.secondarySubtitle}
-                            isDark={isDark}
-                            themeText={theme.text}
-                            themeSubtext={theme.subtext}
-                        />
-                    )}
-
-                    {/* Social Links */}
-                    {profile && (
-                        <ProfileSocialLinks
-                            profile={profile}
-                            displayName={profileDisplay.displayName}
-                            themeText={theme.text}
-                            themeSubtext={theme.subtext}
-                            isDark={isDark}
-                            onOpenResume={handleOpenResume}
-                            onMentorshipUpdate={async () => {
-                                if (user?.id) await loadProfile(user.id);
-                            }}
-                        />
-                    )}
-
-                    {/* Bio - Centered with Background */}
-                    {profile?.bio && (
-                        <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                            <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
-                        </View>
-                    )}
-
-                    {/* Edit Profile Button */}
-                    <TouchableOpacity
-                        style={[styles.editProfileButton, { backgroundColor: isDark ? 'rgba(60,60,80,1)' : 'rgba(200,200,220,1)' }]}
-                        onPress={() => setShowEditProfile(true)}
+            {profileLoading ? (
+                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+                    <ProfileSkeleton />
+                </View>
+            ) : (
+                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+                    <ScrollView
+                        style={styles.scrollView}
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                tintColor={theme.primary}
+                                colors={[theme.primary]}
+                            />
+                        }
                     >
-                        <Text style={[styles.editProfileButtonText, { color: theme.text }]}>Edit Profile</Text>
-                    </TouchableOpacity>
 
-                    {/* Badges Section */}
-                    <View style={styles.badgesSection}>
-                        <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.badgesScrollContent}
+                        {/* Settings Icon - Top Right */}
+                        <Link href="/settings" asChild>
+                            <TouchableOpacity style={styles.settingsButton}>
+                                <Ionicons name="settings-outline" size={28} color={theme.text} />
+                            </TouchableOpacity>
+                        </Link>
+
+                        {/* Profile Header */}
+                        {profile && (
+                            <ProfileHeader
+                                profilePictureUrl={profile.profile_picture_url}
+                                initials={profileDisplay.initials}
+                                userTypeBadge={profileDisplay.userTypeBadge}
+                                displayName={profileDisplay.displayName}
+                                subtitle={profileDisplay.subtitle}
+                                secondarySubtitle={profileDisplay.secondarySubtitle}
+                                isDark={isDark}
+                                themeText={theme.text}
+                                themeSubtext={theme.subtext}
+                            />
+                        )}
+
+                        {/* Social Links */}
+                        {profile && (
+                            <ProfileSocialLinks
+                                profile={profile}
+                                displayName={profileDisplay.displayName}
+                                themeText={theme.text}
+                                themeSubtext={theme.subtext}
+                                isDark={isDark}
+                                onOpenResume={handleOpenResume}
+                                onMentorshipUpdate={async () => {
+                                    if (user?.id) await loadProfile(user.id);
+                                }}
+                            />
+                        )}
+
+                        {/* Bio - Centered with Background */}
+                        {profile?.bio && (
+                            <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                                <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
+                            </View>
+                        )}
+
+                        {/* Edit Profile Button */}
+                        <TouchableOpacity
+                            style={[styles.editProfileButton, { backgroundColor: isDark ? 'rgba(60,60,80,1)' : 'rgba(200,200,220,1)' }]}
+                            onPress={() => setShowEditProfile(true)}
                         >
-                            {/* Points / Rank Badge */}
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
-                                    <Text style={{ color: '#000000ff', fontWeight: 'bold', fontSize: 14 }}>
-                                        {profileDisplay.points}
+                            <Text style={[styles.editProfileButtonText, { color: theme.text }]}>Edit Profile</Text>
+                        </TouchableOpacity>
+
+                        {/* Badges Section */}
+                        <View style={styles.badgesSection}>
+                            <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.badgesScrollContent}
+                            >
+                                {/* Points / Rank Badge */}
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
+                                        <Text style={{ color: '#000000ff', fontWeight: 'bold', fontSize: 14 }}>
+                                            {profileDisplay.points}
+                                        </Text>
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
+                                        {profileDisplay.rank}
                                     </Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
-                                    {profileDisplay.rank}
-                                </Text>
-                            </View>
 
-                            {/* Placeholder badges - replace with real data when available */}
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="trophy" size={24} color="#FFD700" />
+                                {/* Placeholder badges - replace with real data when available */}
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                        <Ionicons name="trophy" size={24} color="#FFD700" />
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
-                            </View>
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="star" size={24} color="#FF9500" />
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                        <Ionicons name="star" size={24} color="#FF9500" />
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Top Contributor</Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Top Contributor</Text>
-                            </View>
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="people" size={24} color="#00A3E0" />
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                        <Ionicons name="people" size={24} color="#00A3E0" />
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Networker</Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Networker</Text>
-                            </View>
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="ribbon" size={24} color="#AF52DE" />
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                        <Ionicons name="ribbon" size={24} color="#AF52DE" />
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Early Adopter</Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Early Adopter</Text>
-                            </View>
-                        </ScrollView>
-                    </View>
-
-                    {/* Posts Section */}
-                    <View style={styles.postsSection}>
-                        <View style={styles.postsSectionHeader}>
-                            <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
+                            </ScrollView>
                         </View>
 
-                        {/* Post List */}
-                        {postsLoading ? (
-                            <ActivityIndicator color={theme.primary} style={{ marginTop: 20 }} />
-                        ) : posts.length > 0 ? (
-                            <View style={styles.postsList}>
-                                {posts.map(post => (
-                                    <FeedCard
-                                        key={post.id}
-                                        post={post}
-                                        onEdit={(post) => router.push({ pathname: '/feed/create', params: { id: post.id } })}
-                                        onDelete={async (postId) => {
-                                            const result = await deletePost(postId);
-                                            if (result.success) {
-                                                loadPosts();
-                                            } else {
-                                                Alert.alert('Error', result.error?.message || 'Failed to delete post');
-                                            }
-                                        }}
-                                    />
-                                ))}
+                        {/* Posts Section */}
+                        <View style={styles.postsSection}>
+                            <View style={styles.postsSectionHeader}>
+                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
                             </View>
-                        ) : (
-                            <Text style={[styles.noPostsText, { color: theme.subtext }]}>You haven't posted anything yet.</Text>
-                        )}
-                    </View>
 
-                </ScrollView>
+                            {/* Post List */}
+                            {postsLoading ? (
+                                <ActivityIndicator color={theme.primary} style={{ marginTop: 20 }} />
+                            ) : posts.length > 0 ? (
+                                <View style={styles.postsList}>
+                                    {posts.map(post => (
+                                        <FeedCard
+                                            key={post.id}
+                                            post={post}
+                                            onEdit={(post) => router.push({ pathname: '/feed/create', params: { id: post.id } })}
+                                            onDelete={async (postId) => {
+                                                const result = await deletePost(postId);
+                                                if (result.success) {
+                                                    loadPosts();
+                                                } else {
+                                                    Alert.alert('Error', result.error?.message || 'Failed to delete post');
+                                                }
+                                            }}
+                                        />
+                                    ))}
+                                </View>
+                            ) : (
+                                <Text style={[styles.noPostsText, { color: theme.subtext }]}>You haven't posted anything yet.</Text>
+                            )}
+                        </View>
 
-
-            </View>
+                    </ScrollView>
+                </View>
+            )}
 
             {/* Edit Profile Modal */}
             <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
