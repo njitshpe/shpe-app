@@ -252,7 +252,7 @@ export default function LeaderboardScreen() {
 
   // Optimize FlatList scrolling performance with getItemLayout
   const getItemLayout = useCallback(
-    (_data: LeaderboardEntry[] | null | undefined, index: number) => ({
+    (data: ArrayLike<LeaderboardEntry> | null | undefined, index: number) => ({
       length: ITEM_HEIGHT,
       offset: ITEM_HEIGHT * index,
       index,
@@ -298,146 +298,160 @@ export default function LeaderboardScreen() {
     const isThird = position === 'third';
     const isCurrentUser = entry.id === user?.id;
 
-    const medalColors = {
+    const rankNumber = position === 'first' ? 1 : position === 'second' ? 2 : 3;
+
+    const badgeColors = {
       first: '#FFD700',
       second: '#C0C0C0',
       third: '#CD7F32',
     };
 
-    const medalIcons = {
-      first: 'trophy',
-      second: 'medal',
-      third: 'medal',
-    };
-
-    // Gradient colors for podium surfaces
-    const gradientColors = {
-      first: isDark
-        ? ['rgba(255, 215, 0, 0.15)', 'rgba(255, 215, 0, 0.05)']
-        : ['rgba(255, 215, 0, 0.2)', 'rgba(255, 215, 0, 0.08)'],
-      second: isDark
-        ? ['rgba(192, 192, 192, 0.1)', 'rgba(192, 192, 192, 0.03)']
-        : ['rgba(192, 192, 192, 0.15)', 'rgba(192, 192, 192, 0.05)'],
-      third: isDark
-        ? ['rgba(205, 127, 50, 0.1)', 'rgba(205, 127, 50, 0.03)']
-        : ['rgba(205, 127, 50, 0.15)', 'rgba(205, 127, 50, 0.05)'],
+    // Monolith gradient: lighter charcoal at top → deep navy/black at bottom
+    const blockGradientColors: Record<'first' | 'second' | 'third', readonly [string, string, ...string[]]> = {
+      first: ['#4A4A5A', '#1A1A2E', '#0F0F1E'] as const,
+      second: ['#3F3F4F', '#1A1A2E', '#0A0A1A'] as const,
+      third: ['#3A3A48', '#151525', '#080810'] as const,
     };
 
     const delay = isSecond ? 100 : isThird ? 200 : 0;
-    const rankChange = getRankChange(entry.id, entry.rank);
+    const blockHeight = isFirst ? 180 : isSecond ? 140 : 120;
 
     return (
       <TouchableOpacity
         key={entry.id}
         onPress={() => router.push(`/profile/${entry.id}`)}
         activeOpacity={0.7}
-        style={[
-          styles.podiumCardWrapper,
-          isFirst && styles.podiumFirstWrapper,
-        ]}
+        style={styles.podiumStackWrapper}
       >
-        <MotiView
-          from={{ opacity: 0, translateY: 20, scale: 0.95 }}
-          animate={{ opacity: 1, translateY: 0, scale: 1 }}
-          transition={{ type: 'spring', damping: 15, stiffness: 100, delay }}
-          style={[
-            styles.podiumCard,
-            isFirst && styles.podiumFirst,
-            isSecond && styles.podiumSecond,
-            isThird && styles.podiumThird,
-          ]}
-        >
-          <LinearGradient
-            colors={gradientColors[position]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={[
-              styles.podiumGradient,
-              isFirst && styles.podiumGradientFirst,
-            ]}
+        {/* Stack Strategy: Avatar + Text floating above Block */}
+        <View style={styles.podiumStack}>
+          {/* Floating Avatar with Rank Badge */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.8, translateY: 20 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{
+              type: 'spring',
+              damping: 15,
+              stiffness: 100,
+              delay: delay + 150,
+            }}
+            style={styles.floatingAvatarContainer}
           >
-            {/* Rank Icon */}
-            <View style={[
-              styles.rankIcon,
-              isFirst && styles.rankIconLarge,
-              { backgroundColor: medalColors[position] }
-            ]}>
-              <Ionicons
-                name={medalIcons[position]}
-                size={isFirst ? 28 : 20}
-                color="#FFF"
-              />
-            </View>
-
-            {/* Avatar with ring/glow */}
-            <View style={[
-              styles.heroAvatarContainer,
-              isFirst && styles.heroAvatarContainerLarge,
-            ]}>
-              <View
-                style={[
-                  styles.heroAvatarRing,
-                  isFirst && styles.heroAvatarRingLarge,
-                  {
-                    borderColor: medalColors[position],
-                    shadowColor: medalColors[position],
-                  },
-                ]}
-              >
-                <View
+            {/* Avatar Circle */}
+            <View
+              style={[
+                styles.podiumAvatar,
+                isFirst && styles.podiumAvatarLarge,
+                {
+                  backgroundColor: isDark ? '#444' : '#E5E7EB',
+                  shadowColor: '#000',
+                  shadowOpacity: 0.5,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 8,
+                },
+              ]}
+            >
+              {entry.avatarUrl ? (
+                <Image
+                  source={{ uri: entry.avatarUrl }}
                   style={[
-                    styles.heroAvatar,
-                    isFirst && styles.heroAvatarLarge,
-                    { backgroundColor: isDark ? '#444' : '#E5E7EB' },
+                    styles.podiumAvatarImage,
+                    isFirst && styles.podiumAvatarImageLarge,
+                  ]}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.podiumAvatarInitials,
+                    isFirst && styles.podiumAvatarInitialsLarge,
+                    dynamicStyles.text,
                   ]}
                 >
-                  {entry.avatarUrl ? (
-                    <Image
-                      source={{ uri: entry.avatarUrl }}
-                      style={[
-                        styles.heroAvatarImage,
-                        isFirst && styles.heroAvatarImageLarge,
-                      ]}
-                    />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.heroAvatarInitials,
-                        isFirst && styles.heroAvatarInitialsLarge,
-                        dynamicStyles.text,
-                      ]}
-                    >
-                      {getInitials(entry.displayName)}
-                    </Text>
-                  )}
-                </View>
-              </View>
+                  {getInitials(entry.displayName)}
+                </Text>
+              )}
             </View>
 
-            {/* Name */}
+            {/* Rank Badge (top-right overlap) */}
+            <View
+              style={[
+                styles.rankBadge,
+                isFirst && styles.rankBadgeLarge,
+                { backgroundColor: badgeColors[position] }
+              ]}
+            >
+              <Text
+                style={[
+                  styles.rankBadgeText,
+                  isFirst && styles.rankBadgeTextLarge,
+                ]}
+              >
+                {rankNumber}
+              </Text>
+            </View>
+          </MotiView>
+
+          {/* Floating Name + Points */}
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              type: 'timing',
+              duration: 400,
+              delay: delay + 250,
+            }}
+            style={styles.floatingTextContainer}
+          >
             <Text
               style={[
-                styles.heroName,
+                styles.podiumName,
+                isFirst && styles.podiumNameLarge,
                 dynamicStyles.text,
-                isFirst && styles.heroNameLarge,
               ]}
               numberOfLines={1}
             >
               {entry.displayName}
             </Text>
+            <View style={styles.podiumPointsRow}>
+              <Ionicons name="star" size={isFirst ? 14 : 12} color={badgeColors[position]} />
+              <Text
+                style={[
+                  styles.podiumPoints,
+                  isFirst && styles.podiumPointsLarge,
+                  dynamicStyles.subtext,
+                ]}
+              >
+                {entry.points.toLocaleString()}
+              </Text>
+            </View>
+          </MotiView>
 
-            {/* Points */}
-            <Text
-              style={[
-                styles.heroPoints,
-                dynamicStyles.subtext,
-                isFirst && styles.heroPointsLarge,
-              ]}
+          {/* Pedestal Block (Monolith) */}
+          <MotiView
+            from={{ opacity: 0, height: 0, scale: 0.9 }}
+            animate={{ opacity: 1, height: blockHeight, scale: 1 }}
+            transition={{
+              type: 'spring',
+              damping: 18,
+              stiffness: 120,
+              delay,
+            }}
+            style={styles.pedestalBlockContainer}
+          >
+            <LinearGradient
+              colors={blockGradientColors[position]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.pedestalBlock}
             >
-              {entry.points.toLocaleString()}
-            </Text>
-          </LinearGradient>
-        </MotiView>
+              {/* Giant Faint Number */}
+              <Text style={styles.pedestalBlockNumber}>
+                {rankNumber}
+              </Text>
+            </LinearGradient>
+          </MotiView>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -462,34 +476,30 @@ export default function LeaderboardScreen() {
     );
   };
 
-  const renderListItem = ({ item }: { item: LeaderboardEntry }) => {
+  const renderListItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
     const isCurrentUser = item.id === user?.id;
     const isHighlighted = item.id === highlightedId;
     const rankChange = getRankChange(item.id, item.rank);
-
-    // Subtle gradient colors for list items
-    const cardGradientColors = isDark
-      ? [theme.card, `${theme.card}CC`]
-      : [`${theme.card}FF`, `${theme.card}F5`];
-
-    const highlightGradientColors = isDark
-      ? ['rgba(42, 42, 64, 1)', 'rgba(42, 42, 64, 0.8)']
-      : ['rgba(239, 246, 255, 1)', 'rgba(239, 246, 255, 0.95)'];
+    const staggerDelay = Math.min(index * 50, 500); // Max delay of 500ms
 
     return (
-      <View style={styles.listRowWrapper}>
-        {/* Rank Number - Detached and Muted */}
-        <Text style={[styles.rankNumberDetached, { color: theme.subtext }]}>
-          {item.rank}
-        </Text>
-
+      <MotiView
+        from={{ opacity: 0, translateY: 10 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{
+          type: 'timing',
+          duration: 400,
+          delay: staggerDelay,
+        }}
+        style={styles.listRowWrapper}
+      >
         <MotiPressable
           onPress={() => router.push(`/profile/${item.id}`)}
           animate={({ pressed }) => {
             'worklet';
             return {
-              scale: pressed ? 0.97 : 1,
-              opacity: pressed ? 0.9 : 1,
+              scale: pressed ? 0.98 : 1,
+              opacity: pressed ? 0.7 : 1,
             };
           }}
           transition={{
@@ -497,88 +507,74 @@ export default function LeaderboardScreen() {
             damping: 20,
             stiffness: 400,
           }}
-          style={{ flex: 1 }}
+          style={styles.listRowPressable}
         >
-          <MotiView
-            animate={{
-              backgroundColor: isHighlighted
-                ? (isDark ? 'rgba(42, 42, 64, 0.5)' : 'rgba(239, 246, 255, 0.5)')
-                : 'transparent',
-            }}
-            transition={{ type: 'timing', duration: 300 }}
-            style={{ position: 'relative' }}
+          {/* Transparent Row with Divider */}
+          <View
+            style={[
+              styles.listRowFlat,
+              isCurrentUser && styles.listRowFlatCurrent,
+              {
+                borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+              },
+            ]}
           >
-            {/* Thin Accent Strip for Current User */}
-            {isCurrentUser && (
-              <View
-                style={[
-                  styles.currentUserAccentStrip,
-                  { backgroundColor: theme.primary }
-                ]}
-              />
-            )}
+            {/* Left: Rank Number */}
+            <View style={styles.rankNumberContainerFlat}>
+              <Text style={[styles.rankNumberFlat, { color: theme.subtext }]}>
+                {item.rank}
+              </Text>
+            </View>
 
-            <LinearGradient
-              colors={
-                isCurrentUser
-                  ? (isDark
-                    ? [`${theme.primary}15`, `${theme.primary}08`]
-                    : [`${theme.primary}12`, `${theme.primary}06`])
-                  : (isHighlighted ? highlightGradientColors : cardGradientColors)
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={[
-                styles.listRow,
-                isCurrentUser && styles.listRowCurrent,
-              ]}
-            >
+            {/* Middle: Avatar + Name/Major */}
+            <View style={styles.profileSectionFlat}>
               {/* Avatar */}
-              <View style={styles.avatarSmallContainer}>
+              <View style={styles.avatarSmallContainerFlat}>
                 <View
                   style={[
-                    styles.avatarSmall,
+                    styles.avatarSmallFlat,
                     { backgroundColor: isDark ? '#444' : '#E5E7EB' },
                   ]}
                 >
                   {item.avatarUrl ? (
-                    <Image source={{ uri: item.avatarUrl }} style={styles.avatarImageSmall} />
+                    <Image source={{ uri: item.avatarUrl }} style={styles.avatarImageSmallFlat} />
                   ) : (
-                    <Text style={[styles.avatarInitialsSmall, dynamicStyles.text]}>
+                    <Text style={[styles.avatarInitialsSmallFlat, dynamicStyles.text]}>
                       {getInitials(item.displayName)}
                     </Text>
                   )}
                 </View>
               </View>
 
-              <View style={styles.listInfo}>
-                <Text style={[styles.listName, dynamicStyles.text]} numberOfLines={1}>
+              {/* Text Column: Name + Major/Year */}
+              <View style={styles.profileTextColumnFlat}>
+                <Text style={[styles.listNameFlat, dynamicStyles.text]} numberOfLines={1}>
                   {item.displayName}
                   {isCurrentUser && ' (You)'}
                 </Text>
-                {item.major && (
-                  <Text style={[styles.listMajor, dynamicStyles.subtext]} numberOfLines={1}>
-                    {item.major}
-                    {item.classYear && ` '${String(item.classYear).slice(-2)}`}
-                  </Text>
-                )}
+                <Text style={[styles.listSecondaryFlat, dynamicStyles.subtext]} numberOfLines={1}>
+                  {item.major || 'No Major'}
+                  {item.classYear && ` '${String(item.classYear).slice(-2)}`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Right: Points + Rank Delta */}
+            <View style={styles.statsSectionFlat}>
+              {/* Points with Icon */}
+              <View style={styles.pointsRowFlat}>
+                <Ionicons name="star" size={12} color={theme.primary} style={{ opacity: 0.6 }} />
+                <Text style={[styles.pointsTextFlat, { color: theme.text }]}>
+                  {item.points.toLocaleString()}
+                </Text>
               </View>
 
-              {/* Rank Change - More Prominent */}
-              {rankChange && (
-                <View style={styles.rankChangeContainer}>
-                  {renderRankChangeIndicator(rankChange)}
-                </View>
-              )}
-
-              {/* Points - More Subtle */}
-              <Text style={[styles.pointsTextLight, { color: theme.subtext }]}>
-                {item.points.toLocaleString()}
-              </Text>
-            </LinearGradient>
-          </MotiView>
+              {/* Rank Change Trend */}
+              {rankChange && renderRankChangeIndicator(rankChange)}
+            </View>
+          </View>
         </MotiPressable>
-      </View>
+      </MotiView>
     );
   };
 
@@ -603,17 +599,30 @@ export default function LeaderboardScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, dynamicStyles.background]} edges={['top']}>
-      {/* Compact Header with Gradient Fade */}
+    <View style={styles.rootContainer}>
+      {/* Atmospheric Background Gradient - Deep Navy to Pure Black */}
       <LinearGradient
         colors={isDark
-          ? [theme.background, `${theme.background}00`]
-          : [theme.background, `${theme.background}00`]
+          ? ['#000000', '#000000', '#000000'] // Dark Charcoal → Midnight Blue → Pure Black
+          : ['#F7FAFF', '#E9F0FF', '#DDE8FF'] // Keep light mode gradient
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={styles.headerGradient}
-      >
+        style={styles.atmosphericBackground}
+      />
+
+      <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Transparent Header Overlay */}
+      <View style={styles.headerOverlay}>
+        <LinearGradient
+          colors={isDark
+            ? ['#000000', '#000000']
+            : [theme.background, `${theme.background}00`]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.headerGradient}
+        >
         <View style={styles.header}>
           <Text style={[styles.headerTitle, dynamicStyles.text]}>Leaderboard</Text>
           <TouchableOpacity
@@ -660,10 +669,8 @@ export default function LeaderboardScreen() {
           <TouchableOpacity
             style={[
               styles.filterPillSubtle,
-              selectedMajor && [
-                styles.filterPillSubtleActive,
-                { backgroundColor: theme.primary + '20', borderColor: theme.primary }
-              ],
+              selectedMajor ? styles.filterPillSubtleActive : undefined,
+              selectedMajor ? { backgroundColor: theme.primary + '20', borderColor: theme.primary } : undefined,
             ]}
             onPress={() => setShowMajorModal(true)}
             activeOpacity={0.7}
@@ -698,10 +705,8 @@ export default function LeaderboardScreen() {
           <TouchableOpacity
             style={[
               styles.filterPillSubtle,
-              selectedClassYear && [
-                styles.filterPillSubtleActive,
-                { backgroundColor: theme.primary + '20', borderColor: theme.primary }
-              ],
+              selectedClassYear ? styles.filterPillSubtleActive : undefined,
+              selectedClassYear ? { backgroundColor: theme.primary + '20', borderColor: theme.primary } : undefined,
             ]}
             onPress={() => setShowClassYearModal(true)}
             activeOpacity={0.7}
@@ -752,6 +757,7 @@ export default function LeaderboardScreen() {
           </View>
         </View>
       </LinearGradient>
+      </View>
 
       {error && (
         <View style={[styles.errorBanner, { backgroundColor: theme.error + '20' }]}>
@@ -807,40 +813,25 @@ export default function LeaderboardScreen() {
           ListEmptyComponent={renderEmptyState}
           ListHeaderComponent={
             <>
-              {/* Podium Hero Section */}
+              {/* Podium Hero Section - Direct on atmospheric background */}
               {topThree.length === 3 && (
                 <View style={styles.heroBackdrop}>
-                  <BlurView
-                    intensity={isDark ? 20 : 15}
-                    tint={isDark ? 'dark' : 'light'}
-                    style={styles.blurBackdrop}
-                  >
-                    <View style={styles.podiumHeroContainer}>
-                      {/* Second Place - Left */}
-                      <View style={styles.podiumSlotSide}>
-                        {renderPodiumCard(topThree[1], 'second')}
-                      </View>
-
-                      {/* First Place - Center (Elevated) */}
-                      <View style={styles.podiumSlotCenter}>
-                        {renderPodiumCard(topThree[0], 'first')}
-                      </View>
-
-                      {/* Third Place - Right */}
-                      <View style={styles.podiumSlotSide}>
-                        {renderPodiumCard(topThree[2], 'third')}
-                      </View>
+                  <View style={styles.podiumHeroContainer}>
+                    {/* Second Place - Left */}
+                    <View style={styles.podiumSlotSide}>
+                      {renderPodiumCard(topThree[1], 'second')}
                     </View>
-                  </BlurView>
-                </View>
-              )}
 
-              {/* List Header */}
-              {restOfList.length > 0 && (
-                <View style={styles.listHeaderContainer}>
-                  <Text style={[styles.listHeaderText, dynamicStyles.subtext]}>
-                    Rest of Rankings
-                  </Text>
+                    {/* First Place - Center (Elevated) */}
+                    <View style={styles.podiumSlotCenter}>
+                      {renderPodiumCard(topThree[0], 'first')}
+                    </View>
+
+                    {/* Third Place - Right */}
+                    <View style={styles.podiumSlotSide}>
+                      {renderPodiumCard(topThree[2], 'third')}
+                    </View>
+                  </View>
                 </View>
               )}
             </>
@@ -848,18 +839,33 @@ export default function LeaderboardScreen() {
         />
       )}
 
-      {/* Your Rank Chip - Show when user row is off-screen */}
+      {/* Your Rank Chip - Glassmorphism with Accent Glow */}
       {currentUserEntry && !userRowVisible && currentUserEntry.rank > 3 && (
-        <TouchableOpacity
-          style={[styles.yourRankChip, { backgroundColor: theme.primary }, SHADOWS.large]}
-          onPress={scrollToUser}
-          activeOpacity={0.8}
+        <BlurView
+          intensity={isDark ? 25 : 15}
+          tint={isDark ? 'dark' : 'light'}
+          style={[
+            styles.yourRankChip,
+            {
+              shadowColor: theme.primary,
+              shadowOpacity: 0.5,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 8,
+            }
+          ]}
         >
-          <Ionicons name="arrow-down" size={16} color="#FFF" />
-          <Text style={styles.yourRankChipText}>
-            Your rank: #{currentUserEntry.rank}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.yourRankChipInner}
+            onPress={scrollToUser}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-down" size={16} color={theme.primary} />
+            <Text style={[styles.yourRankChipText, { color: theme.primary }]}>
+              Your rank: #{currentUserEntry.rank}
+            </Text>
+          </TouchableOpacity>
+        </BlurView>
       )}
 
       {/* Major Selection Modal */}
@@ -936,13 +942,28 @@ export default function LeaderboardScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+  },
+  atmosphericBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   container: {
     flex: 1,
+  },
+  headerOverlay: {
+    position: 'relative',
+    zIndex: 10,
   },
   headerGradient: {
     paddingBottom: SPACING.lg,
@@ -975,22 +996,26 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     minWidth: 90,
     alignItems: 'center',
+    backgroundColor: 'transparent', // Remove solid backgrounds
   },
   timeScopePillActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    // Subtle glow instead of solid background
+    shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
     elevation: 4,
   },
   timeScopeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     fontSize: 13,
+    opacity: 0.5, // Inactive tabs are dim
   },
   timeScopeTextActive: {
     color: '#FFF',
     fontWeight: '700',
+    opacity: 1, // Active tab is bright white
   },
   filtersRow: {
     flexDirection: 'row',
@@ -1006,11 +1031,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
     borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderWidth: 0, // Remove borders completely
+    backgroundColor: 'rgba(255, 255, 255, 0.08)', // Etched/recessed appearance
   },
   filterPillSubtleActive: {
-    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Slightly more visible when active
   },
   filterTextSubtle: {
     ...TYPOGRAPHY.small,
@@ -1092,163 +1117,151 @@ const styles = StyleSheet.create({
   heroBackdrop: {
     marginHorizontal: SPACING.md,
     marginTop: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden',
-  },
-  blurBackdrop: {
-    paddingVertical: SPACING.xl,
-    paddingHorizontal: SPACING.sm,
+    marginBottom: 0, // Remove bottom margin to anchor to list
   },
   podiumHeroContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-end', // Critical: align to bottom so pillars grow upward
     justifyContent: 'center',
     gap: SPACING.xs,
+    paddingTop: SPACING.xl * 2, // Extra top padding for avatar pop-out
+    paddingBottom: 0, // Anchor to bottom - no padding at base
+    paddingHorizontal: SPACING.sm,
   },
   podiumSlotSide: {
     flex: 1,
-    transform: [{ perspective: 800 }],
   },
   podiumSlotCenter: {
     flex: 1.1,
+  },
+  // New Pedestal Styles (Stack Strategy)
+  podiumStackWrapper: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  podiumStack: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  floatingAvatarContainer: {
+    position: 'relative',
+    marginBottom: SPACING.sm,
     zIndex: 10,
   },
-  podiumCardWrapper: {
-    flex: 1,
-  },
-  podiumFirstWrapper: {
-    transform: [{ scale: 1.05 }],
-  },
-  podiumCard: {
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden',
-    // Soft shadow without border
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  podiumFirst: {
-    // First place is taller
-    minHeight: 220,
-  },
-  podiumSecond: {
-    // Second place is shorter and angled
-    minHeight: 180,
-    transform: [{ rotateY: '3deg' }],
-  },
-  podiumThird: {
-    // Third place is shorter and angled
-    minHeight: 180,
-    transform: [{ rotateY: '-3deg' }],
-  },
-  podiumGradient: {
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  podiumGradientFirst: {
-    paddingVertical: SPACING.xl,
-  },
-  // Rank Icon (Trophy/Medal)
-  rankIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  rankIconLarge: {
-    width: 52,
-    height: 52,
-    marginBottom: SPACING.lg,
-  },
-  // Hero Avatar Styles
-  heroAvatarContainer: {
-    marginBottom: SPACING.md,
-  },
-  heroAvatarContainerLarge: {
-    marginBottom: SPACING.lg,
-  },
-  heroAvatarRing: {
-    width: 80,
-    height: 80,
-    borderRadius: RADIUS.full,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  heroAvatarRingLarge: {
-    width: 100,
-    height: 100,
-    borderWidth: 4,
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-  },
-  heroAvatar: {
-    width: 72,
-    height: 72,
+  podiumAvatar: {
+    width: 70,
+    height: 70,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  heroAvatarLarge: {
-    width: 92,
-    height: 92,
+  podiumAvatarLarge: {
+    width: 90,
+    height: 90,
   },
-  heroAvatarImage: {
-    width: 72,
-    height: 72,
+  podiumAvatarImage: {
+    width: 70,
+    height: 70,
     borderRadius: RADIUS.full,
   },
-  heroAvatarImageLarge: {
-    width: 92,
-    height: 92,
+  podiumAvatarImageLarge: {
+    width: 90,
+    height: 90,
   },
-  heroAvatarInitials: {
-    fontSize: 28,
+  podiumAvatarInitials: {
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  heroAvatarInitialsLarge: {
-    fontSize: 36,
+  podiumAvatarInitialsLarge: {
+    fontSize: 34,
   },
-  // Name and Points (minimal text)
-  heroName: {
-    fontSize: 16,
+  // Rank Badge (top-right overlap on avatar)
+  rankBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  rankBadgeLarge: {
+    width: 32,
+    height: 32,
+    top: -6,
+    right: -6,
+  },
+  rankBadgeText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFF',
+  },
+  rankBadgeTextLarge: {
+    fontSize: 17,
+  },
+  floatingTextContainer: {
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    zIndex: 5,
+  },
+  podiumName: {
+    fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: SPACING.xs,
+    marginBottom: 4,
     letterSpacing: 0.3,
   },
-  heroNameLarge: {
-    fontSize: 19,
-    marginBottom: SPACING.sm,
+  podiumNameLarge: {
+    fontSize: 17,
+    marginBottom: 6,
   },
-  heroPoints: {
+  podiumPointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  podiumPoints: {
     fontSize: 13,
     fontWeight: '600',
-    textAlign: 'center',
     opacity: 0.7,
   },
-  heroPointsLarge: {
-    fontSize: 16,
+  podiumPointsLarge: {
+    fontSize: 15,
     fontWeight: '700',
     opacity: 0.75,
+  },
+  // Pedestal Block (Monolith)
+  pedestalBlockContainer: {
+    width: '100%',
+    borderRadius: 2, // Sharp edges
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  pedestalBlock: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pedestalBlockNumber: {
+    fontSize: 100,
+    fontWeight: '900',
+    color: '#FFF',
+    opacity: 0.05,
+    letterSpacing: -4,
   },
   // Keep other styles for list items
   pointsRow: {
@@ -1285,7 +1298,7 @@ const styles = StyleSheet.create({
   },
   listHeaderContainer: {
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.xl,
+    paddingTop: SPACING.md, // Reduced to bring list closer to podium
     paddingBottom: SPACING.md,
   },
   listHeaderText: {
@@ -1296,19 +1309,102 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   listRowWrapper: {
+    marginHorizontal: SPACING.md,
+  },
+  listRowPressable: {
+    width: '100%',
+  },
+  // New Flat List Styles (Divider-Based)
+  listRowFlat: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
+    paddingVertical: SPACING.md,
+    backgroundColor: 'transparent', // No background
+    borderBottomWidth: 1,
     gap: SPACING.sm,
+  },
+  listRowFlatCurrent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)', // Very subtle highlight for current user
+  },
+  rankNumberContainerFlat: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankNumberFlat: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    fontSize: 13,
+    opacity: 0.5,
+  },
+  profileSectionFlat: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  avatarSmallContainerFlat: {
+    // No extra styling needed
+  },
+  avatarSmallFlat: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImageSmallFlat: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+  },
+  avatarInitialsSmallFlat: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  profileTextColumnFlat: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  listNameFlat: {
+    ...TYPOGRAPHY.body,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  listSecondaryFlat: {
+    ...TYPOGRAPHY.small,
+    fontSize: 13,
+    fontWeight: '400',
+    opacity: 0.6,
+  },
+  statsSectionFlat: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  pointsRowFlat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pointsTextFlat: {
+    ...TYPOGRAPHY.small,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Legacy styles kept for compatibility
+  rankNumberContainer: {
+    width: 30, // Fixed width for alignment
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   rankNumberDetached: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     fontSize: 11,
-    width: 24,
     opacity: 0.4,
-    textAlign: 'right',
   },
   currentUserAccentStrip: {
     position: 'absolute',
@@ -1326,21 +1422,30 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Frosted glass base
+    borderWidth: 0, // NO borders!
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
   },
   listRowCurrent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)', // Slightly more visible
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  // Part B: Profile Section (Avatar + Text Column)
+  profileSection: {
+    flex: 1, // Takes up available space
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: SPACING.md,
   },
   avatarSmallContainer: {
-    position: 'relative',
     marginRight: SPACING.sm,
   },
   avatarSmall: {
@@ -1361,18 +1466,48 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  listInfo: {
+  profileTextColumn: {
     flex: 1,
+    flexDirection: 'column',
+    justifyContent: 'center',
   },
   listName: {
     ...TYPOGRAPHY.body,
-    fontWeight: '600',
-    marginBottom: 3,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   listMajor: {
     ...TYPOGRAPHY.small,
+    fontSize: 12,
+    fontWeight: '400',
     opacity: 0.6,
   },
+  // Legacy style kept for compatibility
+  listInfo: {
+    flex: 1,
+  },
+  // Part C: Stats Section (Points + Trend)
+  statsSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  pointsContainer: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    backgroundColor: 'rgba(128, 128, 128, 0.15)',
+  },
+  pointsTextCompact: {
+    ...TYPOGRAPHY.small,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  trendContainer: {
+    // Container for the rank change indicator
+  },
+  // Legacy styles kept for compatibility
   pointsTextLight: {
     ...TYPOGRAPHY.small,
     fontSize: 12,
@@ -1395,15 +1530,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: SPACING.xl,
     alignSelf: 'center',
+    borderRadius: RADIUS.full,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Frosted glass base
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  yourRankChipInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
   },
   yourRankChipText: {
-    color: '#FFF',
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
   },
