@@ -17,6 +17,7 @@ import { useEvents } from '@/contexts/EventsContext';
 import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
 import { adminAnnouncementsService } from '@/services/adminAnnouncements.service';
+import { adminService } from '@/services';
 import { AnnouncementModal } from '@/components/admin/AnnouncementModal';
 
 export default function AdminDashboard() {
@@ -25,6 +26,16 @@ export default function AdminDashboard() {
     const { events, isCurrentUserAdmin, createEvent } = useEvents();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+    // Check if user is super admin for moderation/announcement features
+    React.useEffect(() => {
+        const checkSuperAdmin = async () => {
+            const result = await adminService.isCurrentUserSuperAdmin();
+            setIsSuperAdmin(result.data || false);
+        };
+        checkSuperAdmin();
+    }, []);
 
     // Redirect if not admin
     React.useEffect(() => {
@@ -79,7 +90,14 @@ export default function AdminDashboard() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={theme.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, dynamicStyles.text]}>Admin Dashboard</Text>
+                <View style={styles.headerCenter}>
+                    <Text style={[styles.title, dynamicStyles.text]}>Admin Dashboard</Text>
+                    <View style={[styles.roleBadge, { backgroundColor: isSuperAdmin ? theme.primary + '20' : theme.subtext + '20' }]}>
+                        <Text style={[styles.roleBadgeText, { color: isSuperAdmin ? theme.primary : theme.subtext }]}>
+                            {isSuperAdmin ? 'Super Admin' : 'Event Manager'}
+                        </Text>
+                    </View>
+                </View>
                 <View style={{ width: 24 }} />
             </View>
 
@@ -125,21 +143,25 @@ export default function AdminDashboard() {
                         <Text style={[styles.actionButtonText, dynamicStyles.text]}>View All Events</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.actionButton, dynamicStyles.card]}
-                        onPress={() => setShowAnnouncementModal(true)}
-                    >
-                        <Ionicons name="megaphone-outline" size={24} color={theme.text} />
-                        <Text style={[styles.actionButtonText, dynamicStyles.text]}>Send Announcement</Text>
-                    </TouchableOpacity>
+                    {isSuperAdmin && (
+                        <TouchableOpacity
+                            style={[styles.actionButton, dynamicStyles.card]}
+                            onPress={() => setShowAnnouncementModal(true)}
+                        >
+                            <Ionicons name="megaphone-outline" size={24} color={theme.text} />
+                            <Text style={[styles.actionButtonText, dynamicStyles.text]}>Send Announcement</Text>
+                        </TouchableOpacity>
+                    )}
 
-                    <TouchableOpacity
-                        style={[styles.actionButton, dynamicStyles.card]}
-                        onPress={() => router.push('/admin/moderation')}
-                    >
-                        <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
-                        <Text style={[styles.actionButtonText, dynamicStyles.text]}>Moderation</Text>
-                    </TouchableOpacity>
+                    {isSuperAdmin && (
+                        <TouchableOpacity
+                            style={[styles.actionButton, dynamicStyles.card]}
+                            onPress={() => router.push('/admin/moderation')}
+                        >
+                            <Ionicons name="shield-checkmark-outline" size={24} color={theme.text} />
+                            <Text style={[styles.actionButtonText, dynamicStyles.text]}>Moderation</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Info Section */}
@@ -195,9 +217,24 @@ const styles = StyleSheet.create({
     backButton: {
         padding: 4,
     },
+    headerCenter: {
+        alignItems: 'center',
+        gap: 6,
+    },
     title: {
         fontSize: 20,
         fontWeight: '700',
+    },
+    roleBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    roleBadgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     content: {
         flex: 1,

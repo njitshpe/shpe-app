@@ -12,6 +12,7 @@ export { adminService } from './admin.service';
 export { adminEventsService } from './adminEvents.service';
 export { blockService } from './block.service';
 export { reportService } from './report.service';
+export { adminRoleService } from './adminRole.service';
 export type {
   RankActionType,
   RankActionMetadata,
@@ -21,6 +22,7 @@ export type {
 } from './rank.service';
 export type { CreateEventData } from './adminEvents.service';
 export type { ReportTargetType, ReportReason, ReportStatus, Report } from './report.service';
+export type { RoleType, AdminRole } from './adminRole.service';
 
 // Event-driven points system
 export { eventBus } from './eventBus.service';
