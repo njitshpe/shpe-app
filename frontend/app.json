@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
-      "buildNumber": "2",
+      "buildNumber": "4",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
@@ -73,9 +73,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "51b41aaa-89a6-4960-af06-17fcd5c3112c"
+        "projectId": "8e59eebf-ca7c-46de-88a6-f0757b12ba62"
       }
     },
-    "owner": "yrcv"
+    "owner": "njitwebmaster"
   }
 }
