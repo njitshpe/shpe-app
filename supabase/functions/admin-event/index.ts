@@ -62,20 +62,21 @@ serve(async (req) => {
             );
         }
 
-        // Verify admin role
-        const { data: adminRole, error: roleError } = await supabase
+        // Verify admin role (event_manager or super_admin)
+        const { data: adminRoles, error: roleError } = await supabase
             .from('admin_roles')
             .select('id, role_type')
             .eq('user_id', user.id)
+            .in('role_type', ['event_manager', 'super_admin'])
             .is('revoked_at', null)
-            .maybeSingle();
+            .limit(1);
 
-        if (roleError || !adminRole) {
+        if (roleError || !adminRoles || adminRoles.length === 0) {
             console.error('Admin role check failed:', roleError);
             return new Response(
                 JSON.stringify({
                     success: false,
-                    error: 'Forbidden: Admin access required',
+                    error: 'Forbidden: Event manager or super admin access required',
                     code: 'FORBIDDEN',
                 }),
                 {

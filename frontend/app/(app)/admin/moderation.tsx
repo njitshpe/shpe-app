@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
-import { reportService, type Report, type ReportStatus } from '@/services';
+import { reportService, adminService, type Report, type ReportStatus } from '@/services';
 
 export default function ModerationScreen() {
     const router = useRouter();
@@ -24,17 +24,27 @@ export default function ModerationScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState<ReportStatus | 'all'>('all');
+    const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
-    // Redirect if not admin
+    // Check if user is super admin
     useEffect(() => {
-        if (!isCurrentUserAdmin) {
+        const checkSuperAdmin = async () => {
+            const result = await adminService.isCurrentUserSuperAdmin();
+            setIsSuperAdmin(result.data || false);
+        };
+        checkSuperAdmin();
+    }, []);
+
+    // Redirect if not super admin
+    useEffect(() => {
+        if (!loading && !isSuperAdmin) {
             Alert.alert(
                 'Access Denied',
-                'You do not have admin privileges',
+                'Only super admins can access the moderation console',
                 [{ text: 'OK', onPress: () => router.back() }]
             );
         }
-    }, [isCurrentUserAdmin]);
+    }, [isSuperAdmin, loading]);
 
     // Load reports
     const loadReports = async () => {
@@ -52,10 +62,10 @@ export default function ModerationScreen() {
     };
 
     useEffect(() => {
-        if (isCurrentUserAdmin) {
+        if (isSuperAdmin) {
             loadReports();
         }
-    }, [isCurrentUserAdmin, filter]);
+    }, [isSuperAdmin, filter]);
 
     const handleRefresh = () => {
         setRefreshing(true);
@@ -116,7 +126,7 @@ export default function ModerationScreen() {
             case 'open':
                 return theme.error;
             case 'reviewing':
-                return theme.warning || '#FFA500';
+                return '#FFA500';
             case 'actioned':
                 return theme.success;
             case 'closed':
@@ -243,7 +253,7 @@ export default function ModerationScreen() {
                                 <View style={styles.actionsContainer}>
                                     {report.status === 'open' && (
                                         <TouchableOpacity
-                                            style={[styles.actionButton, { backgroundColor: theme.warning || '#FFA500' }]}
+                                            style={[styles.actionButton, { backgroundColor: '#FFA500' }]}
                                             onPress={() => handleUpdateStatus(report.id, 'reviewing')}
                                         >
                                             <Ionicons name="eye-outline" size={16} color="#fff" />
