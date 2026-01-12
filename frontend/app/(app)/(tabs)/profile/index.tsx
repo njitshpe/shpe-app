@@ -16,7 +16,7 @@ import { fetchUserPosts, deletePost } from '@/lib/feedService';
 import { FeedCard } from '@/components/feed';
 import type { FeedPostUI } from '@/types/feed';
 import { useRouter } from 'expo-router';
-import { ProfileSkeleton } from '@/components/ui/ProfileSkeleton';
+import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile, profileLoading } = useAuth();
