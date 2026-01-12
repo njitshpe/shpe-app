@@ -17,7 +17,7 @@ interface PodiumCardProps {
 
 export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, currentUserId }) => {
   const router = useRouter();
-  const { isDark } = useTheme();
+  const { theme, isDark } = useTheme();
 
   const isFirst = position === 'first';
   const isSecond = position === 'second';
@@ -31,15 +31,16 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
     third: '#CD7F32',
   };
 
-  // Unified stone gradient: dark grey for realistic 3D block
+  // Unified stone gradient: dark in dark mode, light in light mode
   const blockGradientColors: Record<'first' | 'second' | 'third', readonly [string, string, ...string[]]> = {
-    first: ['#2A2A2A', '#111111'] as const,
-    second: ['#2A2A2A', '#111111'] as const,
-    third: ['#2A2A2A', '#111111'] as const,
+    first: isDark ? (['#2A2A2A', '#111111'] as const) : (['#E6E9EF', '#C9D1DB'] as const),
+    second: isDark ? (['#2A2A2A', '#111111'] as const) : (['#E6E9EF', '#C9D1DB'] as const),
+    third: isDark ? (['#2A2A2A', '#111111'] as const) : (['#E6E9EF', '#C9D1DB'] as const),
   };
 
-  // Top Lid solid color: lighter grey for 3D surface
-  const lidColor = '#3D3D3D';
+  // Top Lid solid color: lighter surface to match block in each theme
+  const lidColor = isDark ? '#3D3D3D' : '#F2F4F7';
+  const pedestalNumberColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(11, 22, 48, 0.3)';
 
   const delay = isSecond ? 100 : isThird ? 200 : 0;
   const blockHeight = isFirst ? 180 : isSecond ? 140 : 120;
@@ -91,8 +92,8 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
             ) : (
               <Text
                 style={[
-                  styles.podiumAvatarInitials,
-                  isFirst && styles.podiumAvatarInitialsLarge,
+                styles.podiumAvatarInitials,
+                isFirst && styles.podiumAvatarInitialsLarge,
                   { color: isDark ? '#FFF' : '#000' },
                 ]}
               >
@@ -106,7 +107,10 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
             style={[
               styles.rankBadge,
               isFirst && styles.rankBadgeLarge,
-              { backgroundColor: badgeColors[position] }
+              {
+                backgroundColor: badgeColors[position],
+                borderColor: isDark ? '#000' : '#FFF',
+              },
             ]}
           >
             <Text
@@ -147,7 +151,7 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
               style={[
                 styles.podiumPoints,
                 isFirst && styles.podiumPointsLarge,
-                { color: isDark ? '#CCC' : '#666' },
+                { color: isDark ? '#FFF' : '#000' },
               ]}
             >
               {entry.points.toLocaleString()}
@@ -195,7 +199,12 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
             style={styles.pedestalBlock}
           >
             {/* Giant Faint Number */}
-            <Text style={styles.pedestalBlockNumber}>
+            <Text
+              style={[
+                styles.pedestalBlockNumber,
+                { color: pedestalNumberColor, opacity: isDark ? 0.7 : 0.3 },
+              ]}
+            >
               {rankNumber}
             </Text>
           </LinearGradient>
@@ -290,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   topLid: {
-    width: 112,
+    width: 115,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
@@ -301,7 +310,7 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
   },
   topLidLarge: {
-    width: 122,
+    width: 125,
     borderBottomWidth: 28,
     borderLeftWidth: 12,
     borderRightWidth: 12,
