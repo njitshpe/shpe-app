@@ -60,7 +60,7 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
             onPress={onShowRules}
             activeOpacity={0.7}
           >
-            <Ionicons name="information-circle-outline" size={20} color={theme.subtext} />
+            <Ionicons name="information-circle-outline" size={25} color={theme.subtext} />
           </TouchableOpacity>
         </View>
 

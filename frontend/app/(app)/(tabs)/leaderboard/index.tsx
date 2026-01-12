@@ -52,20 +52,35 @@ export default function LeaderboardScreen() {
     { major: selectedMajor, classYear: selectedClassYear }
   );
 
-  // Client-side search filtering (by name and major)
+  // Client-side search filtering (by name, major, and class year)
   const filteredEntries = useMemo(() => {
-    if (!searchQuery.trim()) return entries;
+    const rawQuery = searchQuery.trim();
+    if (!rawQuery) return entries;
 
-    const query = searchQuery.toLowerCase();
+    const normalize = (value: string) =>
+      value.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+
+    const query = normalize(rawQuery);
+    const tokens = query.split(/\s+/).filter(Boolean);
+
+    if (tokens.length === 0) return entries;
+
     return entries.filter((entry) => {
-      const nameMatch = entry.displayName.toLowerCase().includes(query);
-      const majorMatch = entry.major?.toLowerCase().includes(query);
-      return nameMatch || majorMatch;
+      const haystack = normalize(
+        [
+          entry.displayName,
+          entry.major ?? '',
+          entry.classYear ? String(entry.classYear) : '',
+        ].join(' ')
+      );
+
+      return tokens.every((token) => haystack.includes(token));
     });
   }, [entries, searchQuery]);
 
-  const topThree = filteredEntries.slice(0, 3);
-  const restOfList = filteredEntries.slice(3);
+  const isSearching = searchQuery.trim().length > 0;
+  const topThree = isSearching ? [] : filteredEntries.slice(0, 3);
+  const restOfList = isSearching ? filteredEntries : filteredEntries.slice(3);
   const currentUserEntry = filteredEntries.find((entry) => entry.id === user?.id);
   const currentUserEntryRaw = entries.find((entry) => entry.id === user?.id);
 
@@ -100,13 +115,18 @@ export default function LeaderboardScreen() {
 
   // Scroll to first match when search query changes
   useEffect(() => {
-    if (searchQuery && filteredEntries.length > 0) {
+    const rawQuery = searchQuery.trim();
+    if (rawQuery && filteredEntries.length > 0) {
+      const query = rawQuery.toLowerCase();
       const firstMatchIndex = filteredEntries.findIndex((entry) =>
-        entry.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+        entry.displayName.toLowerCase().includes(query)
       );
 
-      if (firstMatchIndex >= 0 && firstMatchIndex >= 3) {
-        const listIndex = firstMatchIndex - 3;
+      if (firstMatchIndex >= 0) {
+        const listIndex = isSearching ? firstMatchIndex : firstMatchIndex - 3;
+        if (!isSearching && firstMatchIndex < 3) {
+          return;
+        }
         try {
           flatListRef.current?.scrollToIndex({
             index: listIndex,
@@ -140,14 +160,14 @@ export default function LeaderboardScreen() {
         ]).start(() => setHighlightedId(null));
       }
     }
-  }, [searchQuery, filteredEntries, highlightAnim]);
+  }, [searchQuery, filteredEntries, highlightAnim, isSearching]);
 
   const scrollToUser = () => {
     if (!currentUserEntry) return;
 
     const userIndex = filteredEntries.findIndex((e) => e.id === user?.id);
-    if (userIndex >= 3) {
-      const listIndex = userIndex - 3;
+    if (isSearching ? userIndex >= 0 : userIndex >= 3) {
+      const listIndex = isSearching ? userIndex : userIndex - 3;
       try {
         flatListRef.current?.scrollToIndex({
           index: listIndex,
