@@ -17,6 +17,7 @@ import { useFeed } from '@/hooks/feed';
 import { deletePost } from '@/lib/feedService';
 import { FeedCard, CommentList } from '@/components/feed';
 import type { FeedPostUI } from '@/types/feed';
+import { FeedSkeleton } from '@/components/ui/FeedSkeleton';
 
 export default function FeedScreen() {
     const { theme } = useTheme();
@@ -59,6 +60,19 @@ export default function FeedScreen() {
             </TouchableOpacity>
         </View>
     );
+
+    if (isLoading && posts.length === 0) {
+        return (
+            <View style={[styles.container, { backgroundColor: theme.background }]}>
+                {renderHeader()}
+                <View style={styles.listContent}>
+                    <FeedSkeleton />
+                    <FeedSkeleton />
+                    <FeedSkeleton />
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>

@@ -2,24 +2,21 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   useColorScheme,
   Pressable,
   Animated,
-  Modal,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
-import { LegalTextDisplay } from '@/components/legal/LegalTextDisplay';
-import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '@/constants/legal';
+import { LEGAL_URLS } from '@/constants/legal';
 
 type Role = 'student' | 'alumni' | 'guest' | null;
 
@@ -29,8 +26,6 @@ export default function RoleSelectionScreen() {
   const isDark = colorScheme === 'dark';
   const { user, updateUserMetadata } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role>(null);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Animated scale values for cards
   const [studentScale] = useState(new Animated.Value(1));
@@ -251,56 +246,16 @@ export default function RoleSelectionScreen() {
         {/* Legal Text Footer */}
         <View style={styles.footer}>
           <Text style={[styles.legalText, { color: colors.textSecondary }]}>
-            By continuing, you accept our{' '}
-            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => setShowTermsModal(true)}>
-              Terms of Service
+            By continuing, you agree to our{' '}
+            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}>
+              Terms of Use
             </Text>
             {' '}and{' '}
-            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => setShowPrivacyModal(true)}>
+            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}>
               Privacy Policy
             </Text>
           </Text>
         </View>
-
-        {/* Terms Modal */}
-        <Modal
-          visible={showTermsModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setShowTermsModal(false)}
-        >
-          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.cardBorder }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Terms of Service</Text>
-              <TouchableOpacity onPress={() => setShowTermsModal(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.modalContent}>
-              <LegalTextDisplay sections={TERMS_OF_SERVICE} />
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
-
-        {/* Privacy Modal */}
-        <Modal
-          visible={showPrivacyModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setShowPrivacyModal(false)}
-        >
-          <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.cardBorder }]}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Privacy Policy</Text>
-              <TouchableOpacity onPress={() => setShowPrivacyModal(false)} style={styles.modalClose}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.modalContent}>
-              <LegalTextDisplay sections={PRIVACY_POLICY} />
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -391,27 +346,5 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontWeight: '600',
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  modalClose: {
-    padding: 4,
-  },
-  modalContent: {
-    padding: 20,
-    paddingBottom: 40,
   },
 });
