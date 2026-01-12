@@ -9,6 +9,7 @@ import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
+import { OfflineNotice } from '@/components/ui/OfflineNotice';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
@@ -159,7 +160,8 @@ export default function RootLayout() {
             <NotificationProvider>
               <EventsProvider>
                 <AuthGuard>
-                  <Slot />
+                  <OfflineNotice />
+                <Slot />
                 </AuthGuard>
               </EventsProvider>
             </NotificationProvider>
