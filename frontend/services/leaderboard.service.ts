@@ -1,0 +1,129 @@
+import { supabase } from '../lib/supabase';
+import { ServiceResponse, mapSupabaseError } from '../types/errors';
+import type {
+  LeaderboardEntry,
+  LeaderboardFilters,
+  LeaderboardContext,
+} from '../types/leaderboard';
+import type { UserType } from '../types/userProfile';
+
+/**
+ * Database row structure from user_profiles query or RPC response
+ */
+interface UserProfileRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  user_type: UserType | null;
+  major?: string;
+  expected_graduation_year?: number;
+  graduation_year?: number;
+  profile_picture_url?: string;
+  rank_points?: number;
+  created_at: string;
+}
+
+interface CompleteUserProfileRow extends UserProfileRow {
+  first_name: string;
+  last_name: string;
+  user_type: UserType;
+}
+
+/**
+ * Leaderboard Service - Manages leaderboard queries and ranking
+ *
+ * Fetches user profiles ordered by rank points and provides
+ * stable ranking with tie-breaking based on created_at.
+ */
+class LeaderboardService {
+  /**
+   * Fetch leaderboard entries with optional filters and time context
+   *
+   * @param context - Time context: 'month', 'semester', or 'allTime'
+   * @param filters - Optional filters for major and class year
+   * @returns ServiceResponse with array of LeaderboardEntry or error
+   */
+  async getLeaderboard(
+    context: LeaderboardContext = 'allTime',
+    filters: LeaderboardFilters = {}
+  ): Promise<ServiceResponse<LeaderboardEntry[]>> {
+    try {
+      // Use RPC function for time-based aggregation
+      const { data, error } = await supabase.rpc('get_leaderboard_by_context', {
+        p_context: context,
+        p_major: filters.major || null,
+        p_class_year: filters.classYear || null,
+      });
+
+      if (error) {
+        console.error('Failed to fetch leaderboard:', error);
+        return {
+          success: false,
+          error: mapSupabaseError(error),
+        };
+      }
+
+      // Map database rows to LeaderboardEntry
+      const completedRows = (data as UserProfileRow[]).filter((row) =>
+        this.isProfileComplete(row)
+      );
+      const entries: LeaderboardEntry[] = completedRows.map((row, index) =>
+        this.mapToLeaderboardEntry(row, index + 1)
+      );
+
+      return {
+        success: true,
+        data: entries,
+      };
+    } catch (error) {
+      console.error('Failed to fetch leaderboard:', error);
+      return {
+        success: false,
+        error: mapSupabaseError(error),
+      };
+    }
+  }
+
+  /**
+   * Map a user_profiles row to a LeaderboardEntry
+   *
+   * @param row - Database row from user_profiles
+   * @param rank - Position in the leaderboard (1-indexed)
+   * @returns LeaderboardEntry with all required fields
+   */
+  private mapToLeaderboardEntry(
+    row: CompleteUserProfileRow,
+    rank: number
+  ): LeaderboardEntry {
+    // Construct display name from first and last name
+    const displayName = `${row.first_name} ${row.last_name}`.trim();
+
+    // Determine class year based on user type
+    let classYear: number | undefined;
+    if (row.user_type === 'student' && row.expected_graduation_year) {
+      classYear = row.expected_graduation_year;
+    } else if (row.user_type === 'alumni' && row.graduation_year) {
+      classYear = row.graduation_year;
+    }
+
+    return {
+      id: row.id,
+      displayName,
+      major: row.major,
+      classYear,
+      userType: row.user_type,
+      avatarUrl: row.profile_picture_url,
+      points: row.rank_points ?? 0,
+      rank,
+    };
+  }
+
+  private isProfileComplete(row: UserProfileRow): row is CompleteUserProfileRow {
+    if (!row.user_type) return false;
+    const firstName = row.first_name?.trim();
+    const lastName = row.last_name?.trim();
+    return Boolean(firstName && lastName);
+  }
+}
+
+export const leaderboardService = new LeaderboardService();
