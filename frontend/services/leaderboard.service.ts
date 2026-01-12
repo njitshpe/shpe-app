@@ -36,18 +36,39 @@ interface CompleteUserProfileRow extends UserProfileRow {
  * stable ranking with tie-breaking based on created_at.
  */
 class LeaderboardService {
+  private cache = new Map<string, { data: LeaderboardEntry[]; timestamp: number }>();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   /**
    * Fetch leaderboard entries with optional filters and time context
    *
    * @param context - Time context: 'month', 'semester', or 'allTime'
    * @param filters - Optional filters for major and class year
+   * @param forceRefresh - Whether to bypass cache and fetch fresh data
    * @returns ServiceResponse with array of LeaderboardEntry or error
    */
   async getLeaderboard(
     context: LeaderboardContext = 'allTime',
-    filters: LeaderboardFilters = {}
+    filters: LeaderboardFilters = {},
+    forceRefresh: boolean = false
   ): Promise<ServiceResponse<LeaderboardEntry[]>> {
     try {
+      // Generate cache key
+      const cacheKey = JSON.stringify({ context, filters });
+
+      // Check cache validity if not forcing refresh
+      if (!forceRefresh) {
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+          console.log('🔹 Cache HIT for:', context);
+          return {
+            success: true,
+            data: cached.data,
+          };
+        }
+      }
+
+      console.log('🔸 Cache MISS for:', context);
       // Use RPC function for time-based aggregation
       const { data, error } = await supabase.rpc('get_leaderboard_by_context', {
         p_context: context,
@@ -71,6 +92,12 @@ class LeaderboardService {
         this.mapToLeaderboardEntry(row, index + 1)
       );
 
+      // Update cache
+      this.cache.set(cacheKey, {
+        data: entries,
+        timestamp: Date.now(),
+      });
+
       return {
         success: true,
         data: entries,
@@ -82,6 +109,29 @@ class LeaderboardService {
         error: mapSupabaseError(error),
       };
     }
+  }
+
+  /**
+   * Synchronously check for valid cached data
+   */
+  getCachedData(
+    context: LeaderboardContext,
+    filters: LeaderboardFilters
+  ): LeaderboardEntry[] | null {
+    const cacheKey = JSON.stringify({ context, filters });
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  /**
+   * Clear all cached leaderboard data
+   */
+  clearCache() {
+    this.cache.clear();
   }
 
   /**

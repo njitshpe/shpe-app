@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   topLid: {
-    width: 115,
+    width: '100%', // Relative width match podium pillars
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
@@ -308,9 +308,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 10,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
+    marginBottom: -1, // Fix tiny gap artifact
   },
   topLidLarge: {
-    width: 125,
+    width: '100%', // Slightly larger overhang for 1st place
     borderBottomWidth: 28,
     borderLeftWidth: 12,
     borderRightWidth: 12,

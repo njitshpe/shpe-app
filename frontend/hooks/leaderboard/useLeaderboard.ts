@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { leaderboardService } from '@/services';
 import type {
   LeaderboardEntry,
@@ -55,7 +55,7 @@ export function useLeaderboard(
   initialContext: LeaderboardContext = 'allTime',
   initialFilters: LeaderboardFilters = {}
 ): UseLeaderboardResult {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [context, setContextState] = useState<LeaderboardContext>(initialContext);
@@ -63,7 +63,19 @@ export function useLeaderboard(
   const requestIdRef = useRef(0);
   const lastInitialContextRef = useRef(initialContext);
 
-  const fetchLeaderboard = useCallback(async () => {
+  // Client-side filtering
+  const entries = useMemo(() => {
+    return allEntries.filter((entry) => {
+      if (filters.major && entry.major !== filters.major) return false;
+      if (filters.classYear && entry.classYear !== filters.classYear) return false;
+      return true;
+    }).map((entry, index) => ({
+      ...entry,
+      rank: index + 1 // Re-rank after filtering
+    }));
+  }, [allEntries, filters]);
+
+  const fetchLeaderboard = useCallback(async (forceRefresh: boolean = false) => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
@@ -71,17 +83,22 @@ export function useLeaderboard(
       setLoading(true);
       setError(null);
 
-      const response = await leaderboardService.getLeaderboard(context, filters);
+      // We pass empty filters to service because filtering is now client-side
+      const response = await leaderboardService.getLeaderboard(
+        context,
+        {},
+        forceRefresh
+      );
 
       if (requestId !== requestIdRef.current) {
         return;
       }
 
       if (response.success && response.data) {
-        setEntries(response.data);
+        setAllEntries(response.data);
       } else if (response.error) {
         setError(response.error);
-        setEntries([]);
+        setAllEntries([]);
       }
     } catch (err) {
       console.error('Failed to fetch leaderboard:', err);
@@ -89,22 +106,31 @@ export function useLeaderboard(
         message: 'Failed to load leaderboard data.',
         code: 'UNKNOWN_ERROR',
       });
-      setEntries([]);
+      setAllEntries([]);
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
       }
     }
-  }, [context, filters]);
+  }, [context]);
 
   const refresh = useCallback(async () => {
-    await fetchLeaderboard();
+    await fetchLeaderboard(true);
   }, [fetchLeaderboard]);
 
   const setContext = useCallback((newContext: LeaderboardContext) => {
     setContextState(newContext);
-    setEntries([]);
     setError(null);
+
+    // Check cache synchronously
+    const cached = leaderboardService.getCachedData(newContext, {});
+    if (cached) {
+      setAllEntries(cached);
+      setLoading(false);
+    } else {
+      setAllEntries([]);
+      setLoading(true);
+    }
   }, []);
 
   const setFilters = useCallback((newFilters: LeaderboardFilters) => {
@@ -115,8 +141,16 @@ export function useLeaderboard(
     if (initialContext !== lastInitialContextRef.current) {
       lastInitialContextRef.current = initialContext;
       setContextState(initialContext);
-      setEntries([]);
       setError(null);
+
+      const cached = leaderboardService.getCachedData(initialContext, {});
+      if (cached) {
+        setAllEntries(cached);
+        setLoading(false);
+      } else {
+        setAllEntries([]);
+        setLoading(true);
+      }
     }
   }, [initialContext]);
 
