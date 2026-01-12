@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, ScrollView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,16 +11,19 @@ import { useEvents } from '@/contexts/EventsContext';
 import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from '@/components/events/CompactEventCard';
 import { rankService, UserRankData, RankActionType } from '@/services/rank.service';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { OfflineNotice } from '@/components/ui/OfflineNotice';
 
 export default function HomeScreen() {
     const router = useRouter();
     const { user, signOut, updateUserMetadata, profile, loadProfile } = useAuth();
     const { theme, isDark } = useTheme();
-    const { events, isCurrentUserAdmin } = useEvents();
+    const { events, isCurrentUserAdmin, isLoading, refetchEvents } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
     const [rankData, setRankData] = useState<UserRankData | null>(null);
     const [debugExpanded, setDebugExpanded] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     React.useEffect(() => {
         loadRank();
@@ -32,6 +35,15 @@ export default function HomeScreen() {
             setRankData(response.data);
         }
     };
+
+    const onRefresh = React.useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([
+            refetchEvents(),
+            loadRank(),
+        ]);
+        setRefreshing(false);
+    }, [refetchEvents]);
 
     // Determine relevant event to show
     const relevantEvent = ongoingEvents.length > 0
@@ -93,7 +105,16 @@ export default function HomeScreen() {
 
     return (
         <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
-            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+            {/* Offline Notice - Placed here or globally in _layout (User plan said _layout but verify) */}
+            {/* We will place it globally in _layout as per plan, but good to have imported just in case */}
+
+            <ScrollView
+                style={styles.content}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+                }
+            >
                 {/* Welcome Card */}
                 <View style={styles.welcomeCard}>
                     <Text style={styles.welcomeText}>Welcome to</Text>
@@ -102,17 +123,27 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Featured Event Card */}
-                {relevantEvent && (
-                    <View style={styles.eventSection}>
-                        <Text style={[styles.sectionTitle, dynamicStyles.text]}>
-                            {ongoingEvents.length > 0 ? 'Happening Now' : 'Up Next'}
-                        </Text>
+                <View style={styles.eventSection}>
+                    <Text style={[styles.sectionTitle, dynamicStyles.text]}>
+                        {isLoading ? 'Loading Events...' : (ongoingEvents.length > 0 ? 'Happening Now' : 'Up Next')}
+                    </Text>
+
+                    {isLoading ? (
+                        <View style={{ gap: 16 }}>
+                            <Skeleton width="100%" height={140} borderRadius={16} />
+                        </View>
+                    ) : relevantEvent ? (
                         <CompactEventCard
                             event={relevantEvent}
                             onPress={() => router.push(`/event/${relevantEvent.id}`)}
                         />
-                    </View>
-                )}
+                    ) : (
+                        <View style={[styles.emptyEventCard, dynamicStyles.card]}>
+                            <Ionicons name="calendar-outline" size={48} color={theme.subtext} style={{ marginBottom: 8, opacity: 0.5 }} />
+                            <Text style={[styles.emptyEventText, dynamicStyles.subtext]}>No upcoming events</Text>
+                        </View>
+                    )}
+                </View>
 
                 {/* Announcement Section */}
                 <View style={[styles.announcementCard, dynamicStyles.card]}>
@@ -527,5 +558,18 @@ const styles = StyleSheet.create({
         // color removed
         fontWeight: '600',
         fontSize: 14,
+    },
+    emptyEventCard: {
+        borderRadius: 12,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    emptyEventText: {
+        fontSize: 14,
+        fontStyle: 'italic',
     },
 });
