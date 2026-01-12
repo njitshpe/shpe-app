@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
-import type { RankChange } from './utils';
+import type { RankChange } from '@/utils/leaderboard';
 
 interface RankChangeIndicatorProps {
   change: RankChange;
