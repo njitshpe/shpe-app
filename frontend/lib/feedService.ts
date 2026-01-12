@@ -9,6 +9,85 @@ import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateC
 import { checkPostRateLimit, recordPostCreation } from '../utils/rateLimiter';
 
 /**
+ * Fetches a single post by ID
+ */
+export async function fetchPostById(postId: string): Promise<ServiceResponse<FeedPostUI>> {
+    try {
+        const currentUser = (await supabase.auth.getUser()).data.user;
+
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select(`
+        *,
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        event:events(id, event_id, name)
+      `)
+            .eq('id', postId)
+            .single();
+
+        if (error) {
+            return {
+                success: false,
+                error: createError('Failed to fetch post', 'DATABASE_ERROR', undefined, error.message)
+            };
+        }
+
+        if (!data) {
+            return {
+                success: false,
+                error: createError('Post not found', 'NOT_FOUND'),
+            };
+        }
+
+        // Get like count
+        const { count: likeCount } = await supabase
+            .from('feed_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', postId);
+
+        // Get comment count
+        const { count: commentCount } = await supabase
+            .from('feed_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', postId)
+            .eq('is_active', true);
+
+        // Check if current user liked
+        let isLiked = false;
+        if (currentUser) {
+            const { data: likeData } = await supabase
+                .from('feed_likes')
+                .select('id')
+                .eq('post_id', postId)
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+            isLiked = !!likeData;
+        }
+
+        const postWithCounts = {
+            ...data,
+            like_count: likeCount || 0,
+            comment_count: commentCount || 0,
+            is_liked_by_current_user: isLiked,
+        };
+
+        const post = mapFeedPostDBToUI(postWithCounts);
+
+        return { success: true, data: post };
+    } catch (error) {
+        return {
+            success: false,
+            error: createError(
+                'Failed to fetch post',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
+        };
+    }
+}
+
+/**
  * Fetches feed posts with pagination (chronological order)
  */
 export async function fetchFeedPosts(

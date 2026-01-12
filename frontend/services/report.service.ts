@@ -120,6 +120,90 @@ class ReportService {
   }
 
   /**
+   * Fetch a single report by ID (admin only)
+   */
+  async fetchReportById(reportId: string): Promise<ServiceResponse<Report>> {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('id', reportId)
+        .single();
+
+      if (error) {
+        return {
+          success: false,
+          error: createError('Failed to fetch report', 'DATABASE_ERROR', undefined, error.message),
+        };
+      }
+
+      if (!data) {
+        return {
+          success: false,
+          error: createError('Report not found', 'NOT_FOUND'),
+        };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: createError(
+          'Failed to fetch report',
+          'UNKNOWN_ERROR',
+          undefined,
+          error instanceof Error ? error.message : 'Unknown error'
+        ),
+      };
+    }
+  }
+
+  /**
+   * Fetch reports submitted by the current user
+   * @param status Optional status filter
+   */
+  async fetchMyReports(status?: ReportStatus): Promise<ServiceResponse<Report[]>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        return {
+          success: false,
+          error: createError('User not authenticated', 'UNAUTHORIZED'),
+        };
+      }
+
+      let query = supabase
+        .from('reports')
+        .select('*')
+        .eq('reporter_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return handleSupabaseError(null, error);
+      }
+
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return {
+        success: false,
+        error: createError(
+          'Failed to fetch your reports',
+          'UNKNOWN_ERROR',
+          undefined,
+          error instanceof Error ? error.message : 'Unknown error'
+        ),
+      };
+    }
+  }
+
+  /**
    * Update report status (admin only)
    */
   async updateReportStatus(

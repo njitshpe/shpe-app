@@ -314,6 +314,50 @@ export const GeneralSettings = () => {
         </TouchableOpacity>
       </View>
 
+      {/* --- PRIVACY --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push('/(app)/settings/blocked-users')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEF3C7' }]}>
+              <Ionicons name="ban-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Manage users you have blocked
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push('/(app)/settings/my-reports')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEE2E2' }]}>
+              <Ionicons name="flag-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                View reports you have submitted
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
       {/* --- ACCOUNT --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
