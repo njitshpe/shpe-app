@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, ActivityIndicator, Image, Alert
+  ActivityIndicator, Image, Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SHPE_COLORS } from '@/constants';
 import { ProfileForm } from './ProfileForm';
 import { InterestPicker } from './InterestPicker';
