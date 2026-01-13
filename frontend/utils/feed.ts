@@ -53,22 +53,74 @@ export function mapFeedCommentDBToUI(db: any): FeedCommentUI {
 }
 
 // Banned words list (case-insensitive, ASCII only)
-const BANNED_WORDS = [
-    'spam',
-    'scam',
-    'phishing',
-    'fraud',
-    'malware',
-    'virus',
-    'hack',
+export const BANNED_WORDS: string[] = [
+  // ======================
+  // PROFANITY
+  // ======================
+  "fuck","fucker","motherfucker","shit","bullshit","bitch","asshole","bastard","cunt",
+  "dick","cock","pussy","slut","whore","twat","prick","jackass","dumbass","dipshit","hell","arse","bloody",
+
+  // ======================
+  // COMMON BYPASSES
+  // ======================
+  "f*ck","f**k","fucc","fuk","phuck","sh1t","5hit","b1tch","biatch","a$$","azz",
+  "d1ck","dik","pu$$y","cnt","wh0re","slvt",
+
+  // ======================
+  // SEXUAL / NSFW
+  // ======================
+  "sex","porn","porno","nude","nudes","nsfw","blowjob","handjob","cum","orgasm",
+  "boobs","tits","ass","anal","vagina","penis","erection","masturbate","milf","fetish",
+  "threesome","softcore","stripper","hooker","onlyfans",
+  "camgirl","deepthroat","creampie","bdsm","hentai", "dildo",
+    
+  // ======================
+  // HARASSMENT / BULLYING
+  // ======================
+  "retard","idiot","moron","loser","worthless",
+  "pathetic","clown","weirdo","creep","pervert",
+
+  "kill yourself","kys","go die","nobody likes you","hate you", "kill you",
+
+  // ======================
+  // HATE / SLURS
+  // ======================
+  "nigger","nigga","faggot","fag","tranny","chink","spic","kike","wetback","coon",
+  "raghead","towelhead","gypsy","cripple","mongoloid",
+
+  "nazi","hitler","white power","kkk","neo nazi","terrorist",
+
+  // ======================
+  // VIOLENCE / THREATS
+  // ======================
+  "murder","rape","shoot","stab","suicide","die","dead","massacre",
+  "assault","kidnap","behead","genocide","slaughter",
+  "school shooting","mass shooting","bomb threat","i will kill you",
+
+  // ======================
+  // DRUGS / ILLEGAL
+  // ======================
+  "cocaine","heroin","meth","weed","marijuana","lsd","ecstasy","mdma","fentanyl",
+  "opioid","overdose","dealer","drug dealer","xanax","adderall","percocet",
+  "oxycontin","codeine","shrooms",
+
+  // ======================
+  // SPAM / SCAMS
+  // ======================
+  "crypto","bitcoin giveaway","guaranteed profit","onlyfans link",
+  "cashapp","venmo me","paypal me","telegram",
 ];
 
 /**
- * Checks if content contains banned words
+ * Checks if content contains banned words or phrases
  */
-function containsBannedWords(content: string): boolean {
-    const lowerContent = content.toLowerCase();
-    return BANNED_WORDS.some(word => lowerContent.includes(word));
+export function containsBannedWords(content: string): boolean {
+  const normalized = content
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ");
+
+  return BANNED_WORDS.some(word => normalized.includes(word));
 }
 
 /**
