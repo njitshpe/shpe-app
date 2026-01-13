@@ -1,10 +1,91 @@
 import { supabase } from './supabase';
 import type { FeedPostUI, FeedCommentUI, CreatePostRequest, CreateCommentRequest } from '../types/feed';
 import { PhotoHelper } from '../services/photo.service';
+import * as FileSystem from 'expo-file-system';
 
 import type { ServiceResponse } from '../types/errors';
 import { createError, mapSupabaseError } from '../types/errors';
-import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent } from '../utils/feed';
+import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent, validateImageUpload } from '../utils/feed';
+import { checkPostRateLimit, recordPostCreation } from '../utils/rateLimiter';
+
+/**
+ * Fetches a single post by ID
+ */
+export async function fetchPostById(postId: string): Promise<ServiceResponse<FeedPostUI>> {
+    try {
+        const currentUser = (await supabase.auth.getUser()).data.user;
+
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select(`
+        *,
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        event:events(id, event_id, name)
+      `)
+            .eq('id', postId)
+            .single();
+
+        if (error) {
+            return {
+                success: false,
+                error: createError('Failed to fetch post', 'DATABASE_ERROR', undefined, error.message)
+            };
+        }
+
+        if (!data) {
+            return {
+                success: false,
+                error: createError('Post not found', 'NOT_FOUND'),
+            };
+        }
+
+        // Get like count
+        const { count: likeCount } = await supabase
+            .from('feed_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', postId);
+
+        // Get comment count
+        const { count: commentCount } = await supabase
+            .from('feed_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('post_id', postId)
+            .eq('is_active', true);
+
+        // Check if current user liked
+        let isLiked = false;
+        if (currentUser) {
+            const { data: likeData } = await supabase
+                .from('feed_likes')
+                .select('id')
+                .eq('post_id', postId)
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+            isLiked = !!likeData;
+        }
+
+        const postWithCounts = {
+            ...data,
+            like_count: likeCount || 0,
+            comment_count: commentCount || 0,
+            is_liked_by_current_user: isLiked,
+        };
+
+        const post = mapFeedPostDBToUI(postWithCounts);
+
+        return { success: true, data: post };
+    } catch (error) {
+        return {
+            success: false,
+            error: createError(
+                'Failed to fetch post',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
+        };
+    }
+}
 
 /**
  * Fetches feed posts with pagination (chronological order)
@@ -18,13 +99,12 @@ export async function fetchFeedPosts(
         const currentUser = (await supabase.auth.getUser()).data.user;
 
         const { data, error } = await supabase
-            .from('feed_posts')
+            .from('feed_posts_visible')
             .select(`
         *,
         author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
         event:events(id, event_id, name)
       `)
-            .eq('is_active', true)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
@@ -96,7 +176,7 @@ export async function fetchUserPosts(
         const currentUser = (await supabase.auth.getUser()).data.user;
 
         const { data, error } = await supabase
-            .from('feed_posts')
+            .from('feed_posts_visible')
             .select(`
         *,
         author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
@@ -106,7 +186,6 @@ export async function fetchUserPosts(
         event:events(id, name)
       `)
             .eq('user_id', userId)
-            .eq('is_active', true)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
@@ -168,8 +247,36 @@ export async function createPost(
             };
         }
 
+        // Check rate limit
+        const rateLimitCheck = checkPostRateLimit(user.id);
+        if (!rateLimitCheck.canPost) {
+            return {
+                success: false,
+                error: {
+                    code: 'RATE_LIMIT_ERROR',
+                    message: rateLimitCheck.error || 'Rate limit exceeded',
+                },
+            };
+        }
+
         // Upload images
-        const imageUrls = await uploadImages(user.id, imageUris);
+        let imageUrls: string[];
+        try {
+            imageUrls = await uploadImages(user.id, imageUris);
+        } catch (uploadError: any) {
+            // Check if this is a validation error
+            if (uploadError.code === 'VALIDATION_ERROR') {
+                return {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: uploadError.message,
+                    },
+                };
+            }
+            // Re-throw other errors to be caught by outer catch
+            throw uploadError;
+        }
 
         // Create post
         const { data: post, error } = await supabase
@@ -189,6 +296,9 @@ export async function createPost(
                 error: createError('Failed to create post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
+
+        // Record post creation for rate limiting
+        recordPostCreation(user.id);
 
         // Create tags
         if (taggedUserIds && taggedUserIds.length > 0) {
@@ -523,6 +633,27 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
     try {
         const uploadPromises = imageUris.map(async (uri, index) => {
             try {
+                // Get file info to check size
+                let fileSize: number | undefined;
+                try {
+                    const fileInfo = await FileSystem.getInfoAsync(uri);
+                    if (fileInfo.exists && 'size' in fileInfo) {
+                        fileSize = fileInfo.size;
+                    }
+                } catch (err) {
+                    // If we can't get file info, continue without size validation
+                    console.warn('Could not get file size for:', uri);
+                }
+
+                // Validate image before upload (with size if available)
+                const validationError = validateImageUpload(uri, fileSize);
+                if (validationError) {
+                    // Throw a custom error with VALIDATION_ERROR marker
+                    const error = new Error(validationError);
+                    (error as any).code = 'VALIDATION_ERROR';
+                    throw error;
+                }
+
                 // Compress image using shared helper
                 const compressedImage = await PhotoHelper.compressImage(uri);
 

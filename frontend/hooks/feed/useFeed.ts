@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchFeedPosts } from '../../lib/feedService';
+import { useBlock } from '../../contexts/BlockContext';
 import type { FeedPostUI } from '../../types/feed';
 
 export function useFeed() {
@@ -9,6 +10,7 @@ export function useFeed() {
     const [isLoading, setIsLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const { blockedUserIds } = useBlock();
 
     const loadPosts = useCallback(async (pageNum: number, append: boolean = false) => {
         if (isLoading) return;
@@ -58,8 +60,13 @@ export function useFeed() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Filter out posts from blocked users
+    const filteredPosts = useMemo(() => {
+        return posts.filter(post => !blockedUserIds.has(post.userId));
+    }, [posts, blockedUserIds]);
+
     return {
-        posts,
+        posts: filteredPosts,
         isLoading,
         isRefreshing,
         error,

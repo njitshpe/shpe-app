@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 
 // --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
@@ -187,6 +188,15 @@ export const GeneralSettings = () => {
     return <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 50 }} />;
   }
 
+  const appName = Constants.expoConfig?.name ?? 'SHPE NJIT';
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+  const buildNumber =
+    Constants.expoConfig?.ios?.buildNumber ??
+    (Constants.expoConfig?.android?.versionCode
+      ? String(Constants.expoConfig.android.versionCode)
+      : undefined);
+  const versionLabel = `Version ${version}`;
+
   const dynamicStyles = {
     container: { backgroundColor: theme.background },
     sectionTitle: { color: theme.subtext },
@@ -304,6 +314,50 @@ export const GeneralSettings = () => {
         </TouchableOpacity>
       </View>
 
+      {/* --- PRIVACY --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push('/(app)/settings/blocked-users')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEF3C7' }]}>
+              <Ionicons name="ban-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Manage users you have blocked
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push('/(app)/settings/my-reports')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEE2E2' }]}>
+              <Ionicons name="flag-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                View reports you have submitted
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
       {/* --- ACCOUNT --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
@@ -344,10 +398,14 @@ export const GeneralSettings = () => {
         <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Return to Profile</Text>
       </TouchableOpacity>
 
-      <Disclaimer />
-
-      <Text style={styles.versionText}>Version 1.0.0</Text>
-      <View style={{ height: 40 }} />
+      {/* --- FOOTER --- */}
+      <View style={styles.footer}>
+        <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
+        <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
+        <View style={styles.footerDisclaimer}>
+          <Disclaimer />
+        </View>
+      </View>
 
       {/* --- DELETE ACCOUNT MODAL --- */}
       <DeleteAccountModal
@@ -414,12 +472,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginLeft: 56,
   },
-  versionText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginTop: 10,
-  },
   backButton: {
     marginTop: 30,
     marginHorizontal: 16,
@@ -458,5 +510,22 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 13,
     fontWeight: '600',
-  }
+  },
+  footer: {
+    marginTop: 28,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  footerAppName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  footerVersion: {
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  footerDisclaimer: {
+    width: '100%',
+  },
 });
