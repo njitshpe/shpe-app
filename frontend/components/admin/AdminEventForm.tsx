@@ -13,6 +13,7 @@ import {
     Platform,
     Modal,
     AlertButton,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData } from '@/services/adminEvents.service';
@@ -261,8 +262,15 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
     return (
         <>
-            <ScrollView style={[styles.container, dynamicStyles.container]}>
-                <View style={styles.content}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    style={[styles.container, dynamicStyles.container]}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.content}>
                     {/* Header */}
                     <View style={styles.header}>
                         <Text style={[styles.title, dynamicStyles.text]}>
@@ -464,7 +472,8 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                         )}
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             {/* Date/Time Picker Modal */}
             <Modal
