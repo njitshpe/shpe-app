@@ -343,6 +343,64 @@ export default function HomeScreen() {
                                 <Text style={[styles.debugButtonText, dynamicStyles.text]}>Clear Cache</Text>
                             </TouchableOpacity>
                         </View>
+
+                        <Text style={[styles.debugTitle, { marginTop: 16 }]}>RLS Testing</Text>
+                        <View style={styles.debugActions}>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={async () => {
+                                    try {
+                                        const { data: { user } } = await supabase.auth.getUser();
+                                        if (!user) {
+                                            Alert.alert('RLS Test - FAIL', 'Not logged in');
+                                            return;
+                                        }
+
+                                        console.log('Starting RLS test for user:', user.id);
+
+                                        // Query rank_transactions - should only return current user's transactions
+                                        const { data: transactions, error } = await supabase
+                                            .from('rank_transactions')
+                                            .select('user_id');
+
+                                        if (error) {
+                                            console.error('RLS Test error:', error);
+                                            Alert.alert('RLS Test - ERROR', `Query failed: ${error.message}`);
+                                            return;
+                                        }
+
+                                        // Get unique user IDs from the results
+                                        const uniqueUserIds = Array.from(new Set(transactions?.map(t => t.user_id) || []));
+
+                                        console.log('Unique user IDs found:', uniqueUserIds);
+                                        console.log('Total transactions:', transactions?.length || 0);
+
+                                        // Test passes if we only see the current user's transactions
+                                        if (uniqueUserIds.length === 0) {
+                                            Alert.alert(
+                                                'RLS Test - PASS ✅',
+                                                `No transactions found for your account.\n\nUser ID: ${user.id}\n\nThis is expected if you haven't earned any points yet.`
+                                            );
+                                        } else if (uniqueUserIds.length === 1 && uniqueUserIds[0] === user.id) {
+                                            Alert.alert(
+                                                'RLS Test - PASS ✅',
+                                                `Only your transactions are visible.\n\nUser ID: ${user.id}\nTransactions: ${transactions?.length || 0}\n\nRLS is working correctly!`
+                                            );
+                                        } else {
+                                            Alert.alert(
+                                                'RLS Test - FAIL ❌',
+                                                `Found transactions from ${uniqueUserIds.length} user(s):\n${uniqueUserIds.join(', ')}\n\nExpected only: ${user.id}\n\nRLS policy may not be working correctly!`
+                                            );
+                                        }
+                                    } catch (e: any) {
+                                        console.error('RLS Test exception:', e);
+                                        Alert.alert('RLS Test - ERROR', e.message);
+                                    }
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Test RLS</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 )}
             </ScrollView>
