@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { eventsService } from '../services/events.service';
 import { adminService } from '../services/admin.service';
 import { adminEventsService, CreateEventData } from '../services/adminEvents.service';
