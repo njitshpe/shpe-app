@@ -11,11 +11,11 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0F172A"
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
-      "buildNumber": "5",
+      "buildNumber": "4",
       "supportsTablet": true,
       "infoPlist": {
         "UIBackgroundModes": [
