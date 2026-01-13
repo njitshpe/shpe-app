@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
 import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 
@@ -155,14 +156,16 @@ export default function RootLayout() {
     <ThemeProvider>
       <ErrorBoundary>
         <AuthProvider>
-          <NotificationProvider>
-            <EventsProvider>
-              <AuthGuard>
-                <OfflineNotice />
+          <BlockProvider>
+            <NotificationProvider>
+              <EventsProvider>
+                <AuthGuard>
+                  <OfflineNotice />
                 <Slot />
-              </AuthGuard>
-            </EventsProvider>
-          </NotificationProvider>
+                </AuthGuard>
+              </EventsProvider>
+            </NotificationProvider>
+          </BlockProvider>
         </AuthProvider>
       </ErrorBoundary>
     </ThemeProvider>
