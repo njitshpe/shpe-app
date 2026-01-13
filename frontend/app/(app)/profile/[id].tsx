@@ -22,6 +22,7 @@ import { BlockUserModal } from '@/components/shared/BlockUserModal';
 import { ReportModal } from '@/components/shared/ReportModal';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
+import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
 
 import type { UserProfile } from '@/types/userProfile';
 import type { FeedPostUI } from '@/types/feed';
@@ -135,74 +136,9 @@ export default function PublicProfileScreen() {
     const isMe = currentUser?.id === id;
     const isBlocked = id ? isUserBlocked(id) : false;
 
-    if (loading) {
-        return (
-            <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-                <ActivityIndicator size="large" color={theme.primary} />
-            </View>
-        );
-    }
-
-    if (!profile) {
-        return (
-            <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-                <Text style={{ color: theme.text }}>User not found.</Text>
-            </View>
-        );
-    }
-
-    // Show "User unavailable" screen if this user is blocked
-    if (isBlocked && !isMe) {
-        return (
-            <View style={{ flex: 1, backgroundColor: theme.background }}>
-                <Stack.Screen options={{
-                    headerShown: true,
-                    title: 'Profile',
-                    headerStyle: { backgroundColor: theme.card },
-                    headerTintColor: theme.text,
-                    headerShadowVisible: false,
-                    headerBackTitle: 'Back',
-                    headerRight: () => (
-                        <TouchableOpacity
-                            onPress={handleBlockPress}
-                            style={{ marginRight: 8 }}
-                        >
-                            <Ionicons name="eye" size={24} color={theme.text} />
-                        </TouchableOpacity>
-                    ),
-                }} />
-
-                <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-                    <Ionicons name="eye-off" size={64} color={theme.subtext} style={{ marginBottom: 16 }} />
-                    <Text style={[styles.unavailableTitle, { color: theme.text }]}>User Unavailable</Text>
-                    <Text style={[styles.unavailableMessage, { color: theme.subtext }]}>
-                        You have blocked this user.
-                    </Text>
-                    <TouchableOpacity
-                        style={[styles.unblockButton, { backgroundColor: theme.primary }]}
-                        onPress={handleBlockPress}
-                    >
-                        <Text style={styles.unblockButtonText}>Unblock User</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Block User Modal */}
-                {profile && (
-                    <BlockUserModal
-                        visible={showBlockModal}
-                        onClose={() => setShowBlockModal(false)}
-                        onConfirm={handleBlockConfirm}
-                        userName={profile.first_name || 'User'}
-                        isBlocked={isBlocked}
-                        isLoading={blockActionLoading}
-                    />
-                )}
-            </View>
-        );
-    }
-
     return (
         <View style={{ flex: 1, backgroundColor: theme.background }}>
+            {/* Always render Stack.Screen to prevent header jump/artifact */}
             <Stack.Screen options={{
                 headerShown: true,
                 title: profileDisplay.displayName || 'Profile',
@@ -229,118 +165,149 @@ export default function PublicProfileScreen() {
                 ) : undefined,
             }} />
 
-            <View style={[styles.gradient, { backgroundColor: theme.background }]}>
-                <ScrollView
-                    style={styles.scrollView}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            tintColor={theme.primary}
+            {loading ? (
+                <ProfileSkeleton />
+            ) : !profile ? (
+                <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+                    <Text style={{ color: theme.text }}>User not found.</Text>
+                </View>
+            ) : (isBlocked && !isMe) ? (
+                <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+                    <Ionicons name="eye-off" size={64} color={theme.subtext} style={{ marginBottom: 16 }} />
+                    <Text style={[styles.unavailableTitle, { color: theme.text }]}>User Unavailable</Text>
+                    <Text style={[styles.unavailableMessage, { color: theme.subtext }]}>
+                        You have blocked this user.
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.unblockButton, { backgroundColor: theme.primary }]}
+                        onPress={handleBlockPress}
+                    >
+                        <Text style={styles.unblockButtonText}>Unblock User</Text>
+                    </TouchableOpacity>
+                    {/* Block User Modal for Unblocking */}
+                    <BlockUserModal
+                        visible={showBlockModal}
+                        onClose={() => setShowBlockModal(false)}
+                        onConfirm={handleBlockConfirm}
+                        userName={profile.first_name || 'User'}
+                        isBlocked={isBlocked}
+                        isLoading={blockActionLoading}
+                    />
+                </View>
+            ) : (
+                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+                    <ScrollView
+                        style={styles.scrollView}
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                tintColor={theme.primary}
+                            />
+                        }
+                    >
+                        {/* If it's me, give a link to go to my actual profile tab */}
+                        {isMe && (
+                            <TouchableOpacity
+                                style={styles.meBanner}
+                                onPress={() => router.push('/(tabs)/profile')}
+                            >
+                                <Text style={styles.meBannerText}>This is your public profile look.</Text>
+                                <Text style={styles.meBannerLink}>Go to Profile Tab →</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <ProfileHeader
+                            profilePictureUrl={profile.profile_picture_url}
+                            initials={profileDisplay.initials}
+                            userTypeBadge={profileDisplay.userTypeBadge}
+                            displayName={profileDisplay.displayName}
+                            subtitle={profileDisplay.subtitle}
+                            secondarySubtitle={profileDisplay.secondarySubtitle}
+                            isDark={isDark}
+                            themeText={theme.text}
+                            themeSubtext={theme.subtext}
                         />
-                    }
-                >
-                    {/* If it's me, give a link to go to my actual profile tab */}
-                    {isMe && (
-                        <TouchableOpacity
-                            style={styles.meBanner}
-                            onPress={() => router.push('/(tabs)/profile')}
-                        >
-                            <Text style={styles.meBannerText}>This is your public profile look.</Text>
-                            <Text style={styles.meBannerLink}>Go to Profile Tab →</Text>
-                        </TouchableOpacity>
-                    )}
 
-                    <ProfileHeader
-                        profilePictureUrl={profile.profile_picture_url}
-                        initials={profileDisplay.initials}
-                        userTypeBadge={profileDisplay.userTypeBadge}
-                        displayName={profileDisplay.displayName}
-                        subtitle={profileDisplay.subtitle}
-                        secondarySubtitle={profileDisplay.secondarySubtitle}
-                        isDark={isDark}
-                        themeText={theme.text}
-                        themeSubtext={theme.subtext}
-                    />
+                        <ProfileSocialLinks
+                            profile={profile}
+                            displayName={profileDisplay.displayName}
+                            themeText={theme.text}
+                            themeSubtext={theme.subtext}
+                            isDark={isDark}
+                            onOpenResume={handleOpenResume}
+                            onMentorshipUpdate={async () => { }} // No-op for public view
+                            readOnly={true} // IMPORTANT: Prevents editing
+                        />
 
-                    <ProfileSocialLinks
-                        profile={profile}
-                        displayName={profileDisplay.displayName}
-                        themeText={theme.text}
-                        themeSubtext={theme.subtext}
-                        isDark={isDark}
-                        onOpenResume={handleOpenResume}
-                        onMentorshipUpdate={async () => { }} // No-op for public view
-                        readOnly={true} // IMPORTANT: Prevents editing
-                    />
-
-                    {/* Bio */}
-                    {profile.bio && (
-                        <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                            <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
-                        </View>
-                    )}
+                        {/* Bio */}
+                        {profile.bio && (
+                            <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                                <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
+                            </View>
+                        )}
 
 
 
-                    {/* Badges Section - Read Only View */}
-                    <View style={styles.badgesSection}>
-                        <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.badgesScrollContent}
-                        >
-                            {/* Points / Rank Badge */}
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
-                                    <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>
-                                        {profileDisplay.points}
+                        {/* Badges Section - Read Only View */}
+                        <View style={styles.badgesSection}>
+                            <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={styles.badgesScrollContent}
+                            >
+                                {/* Points / Rank Badge */}
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
+                                        <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>
+                                            {profileDisplay.points}
+                                        </Text>
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
+                                        {profileDisplay.rank}
                                     </Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
-                                    {profileDisplay.rank}
-                                </Text>
-                            </View>
 
-                            <View style={styles.badgeItem}>
-                                <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                    <Ionicons name="trophy" size={24} color="#FFD700" />
+                                <View style={styles.badgeItem}>
+                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
+                                        <Ionicons name="trophy" size={24} color="#FFD700" />
+                                    </View>
+                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
                                 </View>
-                                <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
-                            </View>
-                            {/* ... more badges ... */}
-                        </ScrollView>
-                    </View>
-
-                    {/* Posts Section */}
-                    <View style={styles.postsSection}>
-                        <View style={styles.postsSectionHeader}>
-                            <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
+                                {/* ... more badges ... */}
+                            </ScrollView>
                         </View>
 
-                        {postsLoading ? (
-                            <ActivityIndicator color={theme.primary} />
-                        ) : posts.length > 0 ? (
-                            <View style={styles.postsList}>
-                                {posts.map(post => (
-                                    <FeedCard
-                                        key={post.id}
-                                        post={post}
-                                        compact={true}
-                                    // No edit/delete handlers passed
-                                    />
-                                ))}
+                        {/* Posts Section */}
+                        <View style={styles.postsSection}>
+                            <View style={styles.postsSectionHeader}>
+                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
                             </View>
-                        ) : (
-                            <Text style={[styles.noPostsText, { color: theme.subtext }]}>No posts yet.</Text>
-                        )}
-                    </View>
 
-                    <View style={{ height: 40 }} />
-                </ScrollView>
-            </View>
+                            {postsLoading ? (
+                                <ActivityIndicator color={theme.primary} />
+                            ) : posts.length > 0 ? (
+                                <View style={styles.postsList}>
+                                    {posts.map(post => (
+                                        <FeedCard
+                                            key={post.id}
+                                            post={post}
+                                            compact={true}
+                                        // No edit/delete handlers passed
+                                        />
+                                    ))}
+                                </View>
+                            ) : (
+                                <Text style={[styles.noPostsText, { color: theme.subtext }]}>No posts yet.</Text>
+                            )}
+                        </View>
+
+                        <View style={{ height: 40 }} />
+                    </ScrollView>
+                </View>
+            )}
 
             {/* Resume Viewer Modal */}
             {signedUrl && (
@@ -352,7 +319,7 @@ export default function PublicProfileScreen() {
             )}
 
             {/* Block User Modal */}
-            {!isMe && profile && (
+            {!isMe && profile && !isBlocked && (
                 <BlockUserModal
                     visible={showBlockModal}
                     onClose={() => setShowBlockModal(false)}
