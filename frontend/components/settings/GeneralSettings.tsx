@@ -296,7 +296,7 @@ export const GeneralSettings = () => {
             <View>
               <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
               <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                Report issues or ask questions
+                Report or ask questions - njitshpe@gmail.com
               </Text>
             </View>
           </View>
