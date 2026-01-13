@@ -19,6 +19,7 @@ interface EventsState {
   events: Event[];
   isAdminMode: boolean;
   isCurrentUserAdmin: boolean;
+  isCurrentUserSuperAdmin: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -30,6 +31,7 @@ type EventsAction =
   | { type: 'DELETE_EVENT'; payload: string }
   | { type: 'TOGGLE_ADMIN_MODE' }
   | { type: 'SET_ADMIN_STATUS'; payload: boolean }
+  | { type: 'SET_SUPER_ADMIN_STATUS'; payload: boolean }
   | { type: 'SET_EVENTS'; payload: Event[] }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null };
@@ -78,6 +80,11 @@ function eventsReducer(state: EventsState, action: EventsAction): EventsState {
       return {
         ...state,
         isCurrentUserAdmin: action.payload,
+      };
+    case 'SET_SUPER_ADMIN_STATUS':
+      return {
+        ...state,
+        isCurrentUserSuperAdmin: action.payload,
       };
     case 'SET_EVENTS':
       return {
@@ -129,6 +136,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     events: [],
     isAdminMode: false,
     isCurrentUserAdmin: false,
+    isCurrentUserSuperAdmin: false,
     isLoading: true,
     error: null,
   });
@@ -240,6 +248,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         console.log('[EventsContext] Setting admin status to:', response.data);
         dispatch({ type: 'SET_ADMIN_STATUS', payload: response.data });
       }
+
+      // Check super admin status
+      const superAdminResponse = await adminService.isCurrentUserSuperAdmin();
+      if (superAdminResponse.success && superAdminResponse.data !== undefined) {
+        console.log('[EventsContext] Setting super admin status to:', superAdminResponse.data);
+        dispatch({ type: 'SET_SUPER_ADMIN_STATUS', payload: superAdminResponse.data });
+      }
     };
 
     if (session?.user?.id) {
@@ -253,6 +268,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         events: state.events,
         isAdminMode: state.isAdminMode,
         isCurrentUserAdmin: state.isCurrentUserAdmin,
+        isCurrentUserSuperAdmin: state.isCurrentUserSuperAdmin,
         isLoading: state.isLoading,
         error: state.error,
         addEvent,
