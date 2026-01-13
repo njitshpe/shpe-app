@@ -46,8 +46,15 @@
         "WRITE_CALENDAR",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "package": "com.shpenjit.officialapp"
     },
     "notification": {
       "icon": "./assets/icon.png",
