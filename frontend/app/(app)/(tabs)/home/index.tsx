@@ -18,7 +18,7 @@ export default function HomeScreen() {
     const router = useRouter();
     const { user, signOut, updateUserMetadata, profile, loadProfile } = useAuth();
     const { theme, isDark } = useTheme();
-    const { events, isCurrentUserAdmin, isLoading, refetchEvents } = useEvents();
+    const { events, isCurrentUserAdmin, isCurrentUserSuperAdmin, isLoading, refetchEvents } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
     const [rankData, setRankData] = useState<UserRankData | null>(null);
@@ -164,7 +164,7 @@ export default function HomeScreen() {
                 {/* Quick Actions */}
                 <View style={styles.actionsGrid}>
                     {/* Debug Tools Button */}
-                    {__DEV__ && (
+                    {(__DEV__ || isCurrentUserSuperAdmin) && (
                         <TouchableOpacity
                             style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
                             onPress={() => setDebugExpanded(!debugExpanded)}
@@ -207,7 +207,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Debug Tools Expanded Content */}
-                {__DEV__ && debugExpanded && (
+                {(__DEV__ || isCurrentUserSuperAdmin) && debugExpanded && (
                     <View style={[styles.debugExpandedCard, { backgroundColor: isDark ? '#1C1C1E' : '#f0f0f0', borderColor: theme.border }]}>
                         <Text style={styles.debugTitle}>Debug Tools</Text>
                         <View style={styles.debugActions}>

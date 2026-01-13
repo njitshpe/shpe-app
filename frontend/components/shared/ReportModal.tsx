@@ -9,6 +9,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -93,11 +95,16 @@ export function ReportModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
-        <View
-          style={[styles.modal, { backgroundColor: theme.card }]}
-          onStartShouldSetResponder={() => true}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
+          <View
+            style={[styles.modal, { backgroundColor: theme.card }]}
+            onStartShouldSetResponder={() => true}
+          >
           {hasReported ? (
             // Success state
             <View style={styles.successContainer}>
@@ -125,6 +132,10 @@ export function ReportModal({
                 style={styles.content}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="none"
+                scrollEventThrottle={16}
+                nestedScrollEnabled={true}
               >
                 <Text style={[styles.sectionLabel, { color: theme.text }]}>
                   Why are you reporting this?
@@ -185,6 +196,7 @@ export function ReportModal({
                   onChangeText={setDetails}
                   editable={!isLoading}
                   textAlignVertical="top"
+                  scrollEnabled={false}
                 />
                 <Text style={[styles.characterCount, { color: theme.subtext }]}>
                   {details.length}/500
@@ -222,6 +234,7 @@ export function ReportModal({
           )}
         </View>
       </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

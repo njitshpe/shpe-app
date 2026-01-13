@@ -9,7 +9,6 @@ import {
   TextInput,
   Image,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useBlock } from '@/contexts/BlockContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -24,7 +23,6 @@ interface BlockedUserItem {
 }
 
 export default function BlockedUsersScreen() {
-  const router = useRouter();
   const { theme, isDark } = useTheme();
   const { blockedUserIds, unblockUser, isLoading: contextLoading } = useBlock();
 
@@ -221,16 +219,6 @@ export default function BlockedUsersScreen() {
 
   return (
     <View style={[styles.container, dynamicStyles.container]}>
-      <Stack.Screen
-        options={{
-          title: 'Blocked Users',
-          headerBackTitle: 'Settings',
-          headerStyle: { backgroundColor: theme.background },
-          headerShadowVisible: false,
-          headerTintColor: theme.text,
-        }}
-      />
-
       {/* Search Bar */}
       <View style={[styles.searchContainer, dynamicStyles.searchContainer]}>
         <Ionicons name="search" size={20} color={theme.subtext} />

@@ -50,11 +50,14 @@ const identitySchema = z.object({
       },
       { message: `Graduation year must be between ${CURRENT_YEAR} and ${MAX_GRAD_YEAR}` }
     ),
+  // Base schema doesn't strictly require UCID yet, we refine it conditionally
+  ucid: z.string().optional(),
 });
 
 export interface FormData {
   firstName: string;
   lastName: string;
+  ucid?: string;
   major: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
@@ -64,15 +67,17 @@ interface IdentityStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
+  showUcid?: boolean;
 }
 
-export default function IdentityStep({ data, update, onNext }: IdentityStepProps) {
+export default function IdentityStep({ data, update, onNext, showUcid = false }: IdentityStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
 
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
+  const ucidRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const yearScrollRef = useRef<ScrollView>(null);
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -159,14 +164,35 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
     const payload = {
       firstName: data.firstName?.trim() ?? '',
       lastName: data.lastName?.trim() ?? '',
+      ucid: data.ucid?.trim() ?? '',
       major: data.major?.trim() ?? '',
       graduationYear: data.graduationYear?.trim() ?? '',
     };
 
+    // 1. Basic Schema Check
     const result = identitySchema.safeParse(payload);
     if (!result.success) {
       setError(result.error.issues[0]?.message ?? 'Please complete all fields.');
       return;
+    }
+
+    // 2. Conditional UCID Check
+    if (showUcid) {
+      const ucid = payload.ucid;
+      // UCID Regex: Alphanumeric, at least 2 chars. Not strictly forcing 4 digits anymore.
+      // e.g., "abc", "abc1234", "a1" are valid. "a" is too short.
+      const ucidRegex = /^[a-zA-Z0-9]{2,}$/;
+      if (!ucid || !ucidRegex.test(ucid)) {
+        setError('Please enter a valid UCID (e.g., abc1234).');
+        return;
+      }
+
+      // Limit to 5 numbers max
+      const digitCount = (ucid.match(/\d/g) || []).length;
+      if (digitCount > 5) {
+        setError('UCID cannot have more than 5 numbers.');
+        return;
+      }
     }
 
     update(payload);
@@ -177,6 +203,7 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
   const isNextDisabled =
     !data.firstName?.trim() ||
     !data.lastName?.trim() ||
+    (showUcid && !data.ucid?.trim()) ||
     !data.graduationYear?.trim();
 
   // Dynamic colors based on theme
@@ -263,10 +290,35 @@ export default function IdentityStep({ data, update, onNext }: IdentityStepProps
                   placeholderTextColor={colors.textSecondary}
                   style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   returnKeyType="done"
+                  onSubmitEditing={() => ucidRef.current?.focus()}
                   blurOnSubmit={false}
                 />
               </View>
             </View>
+
+            {/* UCID Input */}
+            {showUcid && (
+              <View style={styles.fieldContainer}>
+                <Text style={[styles.label, { color: colors.text }]}>NJIT UCID</Text>
+                <TextInput
+                  ref={ucidRef}
+                  value={data.ucid ?? ''}
+                  onChangeText={(text) => {
+                    update({ ucid: text.toLowerCase() });
+                    setError(null);
+                  }}
+                  placeholder="e.g. abc1234"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                />
+                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+                  Your UCID (not your ID number)
+                </Text>
+              </View>
+            )}
 
             {/* Major Selection */}
             <View style={styles.fieldContainer}>

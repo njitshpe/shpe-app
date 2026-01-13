@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import type { AppError } from '../types/errors';
 import { mapSupabaseError, validators, createError } from '../types/errors';
@@ -28,6 +30,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
+  signInWithApple: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AppError | null }>;
   profile: UserProfile | null;
@@ -331,6 +334,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+
+
+  const signInWithApple = async () => {
+    try {
+      // 1. Generate a random nonce
+      const rawNonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      // 2. Hash the nonce (SHA-256)
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
+      // 3. Request credential from Apple with the HASHED nonce
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      // Sign in via Supabase.
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+          nonce: rawNonce, // Send the RAW nonce to Supabase for verification
+        });
+
+        if (error) {
+          return { error: mapSupabaseError(error) };
+        }
+
+        if (data.user) {
+          // If we have full name from Apple (only on first sign in), update Supabase user metadata
+          if (credential.fullName) {
+            const nameData: Record<string, any> = {};
+            if (credential.fullName.givenName) nameData.full_name = credential.fullName.givenName;
+            if (credential.fullName.familyName) nameData.full_name += ` ${credential.fullName.familyName}`;
+
+            // We can also store the raw name parts
+            if (credential.fullName.givenName) nameData.first_name = credential.fullName.givenName;
+            if (credential.fullName.familyName) nameData.last_name = credential.fullName.familyName;
+
+            if (Object.keys(nameData).length > 0) {
+              await supabase.auth.updateUser({
+                data: nameData
+              });
+            }
+          }
+          return { error: null };
+        }
+      }
+
+      return { error: createError('No identity token received from Apple', 'AUTH_ERROR') };
+    } catch (e: any) {
+      if (e.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled - not an error we need to show
+        return { error: null };
+      }
+      return { error: createError(e.message || 'Apple Sign In Failed', 'AUTH_ERROR') };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -427,6 +495,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithApple,
     signOut,
     resetPassword,
     profile,
