@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthInput, ForgotPasswordModal, AuthLogo } from '@/components/auth';
@@ -26,7 +27,7 @@ export default function LoginScreen() {
     const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
     const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-    const { signIn, signInWithGoogle } = useAuth();
+    const { signIn, signInWithGoogle, signInWithApple } = useAuth();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
     const backgroundColors = getAuthBackgroundColors(isDark);
@@ -56,6 +57,16 @@ export default function LoginScreen() {
     const handleGoogleLogin = async () => {
         setLoading(true);
         const { error } = await signInWithGoogle();
+        setLoading(false);
+
+        if (error) {
+            Alert.alert('Sign In Failed', error.message);
+        }
+    };
+
+    const handleAppleLogin = async () => {
+        setLoading(true);
+        const { error } = await signInWithApple();
         setLoading(false);
 
         if (error) {
@@ -173,6 +184,16 @@ export default function LoginScreen() {
                                 <Ionicons name="logo-google" size={20} color={palette.text} />
                                 <Text style={[styles.socialButtonText, { color: palette.text }]}>Google</Text>
                             </TouchableOpacity>
+
+                            {Platform.OS === 'ios' && (
+                                <AppleAuthentication.AppleAuthenticationButton
+                                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                                    buttonStyle={isDark ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                                    cornerRadius={10}
+                                    style={styles.appleButton}
+                                    onPress={handleAppleLogin}
+                                />
+                            )}
                         </View>
                     </View>
 
@@ -314,5 +335,9 @@ const styles = StyleSheet.create({
     footerLink: {
         fontSize: 14,
         fontWeight: '600',
+    },
+    appleButton: {
+        flex: 1,
+        height: 50,
     },
 });

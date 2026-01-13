@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -84,9 +86,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       animationType="fade"
       onRequestClose={handleCancel}
     >
-      <View style={[styles.modalOverlay, dynamicStyles.modalOverlay]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.modalOverlay, dynamicStyles.modalOverlay]}
+      >
         <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
@@ -177,7 +182,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };

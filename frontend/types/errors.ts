@@ -25,6 +25,7 @@ export type ErrorCode =
 
   // Authentication errors
   | 'INVALID_CREDENTIALS'
+  | 'AUTH_ERROR'
   | 'USER_NOT_FOUND'
   | 'USER_ALREADY_EXISTS'
   | 'EMAIL_ALREADY_IN_USE'
@@ -77,11 +78,10 @@ export type ErrorCode =
   | 'UNKNOWN_ERROR';
 
 // Standard response with error handling
-export interface ServiceResponse<T = void> {
-  success: boolean;
-  data?: T;
-  error?: AppError;
-}
+// Standard response with error handling
+export type ServiceResponse<T = void> =
+  | { success: true; data: T; error?: never }
+  | { success: false; error: AppError; data?: never };
 
 // Helper function to create standardized error objects
 export function createError(
