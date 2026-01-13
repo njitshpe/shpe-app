@@ -280,6 +280,30 @@ export const GeneralSettings = () => {
         </TouchableOpacity>
       </View>
 
+      {/* --- SUPPORT --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => Linking.openURL('mailto:njitshpe@gmail.com?subject=App Support Request')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E0F2FE' }]}>
+              <Ionicons name="mail-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Report issues or ask questions
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
       {/* --- LEGAL --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
