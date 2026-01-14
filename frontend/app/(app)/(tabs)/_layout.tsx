@@ -56,6 +56,15 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
+                name="leaderboard/index"
+                options={{
+                    title: 'Rank',
+                    tabBarIcon: ({ color, size }) => (
+                        <Ionicons name="trophy" size={size} color={color} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
                 name="profile/index"
                 options={{
                     title: 'Profile',

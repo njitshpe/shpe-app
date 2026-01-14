@@ -7,7 +7,10 @@ import {
 } from 'react-native';
 import { Event } from '@/types/events';
 import { useAdaptiveTheme } from '@/hooks/calendar';
-import { CalendarHeader, WeekStrip, MonthPicker, EventsList } from '@/components/calendar';
+import { CalendarHeader } from './CalendarHeader';
+import { WeekStrip } from './WeekStrip';
+import { MonthPicker } from './MonthPicker';
+import { EventsList } from './EventsList';
 import { useTheme } from '@/contexts/ThemeContext';
 interface CalendarViewProps {
     events: Event[];

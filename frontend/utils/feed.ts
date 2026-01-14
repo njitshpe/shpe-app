@@ -52,6 +52,77 @@ export function mapFeedCommentDBToUI(db: any): FeedCommentUI {
     };
 }
 
+// Banned words list (case-insensitive, ASCII only)
+export const BANNED_WORDS: string[] = [
+  // ======================
+  // PROFANITY
+  // ======================
+  "fuck","fucker","motherfucker","shit","bullshit","bitch","asshole","bastard","cunt",
+  "dick","cock","pussy","slut","whore","twat","prick","jackass","dumbass","dipshit","hell","arse","bloody",
+
+  // ======================
+  // COMMON BYPASSES
+  // ======================
+  "f*ck","f**k","fucc","fuk","phuck","sh1t","5hit","b1tch","biatch","a$$","azz",
+  "d1ck","dik","pu$$y","cnt","wh0re","slvt",
+
+  // ======================
+  // SEXUAL / NSFW
+  // ======================
+  "sex","porn","porno","nude","nudes","nsfw","blowjob","handjob","cum","orgasm",
+  "boobs","tits","ass","anal","vagina","penis","erection","masturbate","milf","fetish",
+  "threesome","softcore","stripper","hooker","onlyfans",
+  "camgirl","deepthroat","creampie","bdsm","hentai", "dildo",
+    
+  // ======================
+  // HARASSMENT / BULLYING
+  // ======================
+  "retard","idiot","moron","loser","worthless",
+  "pathetic","clown","weirdo","creep","pervert",
+
+  "kill yourself","kys","go die","nobody likes you","hate you", "kill you",
+
+  // ======================
+  // HATE / SLURS
+  // ======================
+  "nigger","nigga","faggot","fag","tranny","chink","spic","kike","wetback","coon",
+  "raghead","towelhead","gypsy","cripple","mongoloid",
+
+  "nazi","hitler","white power","kkk","neo nazi","terrorist",
+
+  // ======================
+  // VIOLENCE / THREATS
+  // ======================
+  "murder","rape","shoot","stab","suicide","die","dead","massacre",
+  "assault","kidnap","behead","genocide","slaughter",
+  "school shooting","mass shooting","bomb threat","i will kill you",
+
+  // ======================
+  // DRUGS / ILLEGAL
+  // ======================
+  "cocaine","heroin","meth","weed","marijuana","lsd","ecstasy","mdma","fentanyl",
+  "opioid","overdose","dealer","drug dealer","xanax","adderall","percocet",
+  "oxycontin","codeine","shrooms",
+
+  // ======================
+  // SPAM / SCAMS
+  // ======================
+  "crypto","bitcoin giveaway","guaranteed profit","onlyfans link",
+  "cashapp","venmo me","paypal me","telegram",
+];
+
+/**
+ * Checks if content contains banned words or phrases
+ */
+export function containsBannedWords(content: string): boolean {
+  const normalized = content
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ");
+
+  return BANNED_WORDS.some(word => normalized.includes(word));
+}
+
 /**
  * Validates post content
  */
@@ -61,6 +132,9 @@ export function validatePostContent(content: string): string | null {
     }
     if (content.length > 5000) {
         return 'Post content is too long (maximum 5000 characters)';
+    }
+    if (containsBannedWords(content)) {
+        return "That content isn't allowed.";
     }
     return null;
 }
@@ -75,6 +149,33 @@ export function validateCommentContent(content: string): string | null {
     if (content.length > 1000) {
         return 'Comment is too long (maximum 1000 characters)';
     }
+    if (containsBannedWords(content)) {
+        return "That content isn't allowed.";
+    }
+    return null;
+}
+
+/**
+ * Validates image file for upload
+ * @param uri - The image URI
+ * @param fileSize - File size in bytes (if available)
+ * @returns Error message if invalid, null if valid
+ */
+export function validateImageUpload(uri: string, fileSize?: number): string | null {
+    // Check file extension
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'heic'];
+    const extension = uri.toLowerCase().split('.').pop();
+
+    if (!extension || !allowedExtensions.includes(extension)) {
+        return 'Only JPG, JPEG, PNG, and HEIC images are allowed.';
+    }
+
+    // Check file size (5MB limit)
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+    if (fileSize && fileSize > MAX_SIZE) {
+        return 'Image size must be less than 5MB.';
+    }
+
     return null;
 }
 

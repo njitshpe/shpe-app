@@ -6,22 +6,20 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Updated to match your new schema
 interface EventData {
     name: string;
     description?: string;
-    location?: string;
     location_name: string;
+    location_address?: string;
     start_time: string;
     end_time: string;
-    check_in_opens?: string;
-    check_in_closes?: string;
-    max_attendees?: number;
     cover_image_url?: string;
-    host_name?: string;
     tags?: string[];
-    price_label?: string;
     latitude?: number;
     longitude?: number;
+    registration_questions?: any[];
+    is_active?: boolean;
 }
 
 serve(async (req) => {
@@ -62,20 +60,21 @@ serve(async (req) => {
             );
         }
 
-        // Verify admin role
-        const { data: adminRole, error: roleError } = await supabase
+        // Verify admin role (event_manager or super_admin)
+        const { data: adminRoles, error: roleError } = await supabase
             .from('admin_roles')
             .select('id, role_type')
             .eq('user_id', user.id)
+            .in('role_type', ['event_manager', 'super_admin'])
             .is('revoked_at', null)
-            .maybeSingle();
+            .limit(1);
 
-        if (roleError || !adminRole) {
+        if (roleError || !adminRoles || adminRoles.length === 0) {
             console.error('Admin role check failed:', roleError);
             return new Response(
                 JSON.stringify({
                     success: false,
-                    error: 'Forbidden: Admin access required',
+                    error: 'Forbidden: Event manager or super admin access required',
                     code: 'FORBIDDEN',
                 }),
                 {
@@ -180,7 +179,7 @@ async function createEvent(
             );
         }
 
-        // Generate unique event_id
+        // Generate unique event_id (QR friendly)
         const eventId = `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         // Insert event
@@ -188,9 +187,9 @@ async function createEvent(
             .from('events')
             .insert({
                 event_id: eventId,
-                created_by: userId,
+                // created_by: userId, // Logic removed from schema as per request
                 is_active: true,
-                is_archived: false,
+                // is_archived: false, // Removed from schema
                 ...eventData,
             })
             .select()
@@ -280,11 +279,11 @@ async function updateEvent(
             }
         }
 
-        // Update event (updated_by and updated_at are handled by trigger)
+        // Update event
         const { data, error } = await supabase
             .from('events')
             .update(eventData)
-            .eq('event_id', eventId)
+            .eq('event_id', eventId) // Using the simple ID
             .select()
             .single();
 
@@ -374,6 +373,7 @@ async function deleteEvent(supabase: any, eventId: string) {
             JSON.stringify({
                 success: true,
                 operation: 'delete',
+                event: null // Explicitly return null/success
             }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -13,6 +13,7 @@ import {
     Platform,
     Modal,
     AlertButton,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData } from '@/services/adminEvents.service';
@@ -51,7 +52,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [name, setName] = useState(initialData?.name || '');
     const [description, setDescription] = useState(initialData?.description || '');
     const [locationName, setLocationName] = useState(initialData?.location_name || '');
-    const [location, setLocation] = useState(initialData?.location || '');
+    const [location, setLocation] = useState(initialData?.location_address || '');
     const [coverImageUrl, setCoverImageUrl] = useState(initialData?.cover_image_url || '');
     const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -235,7 +236,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 name: name.trim(),
                 description: description.trim() || undefined,
                 location_name: locationName.trim(),
-                location: location.trim() || undefined,
+                location_address: location.trim() || undefined,
                 start_time: startDate.toISOString(),
                 end_time: endDate.toISOString(),
                 cover_image_url: posterUrl || undefined,
@@ -261,8 +262,15 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
     return (
         <>
-            <ScrollView style={[styles.container, dynamicStyles.container]}>
-                <View style={styles.content}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    style={[styles.container, dynamicStyles.container]}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.content}>
                     {/* Header */}
                     <View style={styles.header}>
                         <Text style={[styles.title, dynamicStyles.text]}>
@@ -464,7 +472,8 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                         )}
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             {/* Date/Time Picker Modal */}
             <Modal

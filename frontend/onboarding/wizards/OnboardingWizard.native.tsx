@@ -24,6 +24,7 @@ interface OnboardingFormData {
   // Step 1: Identity
   firstName: string;
   lastName: string;
+  ucid: string;
   major: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
@@ -50,6 +51,7 @@ export default function OnboardingWizard() {
     // Step 1
     firstName: '',
     lastName: '',
+    ucid: '',
     major: '',
     graduationYear: DEFAULT_GRAD_YEAR,
     profilePhoto: null,
@@ -117,6 +119,7 @@ export default function OnboardingWizard() {
     return (
       formData.firstName.trim() !== '' ||
       formData.lastName.trim() !== '' ||
+      formData.ucid.trim() !== '' ||
       formData.major.trim() !== '' ||
       (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
       formData.profilePhoto !== null
@@ -207,6 +210,7 @@ export default function OnboardingWizard() {
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
+        ucid: formData.ucid.trim().toLowerCase(),
         major: formData.major.trim(),
         graduation_year: parseInt(formData.graduationYear, 10),
         university: 'NJIT', // Default university for NJIT students
@@ -264,86 +268,88 @@ export default function OnboardingWizard() {
       {/* Step Rendering with AnimatePresence */}
       <View style={styles.stepsContainer}>
         <AnimatePresence exitBeforeEnter>
-            {currentStep === 0 && (
-              <MotiView
-                key="step-0"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <IdentityStep
-                  data={{
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    major: formData.major,
-                    graduationYear: formData.graduationYear,
-                    profilePhoto: formData.profilePhoto,
-                  }}
-                  update={updateFormData}
-                  onNext={nextStep}
-                />
-              </MotiView>
-            )}
+          {currentStep === 0 && (
+            <MotiView
+              key="step-0"
+              from={{ translateX: 50, opacity: 0 }}
+              animate={{ translateX: 0, opacity: 1 }}
+              exit={{ translateX: -50, opacity: 0 }}
+              transition={{ type: 'timing', duration: 300 }}
+              style={styles.stepWrapper}
+            >
+              <IdentityStep
+                data={{
+                  firstName: formData.firstName,
+                  lastName: formData.lastName,
+                  ucid: formData.ucid,
+                  major: formData.major,
+                  graduationYear: formData.graduationYear,
+                  profilePhoto: formData.profilePhoto,
+                }}
+                update={updateFormData}
+                onNext={nextStep}
+                showUcid={true}
+              />
+            </MotiView>
+          )}
 
-            {currentStep === 1 && (
-              <MotiView
-                key="step-1"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <InterestsStep
-                  data={{
-                    interests: formData.interests,
-                    phoneNumber: formData.phoneNumber,
-                  }}
-                  update={updateFormData}
-                  onNext={nextStep}
-                />
-              </MotiView>
-            )}
+          {currentStep === 1 && (
+            <MotiView
+              key="step-1"
+              from={{ translateX: 50, opacity: 0 }}
+              animate={{ translateX: 0, opacity: 1 }}
+              exit={{ translateX: -50, opacity: 0 }}
+              transition={{ type: 'timing', duration: 300 }}
+              style={styles.stepWrapper}
+            >
+              <InterestsStep
+                data={{
+                  interests: formData.interests,
+                  phoneNumber: formData.phoneNumber,
+                }}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
 
-            {currentStep === 2 && (
-              <MotiView
-                key="step-2"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <AssetsStep
-                  data={{
-                    resumeFile: formData.resumeFile,
-                    linkedinUrl: formData.linkedinUrl,
-                    portfolioUrl: formData.portfolioUrl,
-                    bio: formData.bio,
-                  }}
-                  update={updateFormData}
-                  onNext={nextStep}
-                />
-              </MotiView>
-            )}
+          {currentStep === 2 && (
+            <MotiView
+              key="step-2"
+              from={{ translateX: 50, opacity: 0 }}
+              animate={{ translateX: 0, opacity: 1 }}
+              exit={{ translateX: -50, opacity: 0 }}
+              transition={{ type: 'timing', duration: 300 }}
+              style={styles.stepWrapper}
+            >
+              <AssetsStep
+                data={{
+                  resumeFile: formData.resumeFile,
+                  linkedinUrl: formData.linkedinUrl,
+                  portfolioUrl: formData.portfolioUrl,
+                  bio: formData.bio,
+                }}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
 
-            {currentStep === 3 && (
-              <MotiView
-                key="step-3"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <ReviewStep
-                  data={formData}
-                  onNext={handleFinish}
-                />
-              </MotiView>
-            )}
+          {currentStep === 3 && (
+            <MotiView
+              key="step-3"
+              from={{ translateX: 50, opacity: 0 }}
+              animate={{ translateX: 0, opacity: 1 }}
+              exit={{ translateX: -50, opacity: 0 }}
+              transition={{ type: 'timing', duration: 300 }}
+              style={styles.stepWrapper}
+            >
+              <ReviewStep
+                data={formData}
+                onNext={handleFinish}
+              />
+            </MotiView>
+          )}
         </AnimatePresence>
       </View>
 

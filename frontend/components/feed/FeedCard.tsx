@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActionSheetIOS, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBlock } from '@/contexts/BlockContext';
 import { useLikes } from '@/hooks/feed';
 import { formatRelativeTime } from '@/utils/feed';
+import { ReportModal } from '@/components/shared/ReportModal';
 import type { FeedPostUI } from '@/types/feed';
 
 interface FeedCardProps {
@@ -20,15 +22,22 @@ interface FeedCardProps {
 export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = false }: FeedCardProps) {
     const { theme, isDark } = useTheme();
     const { user } = useAuth();
+    const { isUserBlocked } = useBlock();
     const router = useRouter();
     const isAuthor = user?.id === post.userId;
+    const isBlocked = isUserBlocked(post.userId);
     const { isLiked, likeCount, toggleLike } = useLikes(
         post.id,
         post.isLikedByCurrentUser,
         post.likeCount
     );
+    const [showReportModal, setShowReportModal] = useState(false);
 
     const handleAuthorPress = () => {
+        if (isBlocked) {
+            Alert.alert('User Blocked', 'You have blocked this user.');
+            return;
+        }
         router.push(`/profile/${post.userId}`);
     };
 
@@ -39,32 +48,61 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
     };
 
     const handleOptionsPress = () => {
-        if (Platform.OS === 'ios') {
-            ActionSheetIOS.showActionSheetWithOptions(
-                {
-                    options: ['Cancel', 'Edit Post', 'Delete Post'],
-                    destructiveButtonIndex: 2,
-                    cancelButtonIndex: 0,
-                    userInterfaceStyle: isDark ? 'dark' : 'light',
-                },
-                (buttonIndex) => {
-                    if (buttonIndex === 1) {
-                        onEdit?.(post);
-                    } else if (buttonIndex === 2) {
-                        handleDeletePress();
+        if (isAuthor) {
+            // Author options: Edit and Delete
+            if (Platform.OS === 'ios') {
+                ActionSheetIOS.showActionSheetWithOptions(
+                    {
+                        options: ['Cancel', 'Edit Post', 'Delete Post'],
+                        destructiveButtonIndex: 2,
+                        cancelButtonIndex: 0,
+                        userInterfaceStyle: isDark ? 'dark' : 'light',
+                    },
+                    (buttonIndex) => {
+                        if (buttonIndex === 1) {
+                            onEdit?.(post);
+                        } else if (buttonIndex === 2) {
+                            handleDeletePress();
+                        }
                     }
-                }
-            );
+                );
+            } else {
+                Alert.alert(
+                    'Post Options',
+                    'Choose an action',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Edit', onPress: () => onEdit?.(post) },
+                        { text: 'Delete', onPress: handleDeletePress, style: 'destructive' },
+                    ]
+                );
+            }
         } else {
-            Alert.alert(
-                'Post Options',
-                'Choose an action',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Edit', onPress: () => onEdit?.(post) },
-                    { text: 'Delete', onPress: handleDeletePress, style: 'destructive' },
-                ]
-            );
+            // Non-author options: Report
+            if (Platform.OS === 'ios') {
+                ActionSheetIOS.showActionSheetWithOptions(
+                    {
+                        options: ['Cancel', 'Report Post'],
+                        destructiveButtonIndex: 1,
+                        cancelButtonIndex: 0,
+                        userInterfaceStyle: isDark ? 'dark' : 'light',
+                    },
+                    (buttonIndex) => {
+                        if (buttonIndex === 1) {
+                            setShowReportModal(true);
+                        }
+                    }
+                );
+            } else {
+                Alert.alert(
+                    'Post Options',
+                    'Choose an action',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Report', onPress: () => setShowReportModal(true), style: 'destructive' },
+                    ]
+                );
+            }
         }
     };
 
@@ -126,7 +164,7 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                     </View>
                 </TouchableOpacity>
 
-                {isAuthor && !compact && (
+                {!compact && (
                     <TouchableOpacity onPress={handleOptionsPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                         <Ionicons name="ellipsis-horizontal" size={20} color={theme.subtext} />
                     </TouchableOpacity>
@@ -198,6 +236,15 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                     </TouchableOpacity>
                 </View>
             )}
+
+            {/* Report Modal */}
+            <ReportModal
+                visible={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                targetType="post"
+                targetId={post.id}
+                targetName={`${post.author.firstName} ${post.author.lastName}`}
+            />
         </View>
     );
 }

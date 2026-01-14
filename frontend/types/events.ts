@@ -1,6 +1,17 @@
 // types/events.ts
 
 // UI-friendly Event type (mapped from EventRow)
+export const EVENT_TAGS = {
+  TYPE: ['GBM', 'Workshop', 'Social', 'Corporate', 'Conference'],
+  FOCUS: ['Technical', 'Professional', 'Academic', 'Volunteering'],
+  PERKS: ['Food Provided']
+} as const;
+
+export type EventTag =
+  | typeof EVENT_TAGS.TYPE[number]
+  | typeof EVENT_TAGS.FOCUS[number]
+  | typeof EVENT_TAGS.PERKS[number];
+
 export interface Event {
   id: string; // event_id from database
   title: string; // name from database
@@ -12,7 +23,7 @@ export interface Event {
   latitude?: number;
   longitude?: number;
   coverImageUrl?: string; // cover_image_url from database
-  tags: string[];
+  tags: EventTag[];
   status: 'upcoming' | 'past';
 }
 

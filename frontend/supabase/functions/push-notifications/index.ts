@@ -65,20 +65,21 @@ Deno.serve(async (req) => {
 
       console.log("User authenticated:", user.id)
 
-      const { data: adminRole, error: roleError } = await supabase
+      const { data: adminRoles, error: roleError } = await supabase
         .from('admin_roles')
-        .select('id')
+        .select('id, role_type')
         .eq('user_id', user.id)
+        .eq('role_type', 'super_admin')
         .is('revoked_at', null)
-        .maybeSingle()
+        .limit(1)
 
       if (roleError) {
         console.error("Role check error:", roleError)
       }
 
-      if (!adminRole) {
-        console.error("User is not an admin:", user.id)
-        return new Response(JSON.stringify({ success: false, error: 'Forbidden: Admin Access Required' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (!adminRoles || adminRoles.length === 0) {
+        console.error("User is not a super admin:", user.id)
+        return new Response(JSON.stringify({ success: false, error: 'Forbidden: Super Admin Access Required' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
 
       console.log("Admin role confirmed")

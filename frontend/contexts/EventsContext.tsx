@@ -6,11 +6,12 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { eventsService } from '../services/events.service';
 import { adminService } from '../services/admin.service';
 import { adminEventsService, CreateEventData } from '../services/adminEvents.service';
 import { supabase, EventRow } from '../lib/supabase';
-import { Event } from '../types/events';
+import { Event, EventTag } from '../types/events';
 import { mapSupabaseError } from '../types/errors';
 
 // State shape
@@ -18,6 +19,7 @@ interface EventsState {
   events: Event[];
   isAdminMode: boolean;
   isCurrentUserAdmin: boolean;
+  isCurrentUserSuperAdmin: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -29,6 +31,7 @@ type EventsAction =
   | { type: 'DELETE_EVENT'; payload: string }
   | { type: 'TOGGLE_ADMIN_MODE' }
   | { type: 'SET_ADMIN_STATUS'; payload: boolean }
+  | { type: 'SET_SUPER_ADMIN_STATUS'; payload: boolean }
   | { type: 'SET_EVENTS'; payload: Event[] }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null };
@@ -78,6 +81,11 @@ function eventsReducer(state: EventsState, action: EventsAction): EventsState {
         ...state,
         isCurrentUserAdmin: action.payload,
       };
+    case 'SET_SUPER_ADMIN_STATUS':
+      return {
+        ...state,
+        isCurrentUserSuperAdmin: action.payload,
+      };
     case 'SET_EVENTS':
       return {
         ...state,
@@ -112,7 +120,7 @@ function mapEventRowToEvent(row: EventRow): Event {
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
-    tags: row.tags ?? [],
+    tags: (row.tags as EventTag[]) ?? [],
     status: isPast ? 'past' : 'upcoming',
   };
 }
@@ -123,9 +131,12 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     events: [],
     isAdminMode: false,
     isCurrentUserAdmin: false,
+    isCurrentUserSuperAdmin: false,
     isLoading: true,
     error: null,
   });
+
+  const { session } = useAuth();
 
   const addEvent = (event: Event) => {
     dispatch({ type: 'ADD_EVENT', payload: event });
@@ -214,9 +225,15 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Initial fetch and listen for auth changes
   useEffect(() => {
-    refetchEvents();
+    if (session?.user?.id) {
+      console.log('[EventsContext] 👤 User authenticated, fetching events...');
+      refetchEvents();
+    }
+  }, [session?.user?.id, refetchEvents]);
 
+  useEffect(() => {
     // Check admin status
     const checkAdminStatus = async () => {
       console.log('[EventsContext] Checking admin status...');
@@ -226,9 +243,19 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         console.log('[EventsContext] Setting admin status to:', response.data);
         dispatch({ type: 'SET_ADMIN_STATUS', payload: response.data });
       }
+
+      // Check super admin status
+      const superAdminResponse = await adminService.isCurrentUserSuperAdmin();
+      if (superAdminResponse.success && superAdminResponse.data !== undefined) {
+        console.log('[EventsContext] Setting super admin status to:', superAdminResponse.data);
+        dispatch({ type: 'SET_SUPER_ADMIN_STATUS', payload: superAdminResponse.data });
+      }
     };
-    checkAdminStatus();
-  }, [refetchEvents]);
+
+    if (session?.user?.id) {
+      checkAdminStatus();
+    }
+  }, [session?.user?.id]);
 
   return (
     <EventsContext.Provider
@@ -236,6 +263,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         events: state.events,
         isAdminMode: state.isAdminMode,
         isCurrentUserAdmin: state.isCurrentUserAdmin,
+        isCurrentUserSuperAdmin: state.isCurrentUserSuperAdmin,
         isLoading: state.isLoading,
         error: state.error,
         addEvent,
