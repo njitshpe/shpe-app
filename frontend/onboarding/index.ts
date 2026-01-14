@@ -16,4 +16,3 @@ export { default as AlumniIdentityStep } from './screens/alumni/AlumniIdentitySt
 export { default as AlumniProfessionalStep } from './screens/alumni/AlumniProfessionalStep.native';
 
 // Guest screens
-export { default as GuestAffiliationStep } from './screens/guest/GuestAffiliationStep.native';

@@ -30,12 +30,18 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     // Wait for auth to finish loading
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding = segments[0] === 'onboarding';
-    const inAlumniOnboarding = segments[0] === 'alumni-onboarding';
-    const inGuestOnboarding = segments[0] === 'guest-onboarding';
-    const inRoleSelection = segments[0] === 'role-selection';
-    const inApp = segments[0] === '(app)' || segments.includes('(tabs)');
+    // NOTE: Prefer pathname checks over segments for robustness across expo-router versions.
+    const inAuthGroup = segments[0] === '(auth)' || pathname === '/login' || pathname === '/signup';
+    const inOnboarding = segments[0] === 'onboarding' || pathname === '/onboarding';
+    const inAlumniOnboarding = segments[0] === 'alumni-onboarding' || pathname === '/alumni-onboarding';
+    const inGuestOnboarding = segments[0] === 'guest-onboarding' || pathname === '/guest-onboarding';
+    const inRoleSelection = segments[0] === 'role-selection' || pathname === '/role-selection';
+    const inRoot = pathname === '/';
+    const inApp =
+      (segments[0] === '(app)' || segments.includes('(tabs)')) &&
+      !inRoot;
+    const isNonAppRoute = inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection || inRoot;
+    const isInApp = !isNonAppRoute || inApp;
 
     const userType = user?.user_metadata?.user_type;
     const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
@@ -49,8 +55,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (__DEV__) {
       console.log('[AuthGuard] Debug:', {
         hasSession: !!session,
+        pathname,
+        segments,
         inAuthGroup,
-        inApp,
+        inApp: isInApp,
         segment: segments[0],
         onboardingCompleted,
         userType,
@@ -113,7 +121,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         return;
       }
       // If we are not in app (e.g. root), go to home
-      if (!inApp) {
+      if (!isInApp) {
         replaceIfNeeded('/home');
         return;
       }
