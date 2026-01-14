@@ -107,17 +107,12 @@ function mapEventRowToEvent(row: EventRow): Event {
     description: row.description ?? undefined,
     startTimeISO: row.start_time,
     endTimeISO: row.end_time,
-    checkInOpens: row.check_in_opens ?? undefined,
-    checkInCloses: row.check_in_closes ?? undefined,
     locationName: row.location_name,
-    address: row.location ?? undefined,
+    address: row.location_address ?? undefined,
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
-    hostName: row.host_name ?? undefined,
     tags: row.tags ?? [],
-    priceLabel: row.price_label ?? undefined,
-    capacityLabel: undefined,
     status: isPast ? 'past' : 'upcoming',
   };
 }
