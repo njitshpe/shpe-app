@@ -17,9 +17,8 @@ interface CheckInPayload {
 }
 
 interface EventRow {
-  id: number;
+  id: string; // Changed to UUID
   event_id: string;
-  max_attendees: number | null;
 }
 
 serve(async (req) => {
@@ -159,9 +158,8 @@ serve(async (req) => {
     // Get event details
     const { data: event, error: eventError } = await supabaseClient
       .from("events")
-      .select("id, event_id, max_attendees")
+      .select("id, event_id")
       .eq("event_id", eventId)
-      .eq("is_archived", false)
       .eq("is_active", true)
       .single<EventRow>();
 
@@ -178,15 +176,15 @@ serve(async (req) => {
       );
     }
 
-    // Check if user already checked in
+    // Check if user already checked in (checked_in_at is NOT NULL)
     const { data: existingCheckIn } = await supabaseClient
       .from("event_attendance")
-      .select("id")
+      .select("checked_in_at")
       .eq("event_id", event.id)
       .eq("user_id", user.id)
       .single();
 
-    if (existingCheckIn) {
+    if (existingCheckIn && existingCheckIn.checked_in_at) {
       return new Response(
         JSON.stringify({
           error: "Already checked in to this event",
@@ -199,39 +197,17 @@ serve(async (req) => {
       );
     }
 
-    // Check max attendees if specified
-    if (event.max_attendees) {
-      const { count, error: countError } = await supabaseClient
-        .from("event_attendance")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", event.id);
-
-      if (countError) {
-        console.error("Error counting attendees:", countError);
-      } else if (count !== null && count >= event.max_attendees) {
-        return new Response(
-          JSON.stringify({
-            error: "Event is at maximum capacity",
-            errorCode: "MAX_CAPACITY_REACHED",
-          }),
-          {
-            status: 403,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-    }
-
-    // Create check-in record
+    // Create or Update check-in record (handles RSVP'd users)
     const { data: attendance, error: attendanceError } = await supabaseClient
       .from("event_attendance")
-      .insert({
-        event_id: event.id,
-        user_id: user.id,
-        check_in_method: "qr_scan",
-        latitude: latitude || null,
-        longitude: longitude || null,
-      })
+      .upsert(
+        {
+          event_id: event.id,
+          user_id: user.id,
+          checked_in_at: new Date().toISOString(),
+        },
+        { onConflict: "event_id, user_id" }
+      )
       .select()
       .single();
 
