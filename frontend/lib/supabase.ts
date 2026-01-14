@@ -34,6 +34,7 @@ export interface EventRow {
   cover_image_url: string | null;
   tags: string[];
   is_active: boolean;
+  registration_questions?: any[];
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
