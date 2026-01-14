@@ -236,7 +236,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 name: name.trim(),
                 description: description.trim() || undefined,
                 location_name: locationName.trim(),
-                location: location.trim() || undefined,
+                location_address: location.trim() || undefined,
                 start_time: startDate.toISOString(),
                 end_time: endDate.toISOString(),
                 cover_image_url: posterUrl || undefined,
