@@ -68,7 +68,7 @@ export interface BaseProfile {
     updated_at: string;
 
     // Core fields stored as columns (shared across types)
-    university?: string; // University affiliation
+    university?: string; // University (column)
     major?: string; // Major/field of study (column, not in profile_data)
     graduation_year?: number; // Graduation year (column, not in profile_data)
     ucid?: string; // UCID for verification (column, not in profile_data)

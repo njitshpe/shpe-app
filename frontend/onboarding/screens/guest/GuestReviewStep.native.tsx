@@ -10,6 +10,8 @@ export interface FormData {
   firstName: string;
   lastName: string;
   university: string;
+  major: string;
+  graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
   interests: string[];
   phoneNumber: string;
@@ -43,6 +45,15 @@ export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) 
     if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
+
+  const detailsLine = (() => {
+    const major = data.major?.trim();
+    const year = data.graduationYear?.trim();
+    if (major && year) return `${major} • Class of ${year}`;
+    if (major) return major;
+    if (year) return `Class of ${year}`;
+    return '';
+  })();
 
   return (
     <View style={styles.outerContainer}>
@@ -99,14 +110,19 @@ export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) 
               </LinearGradient>
             </View>
 
-            {/* Name & Affiliation */}
+            {/* Name & Details */}
             <View style={styles.identitySection}>
               <Text style={[styles.fullName, { color: theme.text }]}>
                 {data.firstName} {data.lastName}
               </Text>
               <Text style={[styles.roleText, { color: accent }]}>Guest Member</Text>
+              {detailsLine ? (
+                <Text style={[styles.detailsText, { color: theme.subtext }]}>
+                  {detailsLine}
+                </Text>
+              ) : null}
               {data.university && (
-                <Text style={[styles.affiliationText, { color: theme.subtext }]}>
+                <Text style={[styles.universityText, { color: theme.subtext }]}>
                   {data.university}
                 </Text>
               )}
@@ -255,7 +271,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
-  affiliationText: {
+  detailsText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: SPACING.xs,
+  },
+  universityText: {
     fontSize: 14,
     textAlign: 'center',
   },

@@ -146,17 +146,20 @@ export default function BlockedUsersScreen() {
     const displayName = `${profile.first_name} ${profile.last_name}`;
     const initials = `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
 
-    let subtitle = '';
-    if (profile.user_type === 'student') {
-      subtitle = `${profile.major} • Class of ${profile.expected_graduation_year}`;
-    } else if (profile.user_type === 'alumni') {
-      subtitle = profile.current_position && profile.current_company
-        ? `${profile.current_position} at ${profile.current_company}`
-        : profile.major;
-    } else if (profile.user_type === 'guest') {
-      subtitle = profile.university;
-    } else if (profile.user_type === 'other') {
-      subtitle = profile.affiliation;
+    const major = profile.major?.trim();
+    const graduationYear = profile.graduation_year;
+
+    const fallbackSubtitle = (() => {
+      if (major && graduationYear) return `${major} • Class of ${graduationYear}`;
+      if (major) return major;
+      return 'Guest Member';
+    })();
+
+    let subtitle = fallbackSubtitle;
+    if (profile.user_type === 'alumni') {
+      const jobTitle = profile.job_title?.trim();
+      const company = profile.company?.trim();
+      subtitle = jobTitle && company ? `${jobTitle} at ${company}` : fallbackSubtitle;
     }
 
     return (

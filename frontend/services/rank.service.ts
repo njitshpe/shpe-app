@@ -189,7 +189,7 @@ class RankService {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('rank_points, rank')
+        .select('rank_points')
         .eq('id', userId)
         .maybeSingle();
 
@@ -214,7 +214,7 @@ class RankService {
 
       // Handle case where rank columns don't exist yet or are null
       const rankPoints = data?.rank_points ?? 0;
-      const rank = (data?.rank as UserRank) ?? getRankFromPoints(rankPoints);
+      const rank = getRankFromPoints(rankPoints);
 
       return {
         success: true,
@@ -242,7 +242,7 @@ class RankService {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('rank_points, rank')
+        .select('rank_points')
         .eq('id', userId)
         .maybeSingle();
 
@@ -265,7 +265,7 @@ class RankService {
       }
 
       const rankPoints = data?.rank_points ?? 0;
-      const rank = (data?.rank as UserRank) ?? getRankFromPoints(rankPoints);
+      const rank = getRankFromPoints(rankPoints);
 
       return {
         success: true,

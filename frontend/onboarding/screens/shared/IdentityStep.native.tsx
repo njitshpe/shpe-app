@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SearchableSelectionModal from '../../components/SearchableSelectionModal';
 import { NJIT_MAJORS } from '@/constants/majors';
+import { UNIVERSITIES } from '@/constants/universities';
 import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
 import { useProfilePhoto } from '@/hooks/media/useProfilePhoto';
 
@@ -28,35 +29,46 @@ const MAX_GRAD_YEAR = CURRENT_YEAR + 8;
 const YEAR_ITEM_HEIGHT = 36;
 const YEAR_WHEEL_VISIBLE_ITEMS = 3;
 
-const identitySchema = z.object({
-  firstName: z.string().trim().min(1, 'First name is required'),
-  lastName: z.string().trim().min(1, 'Last name is required'),
-  major: z
-    .string()
-    .trim()
-    .refine(
-      (value) =>
-        NJIT_MAJORS.includes(value as any),
-      { message: 'Select a major from the list' }
-    ),
-  graduationYear: z
-    .string()
-    .trim()
-    .regex(/^\d{4}$/, 'Graduation year must be 4 digits')
-    .refine(
-      (year) => {
-        const numYear = parseInt(year, 10);
-        return numYear >= CURRENT_YEAR && numYear <= MAX_GRAD_YEAR;
-      },
-      { message: `Graduation year must be between ${CURRENT_YEAR} and ${MAX_GRAD_YEAR}` }
-    ),
-  // Base schema doesn't strictly require UCID yet, we refine it conditionally
-  ucid: z.string().optional(),
-});
+const getIdentitySchema = (options: { isGuestMode: boolean }) => {
+  const majorSchema = options.isGuestMode
+    ? z.string().trim().min(2, 'Major is required')
+    : z
+        .string()
+        .trim()
+        .refine((value) => NJIT_MAJORS.includes(value as any), {
+          message: 'Select a major from the list',
+        });
+
+  const shape: Record<string, z.ZodTypeAny> = {
+    firstName: z.string().trim().min(1, 'First name is required'),
+    lastName: z.string().trim().min(1, 'Last name is required'),
+    major: majorSchema,
+    graduationYear: z
+      .string()
+      .trim()
+      .regex(/^\d{4}$/, 'Graduation year must be 4 digits')
+      .refine(
+        (year) => {
+          const numYear = parseInt(year, 10);
+          return numYear >= CURRENT_YEAR && numYear <= MAX_GRAD_YEAR;
+        },
+        { message: `Graduation year must be between ${CURRENT_YEAR} and ${MAX_GRAD_YEAR}` }
+      ),
+    // Base schema doesn't strictly require UCID yet, we refine it conditionally
+    ucid: z.string().optional(),
+  };
+
+  if (options.isGuestMode) {
+    shape.university = z.string().trim().min(2, 'University or organization is required');
+  }
+
+  return z.object(shape);
+};
 
 export interface FormData {
   firstName: string;
   lastName: string;
+  university?: string;
   ucid?: string;
   major: string;
   graduationYear: string;
@@ -68,9 +80,16 @@ interface IdentityStepProps {
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
   showUcid?: boolean;
+  isGuestMode?: boolean;
 }
 
-export default function IdentityStep({ data, update, onNext, showUcid = false }: IdentityStepProps) {
+export default function IdentityStep({
+  data,
+  update,
+  onNext,
+  showUcid = false,
+  isGuestMode = false,
+}: IdentityStepProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -78,10 +97,12 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
   const ucidRef = useRef<TextInput>(null);
+  const majorRef = useRef<TextInput>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const yearScrollRef = useRef<ScrollView>(null);
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const [isMajorModalVisible, setIsMajorModalVisible] = useState(false);
+  const [isUniversityModalVisible, setIsUniversityModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const availableYears = Array.from(
@@ -144,6 +165,11 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
     setError(null);
   };
 
+  const handleUniversitySelect = (university: string) => {
+    update({ university });
+    setError(null);
+  };
+
   const handlePhotoOptions = () => {
     pickPhoto((uri) => {
       // Create a minimal asset object since the hook provides the URI
@@ -161,7 +187,7 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
   };
 
   const handleNext = () => {
-    const payload = {
+    const payload: Record<string, any> = {
       firstName: data.firstName?.trim() ?? '',
       lastName: data.lastName?.trim() ?? '',
       ucid: data.ucid?.trim() ?? '',
@@ -170,7 +196,11 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
     };
 
     // 1. Basic Schema Check
-    const result = identitySchema.safeParse(payload);
+    if (isGuestMode) {
+      payload.university = data.university?.trim() ?? '';
+    }
+
+    const result = getIdentitySchema({ isGuestMode }).safeParse(payload);
     if (!result.success) {
       setError(result.error.issues[0]?.message ?? 'Please complete all fields.');
       return;
@@ -204,6 +234,8 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
     !data.firstName?.trim() ||
     !data.lastName?.trim() ||
     (showUcid && !data.ucid?.trim()) ||
+    (isGuestMode && !data.university?.trim()) ||
+    !data.major?.trim() ||
     !data.graduationYear?.trim();
 
   // Dynamic colors based on theme
@@ -290,11 +322,54 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
                   placeholderTextColor={colors.textSecondary}
                   style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                   returnKeyType="done"
-                  onSubmitEditing={() => ucidRef.current?.focus()}
+                  onSubmitEditing={() => {
+                    if (showUcid) {
+                      ucidRef.current?.focus();
+                      return;
+                    }
+                    if (isGuestMode) {
+                      majorRef.current?.focus();
+                    }
+                  }}
                   blurOnSubmit={false}
                 />
               </View>
             </View>
+
+            {/* University/Organization (Guest) */}
+            {isGuestMode && (
+              <View style={styles.fieldContainer}>
+                <Text style={[styles.label, { color: colors.text }]}>University or Organization</Text>
+                <TouchableOpacity
+                  onPress={() => setIsUniversityModalVisible(true)}
+                  style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[
+                      styles.selectInputText,
+                      { color: data.university ? colors.text : colors.textSecondary },
+                    ]}
+                  >
+                    {data.university || 'Select university or organization'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* University Selection Modal */}
+            {isGuestMode && (
+              <SearchableSelectionModal
+                visible={isUniversityModalVisible}
+                onClose={() => setIsUniversityModalVisible(false)}
+                onSelect={handleUniversitySelect}
+                options={UNIVERSITIES}
+                selectedValue={data.university}
+                title="Select University or Organization"
+                placeholder="Search universities (e.g., Rutgers)"
+                emptyMessage="No universities found"
+              />
+            )}
 
             {/* UCID Input */}
             {showUcid && (
@@ -323,28 +398,53 @@ export default function IdentityStep({ data, update, onNext, showUcid = false }:
             {/* Major Selection */}
             <View style={styles.fieldContainer}>
               <Text style={[styles.label, { color: colors.text }]}>Major</Text>
-              <TouchableOpacity
-                onPress={() => setIsMajorModalVisible(true)}
-                style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              >
-                <Text style={[styles.selectInputText, { color: data.major ? colors.text : colors.textSecondary }]}>
-                  {data.major || 'Select your major'}
-                </Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
+              {isGuestMode ? (
+                <TextInput
+                  ref={majorRef}
+                  value={data.major ?? ''}
+                  onChangeText={(text) => {
+                    update({ major: text });
+                    setError(null);
+                  }}
+                  placeholder="e.g., Computer Science"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[
+                    styles.input,
+                    { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
+                  ]}
+                  returnKeyType="done"
+                />
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setIsMajorModalVisible(true)}
+                  style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[
+                      styles.selectInputText,
+                      { color: data.major ? colors.text : colors.textSecondary },
+                    ]}
+                  >
+                    {data.major || 'Select your major'}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Major Selection Modal */}
-            <SearchableSelectionModal
-              visible={isMajorModalVisible}
-              onClose={() => setIsMajorModalVisible(false)}
-              onSelect={handleMajorSelect}
-              options={NJIT_MAJORS}
-              selectedValue={data.major}
-              title="Select Your Major"
-              placeholder="Search majors (e.g., Comp Sci)"
-              emptyMessage="No majors found"
-            />
+            {!isGuestMode && (
+              <SearchableSelectionModal
+                visible={isMajorModalVisible}
+                onClose={() => setIsMajorModalVisible(false)}
+                onSelect={handleMajorSelect}
+                options={NJIT_MAJORS}
+                selectedValue={data.major}
+                title="Select Your Major"
+                placeholder="Search majors (e.g., Comp Sci)"
+                emptyMessage="No majors found"
+              />
+            )}
 
             {/* Graduation Year */}
             <View style={styles.fieldContainer}>

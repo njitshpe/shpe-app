@@ -15,7 +15,7 @@ export interface LeaderboardEntry {
   displayName: string;
   /** User's major (optional, present for students/alumni) */
   major?: string;
-  /** Class year - expected_graduation_year for students, graduation_year for alumni */
+  /** Class year (graduation_year column) */
   classYear?: number;
   /** Type of user */
   userType: UserType;

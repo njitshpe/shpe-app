@@ -21,7 +21,9 @@ interface GuestOnboardingFormData {
   // Step 0: Identity
   firstName: string;
   lastName: string;
-  university: string; // Moved here from affiliation step
+  university: string;
+  major: string;
+  graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
   // Step 1: Interests
   interests: string[];
@@ -43,6 +45,8 @@ export default function GuestOnboardingWizard() {
     firstName: '',
     lastName: '',
     university: '',
+    major: '',
+    graduationYear: DEFAULT_GRAD_YEAR,
     profilePhoto: null,
     // Step 1: Interests
     interests: [],
@@ -170,6 +174,8 @@ export default function GuestOnboardingWizard() {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         university: formData.university.trim(),
+        major: formData.major.trim(),
+        graduation_year: parseInt(formData.graduationYear, 10),
         bio: '',
         interests: mappedInterests,
         phone_number: formData.phoneNumber?.trim() || undefined,
@@ -240,21 +246,14 @@ export default function GuestOnboardingWizard() {
                   data={{
                     firstName: formData.firstName,
                     lastName: formData.lastName,
-                    major: formData.university, // Use major field for university (temporary workaround)
-                    graduationYear: '', // Not used for guests
+                    university: formData.university,
+                    major: formData.major,
+                    graduationYear: formData.graduationYear,
                     profilePhoto: formData.profilePhoto,
                   }}
-                  update={(fields: any) => {
-                    // Map major back to university
-                    const mapped = { ...fields };
-                    if ('major' in fields) {
-                      mapped.university = fields.major;
-                      delete mapped.major;
-                    }
-                    updateFormData(mapped);
-                  }}
+                  update={updateFormData}
                   onNext={nextStep}
-                  isGuestMode={true}
+                  isGuestMode
                 />
               </MotiView>
             )}
@@ -293,6 +292,8 @@ export default function GuestOnboardingWizard() {
                     firstName: formData.firstName,
                     lastName: formData.lastName,
                     university: formData.university,
+                    major: formData.major,
+                    graduationYear: formData.graduationYear,
                     profilePhoto: formData.profilePhoto,
                     interests: formData.interests,
                     phoneNumber: formData.phoneNumber,

@@ -16,7 +16,6 @@ interface UserProfileRow {
   last_name: string | null;
   user_type: UserType | null;
   major?: string;
-  expected_graduation_year?: number;
   graduation_year?: number;
   profile_picture_url?: string;
   rank_points?: number;
@@ -148,13 +147,8 @@ class LeaderboardService {
     // Construct display name from first and last name
     const displayName = `${row.first_name} ${row.last_name}`.trim();
 
-    // Determine class year based on user type
-    let classYear: number | undefined;
-    if (row.user_type === 'student' && row.expected_graduation_year) {
-      classYear = row.expected_graduation_year;
-    } else if (row.user_type === 'alumni' && row.graduation_year) {
-      classYear = row.graduation_year;
-    }
+    // Determine class year based on graduation_year column
+    const classYear = row.graduation_year;
 
     return {
       id: row.id,
