@@ -1,64 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Attendee, EventAttendeesData } from '@/types/attendee';
-// import { supabase } from '../lib/supabase'; // Uncomment when ready to use Supabase
-
-/**
- * Mock attendees data for development
- * TODO: Replace with Supabase query when backend is ready
- */
-const MOCK_ATTENDEES: Record<string, Attendee[]> = {
-  'evt-001': [
-    {
-      id: '1',
-      name: 'Taylor Rock',
-      avatarUrl: 'https://i.pravatar.cc/150?img=1',
-      major: 'Computer Science',
-      year: 'Senior',
-      role: 'Member',
-    },
-    {
-      id: '2',
-      name: 'Moitse Moatshe',
-      avatarUrl: 'https://i.pravatar.cc/150?img=2',
-      major: 'Electrical Engineering',
-      year: 'Junior',
-      role: 'Member',
-    },
-    {
-      id: '3',
-      name: 'Mrudhanee Sharma',
-      avatarUrl: 'https://i.pravatar.cc/150?img=3',
-      major: 'Mechanical Engineering',
-      year: 'Sophomore',
-      role: 'Officer',
-    },
-    {
-      id: '4',
-      name: 'Ronit',
-      avatarUrl: 'https://i.pravatar.cc/150?img=4',
-      major: 'Software Engineering',
-      year: 'Senior',
-      role: 'Member',
-    },
-    // Generate additional mock attendees
-    ...Array.from({ length: 169 }, (_, i) => ({
-      id: `${i + 5}`,
-      name: `Student ${i + 5}`,
-      avatarUrl: i % 3 === 0 ? `https://i.pravatar.cc/150?img=${(i % 70) + 1}` : undefined,
-      major: ['Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering'][i % 4],
-      year: ['Freshman', 'Sophomore', 'Junior', 'Senior'][i % 4],
-      role: 'Member',
-    })),
-  ],
-  'evt-002': Array.from({ length: 28 }, (_, i) => ({
-    id: `${i + 1}`,
-    name: `Attendee ${i + 1}`,
-    avatarUrl: i % 2 === 0 ? `https://i.pravatar.cc/150?img=${(i % 70) + 1}` : undefined,
-    major: 'Engineering',
-    year: 'Junior',
-    role: 'Member',
-  })),
-};
+import { registrationService } from '@/services';
 
 /**
  * Hook to fetch event attendees
@@ -80,46 +22,26 @@ export function useEventAttendees(eventId: string): EventAttendeesData {
       try {
         setData((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // TODO: Replace with Supabase query
-        // const { data: registrations, error } = await supabase
-        //   .from('event_registrations')
-        //   .select(`
-        //     id,
-        //     user:user_profiles (
-        //       id,
-        //       first_name,
-        //       last_name,
-        //       profile_picture_url,
-        //       profile_data
-        //     )
-        //   `)
-        //   .eq('event_id', eventId);
-        //
-        // if (error) throw error;
-        //
-        // const attendees: Attendee[] = registrations.map((reg) => {
-        //   const graduationYear = reg.user.graduation_year;
-        //   const yearLabel = graduationYear ? `Class of ${graduationYear}` : undefined;
-        //
-        //   return {
-        //     id: reg.user.id,
-        //     name: `${reg.user.first_name} ${reg.user.last_name}`,
-        //     avatarUrl: reg.user.profile_picture_url,
-        //     major: reg.user.major,
-        //     year: yearLabel,
-        //     role: 'Member', // TODO: Add role to user_profiles or separate table
-        //   };
-        // });
-
-        // Use mock data
-        const attendees = MOCK_ATTENDEES[eventId] || [];
+        // Fetch count and list in parallel
+        const [count, attendeesData] = await Promise.all([
+          registrationService.getRegistrationCount(eventId),
+          registrationService.getAttendees(eventId, 20) // Fetch top 20 for preview/list
+        ]);
 
         if (mounted) {
+          // Map service data to UI format
+          const attendees: Attendee[] = attendeesData.map(a => ({
+            id: a.user_id,
+            name: a.profile ? `${a.profile.first_name} ${a.profile.last_name}` : 'SHPE Member',
+            avatarUrl: a.profile?.profile_picture_url || undefined,
+            // Fallback for missing profile fields if they aren't in the generic Profile type
+            major: (a.profile as any)?.major || undefined,
+            year: (a.profile as any)?.year || undefined,
+            role: 'Member' // Default role for now
+          }));
+
           setData({
-            totalCount: attendees.length,
+            totalCount: count,
             attendees,
             isLoading: false,
             error: null,
@@ -153,6 +75,8 @@ export function useEventAttendees(eventId: string): EventAttendeesData {
  * More efficient than fetching all attendees when only showing a preview
  */
 export function useEventAttendeesPreview(eventId: string, previewCount: number = 4): EventAttendeesData {
+  // Currently re-uses the main hook, but limits the displayed list. 
+  // Optimization: In the future, pass previewCount to the service to limit SQL query.
   const fullData = useEventAttendees(eventId);
 
   return {

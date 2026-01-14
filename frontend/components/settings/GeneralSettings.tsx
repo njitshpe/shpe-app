@@ -11,12 +11,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 
 // --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAnonKey } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Disclaimer } from './Disclaimer';
+import { LEGAL_URLS } from '@/constants/legal';
+import { DeleteAccountModal } from './DeleteAccountModal';
+import type { DeleteAccountResponse } from '@/types/deleteAccount';
 
 export const GeneralSettings = () => {
   const router = useRouter();
@@ -25,6 +30,9 @@ export const GeneralSettings = () => {
 
   // State for single notification permission
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  // State for delete account modal
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   useEffect(() => {
     checkPermissionStatus();
@@ -90,9 +98,104 @@ export const GeneralSettings = () => {
     ]);
   };
 
+  // --- DELETE ACCOUNT ---
+  const handleDeleteAccount = async () => {
+    try {
+      // Get current user session and refresh if needed
+      let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (session?.expires_at) {
+        const now = Math.floor(Date.now() / 1000);
+        if (session.expires_at - now < 300) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            Alert.alert('Error', 'Session expired. Please log in again.');
+            return;
+          }
+          session = refreshData.session;
+        }
+      }
+
+      if (sessionError || !session?.access_token) {
+        Alert.alert('Error', 'You must be logged in to delete your account.');
+        return;
+      }
+
+      // Call the delete-account edge function
+      // In React Native, we must explicitly pass the Authorization header
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${session.access_token}`,
+      };
+
+      if (supabaseAnonKey) {
+        headers.apikey = supabaseAnonKey;
+      }
+
+      const { data, error } = await supabase.functions.invoke<DeleteAccountResponse>(
+        'delete-account',
+        { headers }
+      );
+
+      if (error) {
+        console.error('Delete account error:', error);
+        Alert.alert(
+          'Deletion Failed',
+          'An error occurred while deleting your account. Please try again or contact support.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      if (!data?.success) {
+        console.error('Delete account failed:', data);
+        Alert.alert(
+          'Deletion Failed',
+          data?.error || 'Unable to delete account. Please try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Success - sign out and navigate to login
+      console.log('Account deleted successfully:', data.deletionSummary);
+
+      Alert.alert(
+        'Account Deleted',
+        'Your account has been permanently deleted. You will now be signed out.',
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await supabase.auth.signOut();
+              router.dismissAll();
+              router.replace('/(auth)/login');
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    } catch (error) {
+      console.error('Delete account exception:', error);
+      Alert.alert(
+        'Unexpected Error',
+        'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   if (loading) {
     return <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 50 }} />;
   }
+
+  const appName = Constants.expoConfig?.name ?? 'SHPE NJIT';
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+  const buildNumber =
+    Constants.expoConfig?.ios?.buildNumber ??
+    (Constants.expoConfig?.android?.versionCode
+      ? String(Constants.expoConfig.android.versionCode)
+      : undefined);
+  const versionLabel = `Version ${version}`;
 
   const dynamicStyles = {
     container: { backgroundColor: theme.background },
@@ -177,6 +280,108 @@ export const GeneralSettings = () => {
         </TouchableOpacity>
       </View>
 
+      {/* --- SUPPORT --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => Linking.openURL('mailto:njitshpe@gmail.com?subject=App Support Request')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E0F2FE' }]}>
+              <Ionicons name="mail-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Report or ask questions - njitshpe@gmail.com
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
+      {/* --- LEGAL --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E8F5E9' }]}>
+              <Ionicons name="document-text-outline" size={20} color={theme.text} />
+            </View>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E3F2FD' }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={theme.text} />
+            </View>
+            <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
+      {/* --- PRIVACY --- */}
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
+      </View>
+      <View style={[styles.card, dynamicStyles.card]}>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push('/(app)/settings/blocked-users')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEF3C7' }]}>
+              <Ionicons name="ban-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Manage users you have blocked
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => router.push('/(app)/settings/my-reports')}
+        >
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEE2E2' }]}>
+              <Ionicons name="flag-outline" size={20} color={theme.text} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                View reports you have submitted
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
+        </TouchableOpacity>
+      </View>
+
       {/* --- ACCOUNT --- */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
@@ -190,6 +395,23 @@ export const GeneralSettings = () => {
             <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
           </View>
         </TouchableOpacity>
+
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
+          <View style={styles.labelContainer}>
+            <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="trash-outline" size={20} color={theme.error} />
+            </View>
+            <View>
+              <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
+              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                Permanently delete your account and data
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={theme.error} />
+        </TouchableOpacity>
       </View>
 
       {/* --- RETURN BUTTON --- */}
@@ -200,10 +422,21 @@ export const GeneralSettings = () => {
         <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Return to Profile</Text>
       </TouchableOpacity>
 
-      <Disclaimer />
+      {/* --- FOOTER --- */}
+      <View style={styles.footer}>
+        <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
+        <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
+        <View style={styles.footerDisclaimer}>
+          <Disclaimer />
+        </View>
+      </View>
 
-      <Text style={styles.versionText}>Version 1.0.0</Text>
-      <View style={{ height: 40 }} />
+      {/* --- DELETE ACCOUNT MODAL --- */}
+      <DeleteAccountModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+        onConfirmDelete={handleDeleteAccount}
+      />
     </ScrollView>
   );
 };
@@ -263,12 +496,6 @@ const styles = StyleSheet.create({
     height: 1,
     marginLeft: 56,
   },
-  versionText: {
-    textAlign: 'center',
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginTop: 10,
-  },
   backButton: {
     marginTop: 30,
     marginHorizontal: 16,
@@ -307,5 +534,22 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 13,
     fontWeight: '600',
-  }
+  },
+  footer: {
+    marginTop: 28,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  footerAppName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  footerVersion: {
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  footerDisclaimer: {
+    width: '100%',
+  },
 });

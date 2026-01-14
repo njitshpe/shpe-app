@@ -10,17 +10,15 @@ import {
     ScrollView,
     Pressable,
     useColorScheme,
-    Modal,
-    SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthInput, AuthLogo } from '@/components/auth';
 import { getAuthBackgroundColors, getAuthPalette } from '@/constants/authTheme';
-import { LegalTextDisplay } from '@/components/legal/LegalTextDisplay';
-import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '@/constants/legal';
+import { LEGAL_URLS } from '@/constants/legal';
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -28,8 +26,6 @@ export default function SignupScreen() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [showTermsModal, setShowTermsModal] = useState(false);
-    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     const { signUp, signInWithGoogle } = useAuth();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';
@@ -110,6 +106,11 @@ export default function SignupScreen() {
                     {/* Title */}
                     <Text style={[styles.title, { color: palette.text }]}>Sign up Account</Text>
 
+                    {/* Account Requirement Explanation */}
+                    <Text style={[styles.helperText, { color: palette.subtext }]}>
+                        Join our network, RSVP to events, engage with members, and win points.
+                    </Text>
+
                     {/* Form */}
                     <View style={styles.form}>
                         <AuthInput
@@ -142,12 +143,12 @@ export default function SignupScreen() {
                             <Text
                                 style={[styles.checkboxLabel, { color: palette.subtext }]}
                             >
-                                By continuing, you accept our
-                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => setShowTermsModal(true)}>
-                                    {' '}Terms of Conditions
+                                By creating an account, you agree to our
+                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}>
+                                    {' '}Terms of Use
                                 </Text>
                                 {' '}and
-                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => setShowPrivacyModal(true)}>
+                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}>
                                     {' '}Privacy Policy
                                 </Text>
                             </Text>
@@ -208,56 +209,6 @@ export default function SignupScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-
-            {/* Terms & Conditions Modal */}
-            <Modal
-                visible={showTermsModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowTermsModal(false)}
-            >
-                <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDark ? '#001339' : '#FFFFFF' }]}>
-                    <View
-                        style={[
-                            styles.modalHeader,
-                            { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(11, 22, 48, 0.12)' },
-                        ]}
-                    >
-                        <Text style={[styles.modalTitle, { color: palette.text }]}>Terms of Conditions</Text>
-                        <TouchableOpacity onPress={() => setShowTermsModal(false)} style={styles.modalClose}>
-                            <Ionicons name="close" size={22} color={palette.text} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView contentContainerStyle={styles.modalContent}>
-                        <LegalTextDisplay sections={TERMS_OF_SERVICE} />
-                    </ScrollView>
-                </SafeAreaView>
-            </Modal>
-
-            {/* Privacy Policy Modal */}
-            <Modal
-                visible={showPrivacyModal}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                onRequestClose={() => setShowPrivacyModal(false)}
-            >
-                <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDark ? '#001339' : '#FFFFFF' }]}>
-                    <View
-                        style={[
-                            styles.modalHeader,
-                            { borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(11, 22, 48, 0.12)' },
-                        ]}
-                    >
-                        <Text style={[styles.modalTitle, { color: palette.text }]}>Privacy Policy</Text>
-                        <TouchableOpacity onPress={() => setShowPrivacyModal(false)} style={styles.modalClose}>
-                            <Ionicons name="close" size={22} color={palette.text} />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView contentContainerStyle={styles.modalContent}>
-                        <LegalTextDisplay sections={PRIVACY_POLICY} />
-                    </ScrollView>
-                </SafeAreaView>
-            </Modal>
         </LinearGradient>
     );
 }
@@ -280,8 +231,16 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#F5F8FF',
         textAlign: 'center',
-        marginBottom: 32,
+        marginBottom: 12,
         letterSpacing: 0.3,
+    },
+    helperText: {
+        fontSize: 14,
+        fontWeight: '400',
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 32,
+        paddingHorizontal: 16,
     },
     form: {
         flex: 1,
@@ -298,32 +257,6 @@ const styles = StyleSheet.create({
     linkText: {
         textDecorationLine: 'underline',
         fontWeight: '600',
-    },
-    modalContainer: {
-        flex: 1,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    modalClose: {
-        padding: 4,
-    },
-    modalContent: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    modalText: {
-        fontSize: 14,
-        lineHeight: 20,
     },
     signupButton: {
         borderRadius: 10,

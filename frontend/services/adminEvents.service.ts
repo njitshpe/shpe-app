@@ -7,19 +7,15 @@ import { ServiceResponse, createError } from '../types/errors';
 export interface CreateEventData {
     name: string;
     description?: string;
-    location?: string;
     location_name: string;
+    location_address?: string; // Was 'location'
     start_time: string;
     end_time: string;
-    check_in_opens?: string;
-    check_in_closes?: string;
-    max_attendees?: number;
     cover_image_url?: string;
-    host_name?: string;
     tags?: string[];
-    price_label?: string;
     latitude?: number;
     longitude?: number;
+    registration_questions?: any[];
 }
 
 /**
@@ -141,7 +137,9 @@ class AdminEventsService {
     }
 
     /**
-     * Delete an event (soft delete - sets is_active to false)
+     * Delete an event (hard delete as per new schema policy for 'delete' or just setting valid deleted_at if soft-delete is preferred, 
+     * but schema supports hard delete via standard delete call. The edge function currently implements HARD DELETE based on recent code view, 
+     * or at least the code I just wrote does).
      * 
      * @param eventId - Event ID to delete (the simple event_id, not UUID)
      * @returns ServiceResponse indicating success
