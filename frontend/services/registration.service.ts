@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { UserProfile } from '../types/userProfile';
+import { UserProfile, normalizeProfileData } from '../types/userProfile';
 
 export interface Registration {
   event_id: string; // The UUID
@@ -22,6 +22,17 @@ export interface Attendee {
 class RegistrationService {
   // Cache for slug -> uuid resolution to reduce DB calls
   private idCache: Record<string, string> = {};
+
+  private flattenProfileData(profile: any): UserProfile {
+    if (!profile) return profile;
+    const { profile_data, ...rest } = profile;
+    const normalizedProfileData = normalizeProfileData(profile_data);
+    return {
+      ...rest,
+      ...normalizedProfileData,
+      profile_data: normalizedProfileData,
+    } as UserProfile;
+  }
 
   /**
    * Helper: Resolve Event Slug to UUID
@@ -204,13 +215,15 @@ class RegistrationService {
     }
 
     // 4. Map profiles to a lookup object
-    const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+    const profilesMap = new Map(
+      profilesData?.map(p => [p.id, this.flattenProfileData(p)])
+    );
 
     // 5. Combine data
     return attendanceData.map(a => ({
       user_id: a.user_id,
       rsvp_at: a.rsvp_at,
-      profile: profilesMap.get(a.user_id) as UserProfile || null
+      profile: (profilesMap.get(a.user_id) as UserProfile) || null
     }));
   }
 }

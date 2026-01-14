@@ -19,7 +19,7 @@ export async function fetchPostById(postId: string): Promise<ServiceResponse<Fee
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        author:user_profiles!user_id(id, first_name, last_name, profile_data),
         event:events(id, event_id, name)
       `)
             .eq('id', postId)
@@ -120,7 +120,7 @@ export async function fetchFeedPosts(
         if (userIds.length > 0) {
             const { data: authors, error: authorsError } = await supabase
                 .from('user_profiles')
-                .select('id, first_name, last_name, profile_picture_url')
+                .select('id, first_name, last_name, profile_data')
                 .in('id', userIds);
             if (!authorsError) {
                 (authors ?? []).forEach((author: any) => authorsById.set(author.id, author));
@@ -257,7 +257,7 @@ export async function fetchUserPosts(
         const authorsById = new Map<string, any>();
         const { data: author, error: authorError } = await supabase
             .from('user_profiles')
-            .select('id, first_name, last_name, profile_picture_url')
+            .select('id, first_name, last_name, profile_data')
             .eq('id', userId)
             .maybeSingle();
         if (__DEV__ && authorError) {
@@ -437,7 +437,7 @@ export async function createPost(
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        author:user_profiles!user_id(id, first_name, last_name, profile_data),
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
@@ -609,7 +609,7 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
             .from('feed_comments')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url)
+        author:user_profiles!user_id(id, first_name, last_name, profile_data)
       `)
             .eq('post_id', postId)
             .eq('is_active', true)
@@ -628,12 +628,12 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }
@@ -676,7 +676,7 @@ export async function createComment(
             })
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url)
+        author:user_profiles!user_id(id, first_name, last_name, profile_data)
       `)
             .single();
 
@@ -693,12 +693,12 @@ export async function createComment(
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }
@@ -731,12 +731,12 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }
@@ -867,7 +867,7 @@ export async function updatePost(
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
+        author:user_profiles!user_id(id, first_name, last_name, profile_data),
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
@@ -882,12 +882,12 @@ export async function updatePost(
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }

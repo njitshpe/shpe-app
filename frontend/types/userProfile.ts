@@ -36,6 +36,9 @@ export const INTEREST_OPTIONS = [
 // Type-specific data stored in profile_data JSONB column
 // These are OPTIONAL fields that vary by user type
 export interface ProfileData {
+    // Media
+    profile_picture_url?: string | null;
+
     // Contact & Social
     portfolio_url?: string | null;
     linkedin_url?: string | null;
@@ -56,6 +59,81 @@ export interface ProfileData {
     mentorship_ways?: string[] | null;
 }
 
+const PROFILE_DATA_KEYS = [
+    'profile_picture_url',
+    'portfolio_url',
+    'linkedin_url',
+    'phone_number',
+    'resume_url',
+    'resume_name',
+    'company',
+    'job_title',
+    'industry',
+    'degree_type',
+    'mentorship_available',
+    'mentorship_ways',
+] as const satisfies ReadonlyArray<keyof ProfileData>;
+
+export function normalizeProfileData(input: unknown): ProfileData {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+
+    const source = input as Record<string, any>;
+    const normalized: Record<string, any> = {};
+
+    // Keep only canonical top-level keys
+    for (const key of PROFILE_DATA_KEYS) {
+        if (source[key] !== undefined) normalized[key] = source[key];
+    }
+
+    // Flatten known legacy nested shapes (DROP everything else)
+    const contact = source.contact;
+    if (contact && typeof contact === 'object' && !Array.isArray(contact)) {
+        if (contact.linkedin_url !== undefined) normalized.linkedin_url = contact.linkedin_url;
+        if (contact.phone_number !== undefined) normalized.phone_number = contact.phone_number;
+        if (contact.portfolio_url !== undefined) normalized.portfolio_url = contact.portfolio_url;
+        if (contact.profile_picture_url !== undefined && normalized.profile_picture_url === undefined) {
+            normalized.profile_picture_url = contact.profile_picture_url;
+        }
+    }
+
+    const resume = source.resume;
+    if (resume && typeof resume === 'object' && !Array.isArray(resume)) {
+        if (resume.resume_url !== undefined) normalized.resume_url = resume.resume_url;
+        if (resume.resume_name !== undefined) normalized.resume_name = resume.resume_name;
+        if (resume.url !== undefined && normalized.resume_url === undefined) normalized.resume_url = resume.url;
+        if (resume.name !== undefined && normalized.resume_name === undefined) normalized.resume_name = resume.name;
+    }
+
+    const alumni = source.alumni;
+    if (alumni && typeof alumni === 'object' && !Array.isArray(alumni)) {
+        if (alumni.company !== undefined) normalized.company = alumni.company;
+        if (alumni.job_title !== undefined) normalized.job_title = alumni.job_title;
+        if (alumni.industry !== undefined) normalized.industry = alumni.industry;
+        if (alumni.degree_type !== undefined) normalized.degree_type = alumni.degree_type;
+        if (alumni.mentorship_available !== undefined) normalized.mentorship_available = alumni.mentorship_available;
+        if (alumni.mentorship_ways !== undefined) normalized.mentorship_ways = alumni.mentorship_ways;
+        if (alumni.profile_picture_url !== undefined && normalized.profile_picture_url === undefined) {
+            normalized.profile_picture_url = alumni.profile_picture_url;
+        }
+    }
+
+    const student = source.student;
+    if (student && typeof student === 'object' && !Array.isArray(student)) {
+        // Explicitly ignore core fields; only accept canonical keys if present.
+        if (student.linkedin_url !== undefined) normalized.linkedin_url = student.linkedin_url;
+        if (student.phone_number !== undefined) normalized.phone_number = student.phone_number;
+        if (student.portfolio_url !== undefined) normalized.portfolio_url = student.portfolio_url;
+        if (student.resume_url !== undefined) normalized.resume_url = student.resume_url;
+        if (student.resume_name !== undefined) normalized.resume_name = student.resume_name;
+        if (student.profile_picture_url !== undefined && normalized.profile_picture_url === undefined) {
+            normalized.profile_picture_url = student.profile_picture_url;
+        }
+    }
+
+    // Push tokens must stay as columns; ignore any legacy nested push object.
+    return normalized as ProfileData;
+}
+
 export interface BaseProfile {
     id: string;
     user_type: UserType;
@@ -63,7 +141,7 @@ export interface BaseProfile {
     last_name: string;
     bio: string;
     interests: InterestType[];
-    profile_picture_url?: string;
+    profile_picture_url?: string | null; // Derived from profile_data (flattened)
     created_at: string;
     updated_at: string;
 
@@ -80,17 +158,17 @@ export interface BaseProfile {
 
     // Legacy columns - kept for backward compatibility during migration
     // These will be read as fallback if profile_data doesn't have the value
-    linkedin_url?: string;
-    portfolio_url?: string;
-    phone_number?: string;
-    resume_url?: string;
-    resume_name?: string;
-    company?: string;
-    job_title?: string;
-    industry?: string;
-    degree_type?: string;
-    mentorship_available?: boolean;
-    mentorship_ways?: string[];
+    linkedin_url?: string | null;
+    portfolio_url?: string | null;
+    phone_number?: string | null;
+    resume_url?: string | null;
+    resume_name?: string | null;
+    company?: string | null;
+    job_title?: string | null;
+    industry?: string | null;
+    degree_type?: string | null;
+    mentorship_available?: boolean | null;
+    mentorship_ways?: string[] | null;
 }
 
 export interface StudentProfile extends BaseProfile {
@@ -160,29 +238,43 @@ export function prepareProfileUpdate(updates: Partial<UserProfile>): {
     profileDataUpdates: ProfileData;
 } {
     // Fields that should be stored in profile_data JSONB
-    const profileDataFields: (keyof ProfileData)[] = [
-        'portfolio_url',
-        'linkedin_url',
-        'phone_number',
-        'resume_url',
-        'resume_name',
-        'company',
-        'job_title',
-        'industry',
-        'degree_type',
-        'mentorship_available',
-        'mentorship_ways',
-    ];
+    const profileDataFields: ReadonlyArray<keyof ProfileData> = PROFILE_DATA_KEYS;
+
+    // Direct column fields (everything else is ignored to prevent accidental writes)
+    const directColumnFields = new Set<string>([
+        'user_type',
+        'first_name',
+        'last_name',
+        'bio',
+        'university',
+        'major',
+        'graduation_year',
+        'interests',
+        'rank_points',
+        'ucid',
+        'push_token',
+    ]);
 
     const directUpdates: Record<string, any> = {};
     const profileDataUpdates: ProfileData = {};
 
     Object.entries(updates).forEach(([key, value]) => {
+        if (key === 'profile_data') {
+            Object.assign(profileDataUpdates, normalizeProfileData(value));
+            return;
+        }
+
+        // Allow callers to pass legacy nested objects; always flatten them.
+        if (key === 'contact' || key === 'resume' || key === 'student' || key === 'alumni' || key === 'push') {
+            Object.assign(profileDataUpdates, normalizeProfileData({ [key]: value }));
+            return;
+        }
+
         if (profileDataFields.includes(key as keyof ProfileData)) {
             // This field belongs in profile_data JSONB
             profileDataUpdates[key as keyof ProfileData] = value as any;
-        } else if (key !== 'profile_data') {
-            // This is a direct column update (major, ucid, graduation_year, etc.)
+        } else if (directColumnFields.has(key)) {
+            // This is a direct column update
             directUpdates[key] = value;
         }
     });

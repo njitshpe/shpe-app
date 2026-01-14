@@ -17,7 +17,7 @@ interface UserProfileRow {
   user_type: UserType | null;
   major?: string;
   graduation_year?: number;
-  profile_picture_url?: string;
+  profile_picture_url?: string | null;
   rank_points?: number;
   created_at: string;
 }
@@ -156,7 +156,7 @@ class LeaderboardService {
       major: row.major,
       classYear,
       userType: row.user_type,
-      avatarUrl: row.profile_picture_url,
+      avatarUrl: row.profile_picture_url ?? undefined,
       points: row.rank_points ?? 0,
       rank,
     };

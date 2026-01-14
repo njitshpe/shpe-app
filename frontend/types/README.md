@@ -55,7 +55,7 @@ export interface UserProfile {
   email: string
   user_type: 'student' | 'alumni' | 'other'
   bio?: string
-  profile_picture_url?: string
+  profile_picture_url?: string // stored in profile_data and flattened client-side
   resume_url?: string
   // ... more fields
 }

@@ -2,10 +2,10 @@ import { supabase } from '../lib/supabase';
 import type { UserProfile } from '../types/userProfile';
 import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
-import { prepareProfileUpdate } from '../types/userProfile';
+import { prepareProfileUpdate, normalizeProfileData } from '../types/userProfile';
 
 class ProfileService {
-    private inFlight: Map<string, Promise<ServiceResponse<UserProfile>>> = new Map();
+    private inFlight: Map<string, Promise<ServiceResponse<UserProfile | null>>> = new Map();
 
     /**
      * Flattens profile_data JSONB fields into the profile object for backward compatibility.
@@ -14,19 +14,20 @@ class ProfileService {
     private flattenProfileData(profile: any): UserProfile {
         if (!profile) return profile;
 
-        const { profile_data = {}, ...rest } = profile;
+        const { profile_data, ...rest } = profile;
+        const normalizedProfileData = normalizeProfileData(profile_data);
 
         // Merge profile_data fields into the profile object
         // profile_data values take precedence over legacy columns
         return {
             ...rest,
-            ...profile_data,
-            profile_data, // Keep the original profile_data for reference
+            ...normalizedProfileData,
+            profile_data: normalizedProfileData, // Keep normalized profile_data for reference
         } as UserProfile;
     }
 
     // Get user profile by user ID
-    async getProfile(userId: string): Promise<ServiceResponse<UserProfile>> {
+    async getProfile(userId: string): Promise<ServiceResponse<UserProfile | null>> {
         try {
             const existingRequest = this.inFlight.get(userId);
             if (existingRequest) {
@@ -36,7 +37,7 @@ class ProfileService {
                 return await existingRequest;
             }
 
-            const request = (async () => {
+            const request: Promise<ServiceResponse<UserProfile | null>> = (async () => {
             if (__DEV__) {
                 console.log('[ProfileService] Fetching profile for user:', userId);
             }
@@ -54,7 +55,7 @@ class ProfileService {
             if (!data && !error) {
                 return {
                     success: true,
-                    data: null as any, // Profile doesn't exist yet (e.g., during onboarding)
+                    data: null, // Profile doesn't exist yet (e.g., during onboarding)
                 };
             }
 
@@ -139,8 +140,8 @@ class ProfileService {
 
             // Merge existing profile_data with new updates
             const mergedProfileData = {
-                ...(currentProfile?.profile_data || {}),
-                ...profileDataUpdates,
+                ...normalizeProfileData(currentProfile?.profile_data),
+                ...normalizeProfileData(profileDataUpdates),
             };
 
             const { data, error } = await supabase

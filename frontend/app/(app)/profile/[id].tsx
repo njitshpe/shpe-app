@@ -219,7 +219,7 @@ export default function PublicProfileScreen() {
                         )}
 
                         <ProfileHeader
-                            profilePictureUrl={profile.profile_picture_url}
+                            profilePictureUrl={profile.profile_picture_url ?? undefined}
                             initials={profileDisplay.initials}
                             userTypeBadge={profileDisplay.userTypeBadge}
                             displayName={profileDisplay.displayName}
