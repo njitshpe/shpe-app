@@ -52,7 +52,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [name, setName] = useState(initialData?.name || '');
     const [description, setDescription] = useState(initialData?.description || '');
     const [locationName, setLocationName] = useState(initialData?.location_name || '');
-    const [location, setLocation] = useState(initialData?.location || '');
+    const [location, setLocation] = useState(initialData?.location_address || '');
     const [coverImageUrl, setCoverImageUrl] = useState(initialData?.cover_image_url || '');
     const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [uploadingImage, setUploadingImage] = useState(false);
