@@ -31,6 +31,7 @@ export interface EventDB {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  registration_questions?: any[]; // JSONB
 }
 
 // 2. Update this to use EventDB
@@ -41,6 +42,8 @@ export interface EventAttendance {
   rsvp_at?: string;
   checked_in_at?: string;
   checked_out_at?: string;
+  status?: string; // e.g. 'confirmed', 'pending'
+  registration_answers?: any; // JSONB
 }
 
 export interface CheckInResponse {
