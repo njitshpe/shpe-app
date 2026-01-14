@@ -1,4 +1,4 @@
-import { UserProfile, getRankFromPoints } from '@/types/userProfile';
+import { UserProfile, getRankFromPoints, getProfileValue } from '@/types/userProfile';
 import { User } from '@supabase/supabase-js';
 
 interface UseProfileDisplayProps {
@@ -26,26 +26,26 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
 
         if (profile.user_type === 'student') {
             const major = profile.major || "Major";
-            const year = profile.expected_graduation_year || new Date().getFullYear();
+            const year = profile.graduation_year || new Date().getFullYear();
             return `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'alumni') {
             const major = profile.major || "Major";
-            const degreeType = profile.degree_type;
-            const year = profile.graduation_year || profile.expected_graduation_year || new Date().getFullYear();
+            const degreeType = getProfileValue(profile, 'degree_type');
+            const year = profile.graduation_year || new Date().getFullYear();
             // Show degree type and major for alumni (e.g., "B.S. Computer Science | Class of 2020")
             return degreeType ? `${degreeType} ${major} | Class of ${year}` : `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'guest') {
             const major = profile.major || "Guest Member";
-            const year = profile.expected_graduation_year || new Date().getFullYear();
+            const year = profile.graduation_year || new Date().getFullYear();
             return `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'other') {
-            return profile.affiliation || "Member";
+            return "Member";
         }
 
         return "Member";
@@ -56,8 +56,8 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
 
         // Show job info for alumni
         if (profile.user_type === 'alumni') {
-            const position = profile.current_position;
-            const company = profile.current_company;
+            const position = getProfileValue(profile, 'job_title');
+            const company = getProfileValue(profile, 'company');
 
             if (position && company) {
                 return `${position} at ${company}`;

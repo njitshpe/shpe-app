@@ -88,27 +88,31 @@ export function useEventAttendees(eventId: string): EventAttendeesData {
         //   .from('event_registrations')
         //   .select(`
         //     id,
-        //     user:profiles (
+        //     user:user_profiles (
         //       id,
-        //       name,
-        //       avatar_url,
-        //       major,
-        //       year,
-        //       role
+        //       first_name,
+        //       last_name,
+        //       profile_picture_url,
+        //       profile_data
         //     )
         //   `)
         //   .eq('event_id', eventId);
         //
         // if (error) throw error;
         //
-        // const attendees: Attendee[] = registrations.map((reg) => ({
-        //   id: reg.user.id,
-        //   name: reg.user.name,
-        //   avatarUrl: reg.user.avatar_url,
-        //   major: reg.user.major,
-        //   year: reg.user.year,
-        //   role: reg.user.role,
-        // }));
+        // const attendees: Attendee[] = registrations.map((reg) => {
+        //   const graduationYear = reg.user.graduation_year;
+        //   const yearLabel = graduationYear ? `Class of ${graduationYear}` : undefined;
+        //
+        //   return {
+        //     id: reg.user.id,
+        //     name: `${reg.user.first_name} ${reg.user.last_name}`,
+        //     avatarUrl: reg.user.profile_picture_url,
+        //     major: reg.user.major,
+        //     year: yearLabel,
+        //     role: 'Member', // TODO: Add role to user_profiles or separate table
+        //   };
+        // });
 
         // Use mock data
         const attendees = MOCK_ATTENDEES[eventId] || [];
