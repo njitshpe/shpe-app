@@ -208,7 +208,7 @@ export default function OnboardingWizard() {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         major: formData.major.trim(),
-        expected_graduation_year: parseInt(formData.graduationYear, 10),
+        graduation_year: parseInt(formData.graduationYear, 10),
         university: 'NJIT', // Default university for NJIT students
         bio: formData.bio?.trim() || '',
         interests: mappedInterests,

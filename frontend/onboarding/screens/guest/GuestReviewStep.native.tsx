@@ -9,7 +9,6 @@ import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/
 export interface FormData {
   firstName: string;
   lastName: string;
-  major: string;
   university: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
   interests: string[];
@@ -44,8 +43,6 @@ export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) 
     if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
     return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   };
-
-  const roleLabel = data.major?.trim() || 'External Guest';
 
   return (
     <View style={styles.outerContainer}>
@@ -107,7 +104,7 @@ export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) 
               <Text style={[styles.fullName, { color: theme.text }]}>
                 {data.firstName} {data.lastName}
               </Text>
-              <Text style={[styles.roleText, { color: accent }]}>{roleLabel}</Text>
+              <Text style={[styles.roleText, { color: accent }]}>Guest Member</Text>
               {data.university && (
                 <Text style={[styles.affiliationText, { color: theme.subtext }]}>
                   {data.university}
