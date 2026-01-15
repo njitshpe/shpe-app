@@ -36,9 +36,6 @@ export const INTEREST_OPTIONS = [
 // Type-specific data stored in profile_data JSONB column
 // These are OPTIONAL fields that vary by user type
 export interface ProfileData {
-    // Media
-    profile_picture_url?: string | null;
-
     // Contact & Social
     portfolio_url?: string | null;
     linkedin_url?: string | null;
@@ -60,7 +57,6 @@ export interface ProfileData {
 }
 
 const PROFILE_DATA_KEYS = [
-    'profile_picture_url',
     'portfolio_url',
     'linkedin_url',
     'phone_number',
@@ -91,9 +87,6 @@ export function normalizeProfileData(input: unknown): ProfileData {
         if (contact.linkedin_url !== undefined) normalized.linkedin_url = contact.linkedin_url;
         if (contact.phone_number !== undefined) normalized.phone_number = contact.phone_number;
         if (contact.portfolio_url !== undefined) normalized.portfolio_url = contact.portfolio_url;
-        if (contact.profile_picture_url !== undefined && normalized.profile_picture_url === undefined) {
-            normalized.profile_picture_url = contact.profile_picture_url;
-        }
     }
 
     const resume = source.resume;
@@ -112,9 +105,6 @@ export function normalizeProfileData(input: unknown): ProfileData {
         if (alumni.degree_type !== undefined) normalized.degree_type = alumni.degree_type;
         if (alumni.mentorship_available !== undefined) normalized.mentorship_available = alumni.mentorship_available;
         if (alumni.mentorship_ways !== undefined) normalized.mentorship_ways = alumni.mentorship_ways;
-        if (alumni.profile_picture_url !== undefined && normalized.profile_picture_url === undefined) {
-            normalized.profile_picture_url = alumni.profile_picture_url;
-        }
     }
 
     const student = source.student;
@@ -125,9 +115,6 @@ export function normalizeProfileData(input: unknown): ProfileData {
         if (student.portfolio_url !== undefined) normalized.portfolio_url = student.portfolio_url;
         if (student.resume_url !== undefined) normalized.resume_url = student.resume_url;
         if (student.resume_name !== undefined) normalized.resume_name = student.resume_name;
-        if (student.profile_picture_url !== undefined && normalized.profile_picture_url === undefined) {
-            normalized.profile_picture_url = student.profile_picture_url;
-        }
     }
 
     // Push tokens must stay as columns; ignore any legacy nested push object.
@@ -141,7 +128,7 @@ export interface BaseProfile {
     last_name: string;
     bio: string;
     interests: InterestType[];
-    profile_picture_url?: string | null; // Derived from profile_data (flattened)
+    profile_picture_url?: string | null; // Column
     created_at: string;
     updated_at: string;
 
@@ -246,6 +233,7 @@ export function prepareProfileUpdate(updates: Partial<UserProfile>): {
         'first_name',
         'last_name',
         'bio',
+        'profile_picture_url',
         'university',
         'major',
         'graduation_year',

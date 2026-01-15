@@ -19,7 +19,7 @@ export async function fetchPostById(postId: string): Promise<ServiceResponse<Fee
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_data),
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
         event:events(id, event_id, name)
       `)
             .eq('id', postId)
@@ -120,7 +120,7 @@ export async function fetchFeedPosts(
         if (userIds.length > 0) {
             const { data: authors, error: authorsError } = await supabase
                 .from('user_profiles')
-                .select('id, first_name, last_name, profile_data')
+                .select('id, first_name, last_name, profile_picture_url')
                 .in('id', userIds);
             if (!authorsError) {
                 (authors ?? []).forEach((author: any) => authorsById.set(author.id, author));
@@ -257,7 +257,7 @@ export async function fetchUserPosts(
         const authorsById = new Map<string, any>();
         const { data: author, error: authorError } = await supabase
             .from('user_profiles')
-            .select('id, first_name, last_name, profile_data')
+            .select('id, first_name, last_name, profile_picture_url')
             .eq('id', userId)
             .maybeSingle();
         if (__DEV__ && authorError) {
@@ -437,7 +437,7 @@ export async function createPost(
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_data),
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
@@ -609,7 +609,7 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
             .from('feed_comments')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_data)
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url)
       `)
             .eq('post_id', postId)
             .eq('is_active', true)
@@ -676,7 +676,7 @@ export async function createComment(
             })
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_data)
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url)
       `)
             .single();
 
@@ -867,7 +867,7 @@ export async function updatePost(
             .from('feed_posts')
             .select(`
         *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_data),
+        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),

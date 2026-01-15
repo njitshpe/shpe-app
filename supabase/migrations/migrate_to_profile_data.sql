@@ -110,4 +110,4 @@ WHERE profile_data = '{}'::jsonb OR profile_data IS NULL;
 -- DROP COLUMN IF EXISTS mentorship_ways;
 
 -- Add comment to profile_data column
-COMMENT ON COLUMN user_profiles.profile_data IS 'JSONB column containing optional/type-specific profile fields (contact, resume, professional, mentorship). Core fields like major, graduation_year, ucid remain as columns.';
+COMMENT ON COLUMN user_profiles.profile_data IS 'JSONB column containing optional profile fields (flat keys only): linkedin_url, phone_number, portfolio_url, resume_url, resume_name, company, job_title, industry, degree_type, mentorship_available, mentorship_ways. Core fields stay as columns (e.g., profile_picture_url, major, graduation_year, ucid, interests, rank_points). Push token stays in push_token column.';

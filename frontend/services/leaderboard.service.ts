@@ -6,6 +6,7 @@ import type {
   LeaderboardContext,
 } from '../types/leaderboard';
 import type { UserType } from '../types/userProfile';
+import { resolveProfilePictureUrl } from '../utils/profilePicture';
 
 /**
  * Database row structure from user_profiles query or RPC response
@@ -156,7 +157,7 @@ class LeaderboardService {
       major: row.major,
       classYear,
       userType: row.user_type,
-      avatarUrl: row.profile_picture_url ?? undefined,
+      avatarUrl: resolveProfilePictureUrl(row.profile_picture_url),
       points: row.rank_points ?? 0,
       rank,
     };
