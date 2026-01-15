@@ -13,11 +13,11 @@
 supabase/functions/
 ├── check-in/
 │   └── index.ts               # QR check-in validation & recording
-├── award-points/
-│   └── index.ts               # Points awarding logic
 └── admin-event/
     └── index.ts               # Admin-only event mutations
 ```
+
+**Note:** Points awarding is handled by the `award_points` Postgres RPC function (not an Edge Function).
 
 **Function Responsibilities**:
 
@@ -30,38 +30,12 @@ supabase/functions/
 3. Check event check-in is open
 4. Verify user hasn't already checked in
 5. Record check-in atomically
-6. Award attendance points via `award-points` function
-7. Return success + points earned
+6. Return success (points awarded separately via `award_points` RPC)
 
 **Security**:
 - Verify user authentication
 - Prevent duplicate check-ins
 - Enforce time windows (event must be active)
-
-## award-points/
-**Purpose**: Securely award points for various actions
-
-**Workflow**:
-1. Receive action type (attendance, feedback, photo, etc.)
-2. Validate action is legitimate
-3. Calculate points based on action type
-4. Apply multipliers (2x alumni, 3x professional, 4x member of month)
-5. Create points transaction record
-6. Update user's points balance
-7. Return new balance
-
-**Point Values**:
-- Attendance: 10 points
-- Feedback: 5 points
-- Photo: 5 points
-- Photo with alumni: 10 points (2x)
-- Photo with professional: 15 points (3x)
-- Photo with member of month: 20 points (4x)
-
-**Security**:
-- Prevent point manipulation
-- Validate user owns the action
-- Atomic transactions
 
 ## admin-event/
 **Purpose**: Admin-only event management operations
@@ -105,7 +79,6 @@ serve(async (req) => {
 **Deployment**:
 ```bash
 supabase functions deploy check-in
-supabase functions deploy award-points
 supabase functions deploy admin-event
 ```
 

@@ -9,52 +9,56 @@ import type { UserType } from '../types/userProfile';
 import { resolveProfilePictureUrl } from '../utils/profilePicture';
 
 /**
- * Database row structure from user_profiles query or RPC response
+ * Row structure returned by get_leaderboard_current_season RPC
  */
-interface UserProfileRow {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  user_type: UserType | null;
-  major?: string;
-  graduation_year?: number;
-  profile_picture_url?: string | null;
-  rank_points?: number;
-  created_at: string;
-}
-
-interface CompleteUserProfileRow extends UserProfileRow {
+interface LeaderboardRpcRow {
+  user_id: string;
   first_name: string;
   last_name: string;
-  user_type: UserType;
+  user_type: string;
+  major: string | null;
+  graduation_year: number | null;
+  profile_picture_url: string | null;
+  season_id: string;
+  points_total: number;
+  tier: string;
+  rank: number;
 }
 
 /**
  * Leaderboard Service - Manages leaderboard queries and ranking
  *
- * Fetches user profiles ordered by rank points and provides
- * stable ranking with tie-breaking based on created_at.
+ * Fetches user profiles ordered by rank points for the current season.
+ * Uses the get_leaderboard_current_season RPC which handles filtering,
+ * ranking, and tier calculation server-side.
  */
 class LeaderboardService {
-  private cache = new Map<string, { data: LeaderboardEntry[]; timestamp: number }>();
+  private cache = new Map<
+    string,
+    { data: LeaderboardEntry[]; timestamp: number }
+  >();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Fetch leaderboard entries with optional filters and time context
+   * Fetch leaderboard entries with optional filters
    *
-   * @param context - Time context: 'month', 'semester', or 'allTime'
-   * @param filters - Optional filters for major and class year
+   * @param context - Time context (currently ignored - RPC uses current season)
+   * @param filters - Optional filters for major, class year, and user type
    * @param forceRefresh - Whether to bypass cache and fetch fresh data
+   * @param limit - Maximum number of entries to return (default 100)
+   * @param offset - Number of entries to skip for pagination (default 0)
    * @returns ServiceResponse with array of LeaderboardEntry or error
    */
   async getLeaderboard(
     context: LeaderboardContext = 'allTime',
     filters: LeaderboardFilters = {},
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
+    limit: number = 100,
+    offset: number = 0
   ): Promise<ServiceResponse<LeaderboardEntry[]>> {
     try {
-      // Generate cache key
-      const cacheKey = JSON.stringify({ context, filters });
+      // Generate cache key including pagination
+      const cacheKey = JSON.stringify({ context, filters, limit, offset });
 
       // Check cache validity if not forcing refresh
       if (!forceRefresh) {
@@ -69,12 +73,18 @@ class LeaderboardService {
       }
 
       console.log('🔸 Cache MISS for:', context);
-      // Use RPC function for time-based aggregation
-      const { data, error } = await supabase.rpc('get_leaderboard_by_context', {
-        p_context: context,
-        p_major: filters.major || null,
-        p_class_year: filters.classYear || null,
-      });
+
+      // Call get_leaderboard_current_season RPC with filters
+      const { data, error } = await supabase.rpc(
+        'get_leaderboard_current_season',
+        {
+          p_major: filters.major || null,
+          p_class_year: filters.classYear || null,
+          p_user_type: filters.userType || null,
+          p_limit: limit,
+          p_offset: offset,
+        }
+      );
 
       if (error) {
         console.error('Failed to fetch leaderboard:', error);
@@ -84,12 +94,9 @@ class LeaderboardService {
         };
       }
 
-      // Map database rows to LeaderboardEntry
-      const completedRows = (data as UserProfileRow[]).filter((row) =>
-        this.isProfileComplete(row)
-      );
-      const entries: LeaderboardEntry[] = completedRows.map((row, index) =>
-        this.mapToLeaderboardEntry(row, index + 1)
+      // Map RPC rows to LeaderboardEntry
+      const entries: LeaderboardEntry[] = (data as LeaderboardRpcRow[]).map(
+        (row) => this.mapRpcRowToEntry(row)
       );
 
       // Update cache
@@ -118,7 +125,7 @@ class LeaderboardService {
     context: LeaderboardContext,
     filters: LeaderboardFilters
   ): LeaderboardEntry[] | null {
-    const cacheKey = JSON.stringify({ context, filters });
+    const cacheKey = JSON.stringify({ context, filters, limit: 100, offset: 0 });
     const cached = this.cache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -135,39 +142,22 @@ class LeaderboardService {
   }
 
   /**
-   * Map a user_profiles row to a LeaderboardEntry
+   * Map an RPC result row to a LeaderboardEntry
    *
-   * @param row - Database row from user_profiles
-   * @param rank - Position in the leaderboard (1-indexed)
+   * @param row - Row from get_leaderboard_current_season RPC
    * @returns LeaderboardEntry with all required fields
    */
-  private mapToLeaderboardEntry(
-    row: CompleteUserProfileRow,
-    rank: number
-  ): LeaderboardEntry {
-    // Construct display name from first and last name
-    const displayName = `${row.first_name} ${row.last_name}`.trim();
-
-    // Determine class year based on graduation_year column
-    const classYear = row.graduation_year;
-
+  private mapRpcRowToEntry(row: LeaderboardRpcRow): LeaderboardEntry {
     return {
-      id: row.id,
-      displayName,
-      major: row.major,
-      classYear,
-      userType: row.user_type,
+      id: row.user_id,
+      displayName: `${row.first_name} ${row.last_name}`.trim(),
+      major: row.major ?? undefined,
+      classYear: row.graduation_year ?? undefined,
+      userType: row.user_type as UserType,
       avatarUrl: resolveProfilePictureUrl(row.profile_picture_url),
-      points: row.rank_points ?? 0,
-      rank,
+      points: row.points_total,
+      rank: row.rank,
     };
-  }
-
-  private isProfileComplete(row: UserProfileRow): row is CompleteUserProfileRow {
-    if (!row.user_type) return false;
-    const firstName = row.first_name?.trim();
-    const lastName = row.last_name?.trim();
-    return Boolean(firstName && lastName);
   }
 }
 

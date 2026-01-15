@@ -35,4 +35,6 @@ export interface LeaderboardFilters {
   major?: string;
   /** Filter by class year */
   classYear?: number;
+  /** Filter by user type (e.g., 'member', 'officer', 'alumni') */
+  userType?: string;
 }

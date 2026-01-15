@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Crypto from 'expo-crypto';
 import { supabase } from '@/lib/supabase';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, ScrollView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -10,7 +11,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
 import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from '@/components/events/CompactEventCard';
-import { rankService, UserRankData, RankActionType } from '@/services/rank.service';
+import { rankService, PointsSummary, RankActionType } from '@/services/rank.service';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 
@@ -21,7 +22,12 @@ export default function HomeScreen() {
     const { events, isCurrentUserAdmin, isCurrentUserSuperAdmin, isLoading, refetchEvents } = useEvents();
     const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
     const [showScanner, setShowScanner] = useState(false);
-    const [rankData, setRankData] = useState<UserRankData | null>(null);
+    const [rankData, setRankData] = useState<PointsSummary>({
+        season_id: '',
+        points_total: 0,
+        tier: 'Chick',
+        points_to_next_tier: 0,
+    });
     const [debugExpanded, setDebugExpanded] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -32,7 +38,12 @@ export default function HomeScreen() {
     const loadRank = async () => {
         const response = await rankService.getMyRank();
         if (response.success && response.data) {
-            setRankData(response.data);
+            setRankData({
+                season_id: response.data.season_id,
+                points_total: response.data.points_total,
+                tier: response.data.tier,
+                points_to_next_tier: response.data.points_to_next_tier,
+            });
         }
     };
 
@@ -52,22 +63,30 @@ export default function HomeScreen() {
             ? upcomingEvents[0]
             : null;
 
-    const handleAwardPoints = async (action: RankActionType, overrides?: any) => {
+    const handleAwardPoints = async (action: RankActionType, overrides?: { eventId?: string | null; postId?: string; feedbackId?: string }) => {
         // Validation for event-based actions
-        if ((action === 'attendance' || action === 'rsvp') && !relevantEvent && !overrides?.eventId) {
+        const eventActions: RankActionType[] = ['event_check_in', 'rsvp', 'early_checkin'];
+        if (eventActions.includes(action) && !relevantEvent && !overrides?.eventId) {
             Alert.alert('Debug Error', 'No active/upcoming event found to assign this action to.');
             return;
         }
 
         try {
             const response = await rankService.awardForAction(action, {
-                event_id: overrides?.eventId !== undefined ? overrides.eventId : relevantEvent?.id
+                event_id: overrides?.eventId !== undefined ? overrides.eventId : relevantEvent?.id,
+                post_id: overrides?.postId,
+                feedback_id: overrides?.feedbackId,
             });
             if (response.success && response.data) {
-                Alert.alert('Success', `Awarded! New Balance: ${response.data.newBalance}`);
+                Alert.alert(
+                    'Success',
+                    `Awarded!\nTotal: ${response.data.points_total} pts\nTier: ${response.data.tier}\nTo next tier: ${response.data.points_to_next_tier} pts\nSeason: ${response.data.season_id}`
+                );
                 setRankData({
-                    rank_points: response.data.newBalance,
-                    rank: response.data.rank
+                    season_id: response.data.season_id,
+                    points_total: response.data.points_total,
+                    tier: response.data.tier,
+                    points_to_next_tier: response.data.points_to_next_tier,
                 });
             } else {
                 console.error(response.error);
@@ -239,51 +258,95 @@ export default function HomeScreen() {
 
                         <Text style={[styles.debugTitle, { marginTop: 16 }]}>Points System</Text>
                         <Text style={[styles.debugText, dynamicStyles.text]}>
-                            Rank: {rankData?.rank || '...'} ({rankData?.rank_points || 0} pts)
+                            Tier: {rankData.tier} | Points: {rankData.points_total}
+                        </Text>
+                        <Text style={[styles.debugText, dynamicStyles.text]}>
+                            To next tier: {rankData.points_to_next_tier} pts
+                        </Text>
+                        <Text style={[styles.debugText, dynamicStyles.text]}>
+                            Season: {rankData.season_id || 'N/A'}
                         </Text>
                         <View style={styles.debugActions}>
                             <TouchableOpacity
                                 style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => handleAwardPoints('attendance', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
+                                onPress={() => handleAwardPoints('event_check_in', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
                             >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Attend (10)</Text>
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Check In</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
                                 onPress={() => handleAwardPoints('rsvp', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
                             >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP (3)</Text>
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => handleAwardPoints('verified', { eventId: null })}
+                                onPress={() => handleAwardPoints('profile_completed', { eventId: null })}
                             >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Verify (10)</Text>
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Profile</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={() => handleAwardPoints('feedback', { feedbackId: Crypto.randomUUID() })}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Feedback</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
                                 onPress={async () => {
                                     try {
                                         const { data, error } = await supabase
-                                            .from('rank_rules')
-                                            .select('*')
-                                            .eq('active', true)
-                                            .single();
+                                            .from('point_rules')
+                                            .select('action_type, base_points, is_enabled')
+                                            .eq('is_enabled', true);
 
                                         if (error) throw error;
-                                        Alert.alert('Config OK', `Found Active Rule Set: ${data.name} (v${data.version})`);
+                                        if (!data || data.length === 0) {
+                                            Alert.alert('No Rules', 'No enabled point_rules found.');
+                                            return;
+                                        }
+                                        const rules = data.map((r) => `${r.action_type}: ${r.base_points}pts`).join('\n');
+                                        Alert.alert('Point Rules', `Found ${data.length} enabled rules:\n\n${rules}`);
                                     } catch (e: any) {
-                                        Alert.alert('Config Missing', 'Table exists but NO ACTIVE RULES found. Run INSERT script.');
+                                        Alert.alert('DB Error', e.message);
                                     }
                                 }}
                             >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Test DB</Text>
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Rules</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={loadRank}
+                                onPress={() => setRankData((prev) => ({ ...prev }))}
                             >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh</Text>
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh (Local)</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
+                                onPress={async () => {
+                                    try {
+                                        const response = await rankService.getMyRank();
+                                        console.log('[Refresh(DB)] result=', response);
+                                        if (response.success && response.data) {
+                                            const shouldUpdate =
+                                                response.data.points_total > 0 || rankData == null;
+                                            if (shouldUpdate) {
+                                                setRankData(response.data);
+                                                Alert.alert(
+                                                    'Refreshed from DB',
+                                                    `Season: ${response.data.season_id}\nPoints: ${response.data.points_total}\nTier: ${response.data.tier}\nTo next: ${response.data.points_to_next_tier} pts`
+                                                );
+                                            } else if (rankData.points_total > 0) {
+                                                console.log('[Refresh(DB)] No DB row yet for season; keeping local state.');
+                                            }
+                                        } else {
+                                            Alert.alert('DB Error', JSON.stringify(response.error, null, 2));
+                                        }
+                                    } catch (e: any) {
+                                        Alert.alert('Error', e.message);
+                                    }
+                                }}
+                            >
+                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh (DB)</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -358,10 +421,12 @@ export default function HomeScreen() {
 
                                         console.log('Starting RLS test for user:', user.id);
 
-                                        // Query rank_transactions - should only return current user's transactions
+                                        // Query points_transactions - should only return current user's transactions
                                         const { data: transactions, error } = await supabase
-                                            .from('rank_transactions')
-                                            .select('user_id');
+                                            .from('points_transactions')
+                                            .select('id, user_id, season_id, action_type, points, created_at')
+                                            .order('created_at', { ascending: false })
+                                            .limit(10);
 
                                         if (error) {
                                             console.error('RLS Test error:', error);
@@ -373,7 +438,7 @@ export default function HomeScreen() {
                                         const uniqueUserIds = Array.from(new Set(transactions?.map(t => t.user_id) || []));
 
                                         console.log('Unique user IDs found:', uniqueUserIds);
-                                        console.log('Total transactions:', transactions?.length || 0);
+                                        console.log('Transactions:', JSON.stringify(transactions, null, 2));
 
                                         // Test passes if we only see the current user's transactions
                                         if (uniqueUserIds.length === 0) {
@@ -382,9 +447,12 @@ export default function HomeScreen() {
                                                 `No transactions found for your account.\n\nUser ID: ${user.id}\n\nThis is expected if you haven't earned any points yet.`
                                             );
                                         } else if (uniqueUserIds.length === 1 && uniqueUserIds[0] === user.id) {
+                                            const recent = transactions?.slice(0, 3).map(t =>
+                                                `• ${t.action_type}: +${t.points}pts`
+                                            ).join('\n') || '';
                                             Alert.alert(
                                                 'RLS Test - PASS ✅',
-                                                `Only your transactions are visible.\n\nUser ID: ${user.id}\nTransactions: ${transactions?.length || 0}\n\nRLS is working correctly!`
+                                                `Only your transactions are visible.\n\nUser ID: ${user.id}\nTransactions: ${transactions?.length || 0}\n\nRecent:\n${recent}\n\nRLS is working correctly!`
                                             );
                                         } else {
                                             Alert.alert(
