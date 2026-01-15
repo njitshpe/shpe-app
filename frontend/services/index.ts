@@ -26,6 +26,6 @@ export type { ReportTargetType, ReportReason, ReportStatus, Report } from './rep
 export type { RoleType, AdminRole } from './adminRole.service';
 
 // Event-driven points system
+// Event-driven points system
 export { eventBus } from './eventBus.service';
-export { pointsListener } from './pointsListener.service';
 export type { ActionType, ActionEvent } from './eventBus.service';

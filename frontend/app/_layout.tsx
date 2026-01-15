@@ -10,11 +10,28 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
+import { SuccessToast } from '@/components/ui/SuccessToast';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
 import { notificationService } from '@/services/notification.service';
-import { pointsListener } from '@/services/pointsListener.service';
+import { rankService } from '@/services/rank.service';
+
+/**
+ * Helper to format action types into user-friendly text
+ */
+function formatActionLabel(actionType: string): string {
+  const map: Record<string, string> = {
+    event_check_in: 'Event Check-In',
+    rsvp_confirmed_bonus: 'Confirmed RSVP',
+    volunteer_bonus: 'Volunteer Bonus',
+    feed_post_text: 'New Post',
+    feed_post_photo: 'Photo Upload',
+    referral_bonus: 'Referral',
+    streak_bonus: 'Streak Bonus',
+  };
+  return map[actionType] || 'Points Awarded';
+}
 
 /**
  * Auth Guard Component
@@ -25,6 +42,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
+
+  // Toast State for Points
+  const [toast, setToast] = React.useState({ visible: false, message: '' });
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -128,17 +148,26 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [session, isLoading, segments, user, profile, pathname, router]);
 
-  // 2. POINTS LISTENER (Notification logic is now in Context)
+  // 2. POINTS LISTENER (Realtime)
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+
     if (!isLoading && session) {
-      // Start listening for events to award points
-      pointsListener.start();
-    } else if (!session) {
-      pointsListener.stop();
+      // Subscribe to Realtime Points
+      subscription = rankService.subscribeToPoints({
+        onPointsAwarded: (points, actionType) => {
+          // Show the toast!
+          const label = formatActionLabel(actionType);
+          setToast({
+            visible: true,
+            message: `+${points}\n${label}`
+          });
+        }
+      });
     }
 
     return () => {
-      pointsListener.stop();
+      if (subscription) subscription.unsubscribe();
     };
   }, [session, isLoading]);
 
@@ -151,7 +180,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <SuccessToast
+        visible={toast.visible}
+        message={toast.message}
+        onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+    </>
+  );
 }
 
 /**
@@ -169,7 +207,7 @@ export default function RootLayout() {
               <EventsProvider>
                 <AuthGuard>
                   <OfflineNotice />
-                <Slot />
+                  <Slot />
                 </AuthGuard>
               </EventsProvider>
             </NotificationProvider>
