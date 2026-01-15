@@ -1,20 +1,8 @@
 export type UserType = 'student' | 'alumni' | 'guest' | 'other';
 
-export type UserRank = 'unranked' | 'bronze' | 'silver' | 'gold';
-
-export const RANK_THRESHOLDS: Record<UserRank, { min: number; max: number }> = {
-    unranked: { min: 0, max: 24 },
-    bronze: { min: 25, max: 49 },
-    silver: { min: 50, max: 74 },
-    gold: { min: 75, max: 100 },
-};
-
-export function getRankFromPoints(points: number): UserRank {
-    if (points >= 75) return 'gold';
-    if (points >= 50) return 'silver';
-    if (points >= 25) return 'bronze';
-    return 'unranked';
-}
+// Legacy type - kept for backward compatibility
+// New tier names come from rank_tiers table (e.g., 'Chick', 'Pollito', etc.)
+export type UserRank = string;
 
 export type InterestType =
     | 'workshops'
@@ -137,8 +125,9 @@ export interface BaseProfile {
     major?: string; // Major/field of study (column, not in profile_data)
     graduation_year?: number; // Graduation year (column, not in profile_data)
     ucid?: string; // UCID for verification (column, not in profile_data)
-    rank_points: number; // Points for gamification (column)
-    rank?: UserRank; // Computed rank based on points
+
+    // Points/tier now come from points_balances + rank_tiers tables
+    // Use rankService.getUserRank(userId) to fetch points data
 
     // JSONB column containing optional/type-specific fields
     profile_data: ProfileData;
@@ -238,7 +227,6 @@ export function prepareProfileUpdate(updates: Partial<UserProfile>): {
         'major',
         'graduation_year',
         'interests',
-        'rank_points',
         'ucid',
         'push_token',
     ]);

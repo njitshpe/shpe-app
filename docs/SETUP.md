@@ -139,7 +139,6 @@ npx expo start --tunnel
 ```bash
 cd supabase
 supabase functions deploy check-in
-supabase functions deploy award-points
 ```
 
 ---

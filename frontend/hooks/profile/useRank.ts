@@ -3,14 +3,15 @@ import {
   rankService,
   RankActionType,
   RankActionMetadata,
-  UserRankData,
+  PointsSummary,
 } from '@/services';
-import { UserRank } from '@/types/userProfile';
 import { AppError } from '@/types/errors';
 
 export interface UseRankResult {
-  rank: UserRank;
-  rankPoints: number;
+  tier: string;
+  pointsTotal: number;
+  seasonId: string;
+  pointsToNextTier: number;
   loading: boolean;
   error: AppError | null;
   refreshRank: () => Promise<void>;
@@ -32,18 +33,20 @@ export interface UseRankResult {
  *
  * @example
  * ```tsx
- * const { rank, rankPoints, loading, awardForAction } = useRank();
+ * const { tier, pointsTotal, loading, awardForAction } = useRank();
  *
- * // Display current rank
- * <Text>{rank} - {rankPoints} points</Text>
+ * // Display current tier
+ * <Text>{tier} - {pointsTotal} points</Text>
  *
  * // Award points after photo upload
  * await awardForAction('photo_upload', { photo_count: 1 });
  * ```
  */
 export function useRank(): UseRankResult {
-  const [rank, setRank] = useState<UserRank>('unranked');
-  const [rankPoints, setRankPoints] = useState(0);
+  const [tier, setTier] = useState<string>('Chick');
+  const [pointsTotal, setPointsTotal] = useState(0);
+  const [seasonId, setSeasonId] = useState('');
+  const [pointsToNextTier, setPointsToNextTier] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
 
@@ -56,8 +59,10 @@ export function useRank(): UseRankResult {
       const response = await rankService.getMyRank();
 
       if (response.success && response.data) {
-        setRank(response.data.rank);
-        setRankPoints(response.data.rank_points);
+        setTier(response.data.tier);
+        setPointsTotal(response.data.points_total);
+        setSeasonId(response.data.season_id);
+        setPointsToNextTier(response.data.points_to_next_tier);
       } else if (response.error) {
         setError(response.error);
       }
@@ -93,8 +98,10 @@ export function useRank(): UseRankResult {
         const response = await rankService.awardForAction(actionType, metadata);
 
         if (response.success && response.data) {
-          setRank(response.data.rank);
-          setRankPoints(response.data.newBalance);
+          setTier(response.data.tier);
+          setPointsTotal(response.data.newBalance);
+          setSeasonId(response.data.season_id);
+          setPointsToNextTier(response.data.points_to_next_tier);
 
           return {
             success: true,
@@ -131,8 +138,10 @@ export function useRank(): UseRankResult {
   }, [fetchRank]);
 
   return {
-    rank,
-    rankPoints,
+    tier,
+    pointsTotal,
+    seasonId,
+    pointsToNextTier,
     loading,
     error,
     refreshRank,

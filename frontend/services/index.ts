@@ -17,8 +17,8 @@ export { leaderboardService } from './leaderboard.service';
 export type {
   RankActionType,
   RankActionMetadata,
-  RankUpdateResponse,
-  UserRankData,
+  AwardPointsResult,
+  PointsSummary,
   PhotoType,
 } from './rank.service';
 export type { CreateEventData } from './adminEvents.service';
