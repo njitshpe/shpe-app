@@ -182,37 +182,52 @@ export async function fetchFeedPosts(
         const postsWithCounts = await Promise.all(
             rows.map(async (post: any) => {
                 // Get like count
-                const { count: likeCount, error: likeCountError } = await supabase
+                const { count: likeCount } = await supabase
                     .from('feed_likes')
                     .select('*', { count: 'exact', head: true })
                     .eq('post_id', post.id);
-                if (__DEV__ && likeCountError) {
-                    console.warn('[Feed] Failed to fetch like count:', likeCountError);
-                }
 
                 // Get comment count
-                const { count: commentCount, error: commentCountError } = await supabase
+                const { count: commentCount } = await supabase
                     .from('feed_comments')
                     .select('*', { count: 'exact', head: true })
                     .eq('post_id', post.id)
                     .eq('is_active', true);
-                if (__DEV__ && commentCountError) {
-                    console.warn('[Feed] Failed to fetch comment count:', commentCountError);
-                }
 
                 // Check if current user liked
                 let isLiked = false;
                 if (currentUser) {
-                    const { data: likeData, error: likedError } = await supabase
+                    const { data: likeData } = await supabase
                         .from('feed_likes')
                         .select('id')
                         .eq('post_id', post.id)
                         .eq('user_id', currentUser.id)
                         .maybeSingle();
-                    if (__DEV__ && likedError) {
-                        console.warn('[Feed] Failed to fetch like status:', likedError);
-                    }
                     isLiked = !!likeData;
+                }
+
+                // Get tagged users
+                const { data: tagsData } = await supabase
+                    .from('feed_post_tags')
+                    .select('tagged_user_id')
+                    .eq('post_id', post.id);
+
+                let taggedUsers: any[] = [];
+                if (tagsData && tagsData.length > 0) {
+                    const tagUserIds = tagsData.map(t => t.tagged_user_id);
+                    const { data: tagProfiles } = await supabase
+                        .from('user_profiles')
+                        .select('id, first_name, last_name, profile_picture_url')
+                        .in('id', tagUserIds);
+
+                    if (tagProfiles) {
+                        taggedUsers = tagProfiles.map(p => ({
+                            id: p.id,
+                            firstName: p.first_name,
+                            lastName: p.last_name,
+                            profilePictureUrl: p.profile_picture_url
+                        }));
+                    }
                 }
 
                 return {
@@ -222,11 +237,15 @@ export async function fetchFeedPosts(
                     like_count: likeCount || 0,
                     comment_count: commentCount || 0,
                     is_liked_by_current_user: isLiked,
+                    tagged_users: taggedUsers,
                 };
             })
         );
 
-        const posts = postsWithCounts.map(mapFeedPostDBToUI);
+        const posts = postsWithCounts.map(p => ({
+            ...mapFeedPostDBToUI(p),
+            taggedUsers: p.tagged_users || []
+        }));
 
         return { success: true, data: posts };
     } catch (error) {
@@ -405,13 +424,6 @@ export async function createPost(
         }
 
         // Create post
-        console.log('[createPost] Attempting to insert post:', {
-            user_id: user.id,
-            contentLength: content.length,
-            hasImages: imageUrls.length > 0,
-            eventId: eventId || null
-        });
-
         const { data: post, error } = await supabase
             .from('feed_posts')
             .insert({
@@ -430,8 +442,6 @@ export async function createPost(
                 error: createError('Failed to create post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
-
-        console.log('[createPost] Post created successfully:', post.id);
 
         // Record post creation for rate limiting
         recordPostCreation(user.id);
