@@ -21,7 +21,9 @@ import { usePost } from '@/hooks/feed';
 import { validatePostContent } from '@/utils/feed';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { EventAutocomplete } from '@/components/feed';
+import { UserAutocomplete } from '@/components/feed/UserAutocomplete';
 import { supabase } from '@/lib/supabase';
+import type { UserProfile } from '@/types/userProfile';
 
 export default function CreatePostScreen() {
     const { theme } = useTheme();
@@ -32,6 +34,8 @@ export default function CreatePostScreen() {
     const [content, setContent] = useState('');
     const [imageUris, setImageUris] = useState<string[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<{ id: string; name: string } | null>(null);
+    const [taggedUsers, setTaggedUsers] = useState<UserProfile[]>([]);
+    const [mentionQuery, setMentionQuery] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
     const [isLoadingPost, setIsLoadingPost] = useState(false);
 
@@ -104,6 +108,7 @@ export default function CreatePostScreen() {
                 content,
                 imageUris,
                 eventId: selectedEvent?.id,
+                taggedUserIds: taggedUsers.map(u => u.id),
             });
         }
 
@@ -176,16 +181,40 @@ export default function CreatePostScreen() {
                     />
 
                     {/* Text Input */}
-                    <TextInput
-                        style={[styles.input, { color: theme.text }]}
-                        placeholder="What's on your mind?"
-                        placeholderTextColor={theme.subtext}
-                        value={content}
-                        onChangeText={setContent}
-                        multiline
-                        maxLength={5000}
-                        autoFocus
-                    />
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={[styles.input, { color: theme.text }]}
+                            placeholder="What's on your mind? Type @ to tag someone..."
+                            placeholderTextColor={theme.subtext}
+                            value={content}
+                            onChangeText={(text) => {
+                                setContent(text);
+                                const lastWord = text.split(' ').pop();
+                                if (lastWord && lastWord.startsWith('@')) {
+                                    setMentionQuery(lastWord.substring(1));
+                                } else {
+                                    setMentionQuery('');
+                                }
+                            }}
+                            multiline
+                            maxLength={5000}
+                            autoFocus
+                        />
+                        <UserAutocomplete
+                            query={mentionQuery}
+                            onSelect={(user) => {
+                                const words = content.split(' ');
+                                words.pop(); // Remove the partial @mention
+                                words.push(`@${user.first_name}${user.last_name} `);
+                                setContent(words.join(' '));
+                                setMentionQuery('');
+                                // Add to tagged users if not already added
+                                if (!taggedUsers.find(u => u.id === user.id)) {
+                                    setTaggedUsers(prev => [...prev, user]);
+                                }
+                            }}
+                        />
+                    </View>
 
                     {/* Character Count */}
                     <Text style={[styles.charCount, { color: theme.subtext }]}>
@@ -271,6 +300,10 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         padding: 16,
+    },
+    inputContainer: {
+        position: 'relative',
+        zIndex: 10,
     },
     input: {
         fontSize: 16,
