@@ -47,22 +47,32 @@ export default function CreatePostScreen() {
 
     const fetchPostDetails = async (postId: string) => {
         setIsLoadingPost(true);
-        const { data, error } = await supabase
+        const { data: post, error } = await supabase
             .from('feed_posts')
-            .select(`
-                content,
-                image_urls,
-                event:events(id, name)
-            `)
+            .select('content, image_urls, event_id')
             .eq('id', postId)
             .single();
 
-        if (data) {
-            setContent(data.content);
-            setImageUris(data.image_urls || []);
-            if (data.event) {
-                // @ts-ignore
-                setSelectedEvent(data.event);
+        if (error) {
+            console.error('[CreatePost] Error fetching post:', error);
+            setIsLoadingPost(false);
+            return;
+        }
+
+        if (post) {
+            setContent(post.content);
+            setImageUris(post.image_urls || []);
+
+            if (post.event_id) {
+                const { data: event } = await supabase
+                    .from('events')
+                    .select('id, name')
+                    .eq('id', post.event_id)
+                    .single();
+
+                if (event) {
+                    setSelectedEvent(event);
+                }
             }
         }
         setIsLoadingPost(false);
@@ -102,7 +112,7 @@ export default function CreatePostScreen() {
 
         let result;
         if (id) {
-            result = await update(id, content, selectedEvent?.id);
+            result = await update(id, content, imageUris, selectedEvent?.id);
         } else {
             result = await create({
                 content,
