@@ -176,10 +176,16 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                 {post.content.split(/(@\w+\s?)/g).map((part, index) => {
                     if (part.startsWith('@')) {
                         const mentionName = part.substring(1).trim();
+
                         // Find the user with this name in taggedUsers
                         const taggedUser = post.taggedUsers.find(
-                            u => `${u.firstName}${u.lastName}` === mentionName ||
-                                `${u.firstName} ${u.lastName}` === mentionName
+                            u => {
+                                const fullName = `${u.firstName}${u.lastName}`.toLowerCase();
+                                const spacedName = `${u.firstName} ${u.lastName}`.toLowerCase();
+                                const search = mentionName.toLowerCase();
+                                const match = fullName === search || spacedName === search;
+                                return match;
+                            }
                         );
 
                         if (taggedUser) {
