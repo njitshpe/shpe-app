@@ -41,6 +41,7 @@ export function mapFeedCommentDBToUI(db: any): FeedCommentUI {
         id: db.id,
         postId: db.post_id,
         userId: db.user_id,
+        parentId: db.parent_id || null,
         content: db.content,
         createdAt: db.created_at,
         updatedAt: db.updated_at,
@@ -50,78 +51,79 @@ export function mapFeedCommentDBToUI(db: any): FeedCommentUI {
             lastName: db.author?.last_name || '',
             profilePictureUrl: resolveProfilePictureUrl(db.author?.profile_picture_url),
         },
+        replies: [], // Initialize replies
     };
 }
 
 // Banned words list (case-insensitive, ASCII only)
 export const BANNED_WORDS: string[] = [
-  // ======================
-  // PROFANITY
-  // ======================
-  "fuck","fucker","motherfucker","shit","bullshit","bitch","asshole","bastard","cunt",
-  "dick","cock","pussy","slut","whore","twat","prick","jackass","dumbass","dipshit","hell","arse","bloody",
+    // ======================
+    // PROFANITY
+    // ======================
+    "fuck", "fucker", "motherfucker", "shit", "bullshit", "bitch", "asshole", "bastard", "cunt",
+    "dick", "cock", "pussy", "slut", "whore", "twat", "prick", "jackass", "dumbass", "dipshit", "hell", "arse", "bloody",
 
-  // ======================
-  // COMMON BYPASSES
-  // ======================
-  "f*ck","f**k","fucc","fuk","phuck","sh1t","5hit","b1tch","biatch","a$$","azz",
-  "d1ck","dik","pu$$y","cnt","wh0re","slvt",
+    // ======================
+    // COMMON BYPASSES
+    // ======================
+    "f*ck", "f**k", "fucc", "fuk", "phuck", "sh1t", "5hit", "b1tch", "biatch", "a$$", "azz",
+    "d1ck", "dik", "pu$$y", "cnt", "wh0re", "slvt",
 
-  // ======================
-  // SEXUAL / NSFW
-  // ======================
-  "sex","porn","porno","nude","nudes","nsfw","blowjob","handjob","cum","orgasm",
-  "boobs","tits","ass","anal","vagina","penis","erection","masturbate","milf","fetish",
-  "threesome","softcore","stripper","hooker","onlyfans",
-  "camgirl","deepthroat","creampie","bdsm","hentai", "dildo",
-    
-  // ======================
-  // HARASSMENT / BULLYING
-  // ======================
-  "retard","idiot","moron","loser","worthless",
-  "pathetic","clown","weirdo","creep","pervert",
+    // ======================
+    // SEXUAL / NSFW
+    // ======================
+    "sex", "porn", "porno", "nude", "nudes", "nsfw", "blowjob", "handjob", "cum", "orgasm",
+    "boobs", "tits", "ass", "anal", "vagina", "penis", "erection", "masturbate", "milf", "fetish",
+    "threesome", "softcore", "stripper", "hooker", "onlyfans",
+    "camgirl", "deepthroat", "creampie", "bdsm", "hentai", "dildo",
 
-  "kill yourself","kys","go die","nobody likes you","hate you", "kill you",
+    // ======================
+    // HARASSMENT / BULLYING
+    // ======================
+    "retard", "idiot", "moron", "loser", "worthless",
+    "pathetic", "clown", "weirdo", "creep", "pervert",
 
-  // ======================
-  // HATE / SLURS
-  // ======================
-  "nigger","nigga","faggot","fag","tranny","chink","spic","kike","wetback","coon",
-  "raghead","towelhead","gypsy","cripple","mongoloid",
+    "kill yourself", "kys", "go die", "nobody likes you", "hate you", "kill you",
 
-  "nazi","hitler","white power","kkk","neo nazi","terrorist",
+    // ======================
+    // HATE / SLURS
+    // ======================
+    "nigger", "nigga", "faggot", "fag", "tranny", "chink", "spic", "kike", "wetback", "coon",
+    "raghead", "towelhead", "gypsy", "cripple", "mongoloid",
 
-  // ======================
-  // VIOLENCE / THREATS
-  // ======================
-  "murder","rape","shoot","stab","suicide","die","dead","massacre",
-  "assault","kidnap","behead","genocide","slaughter",
-  "school shooting","mass shooting","bomb threat","i will kill you",
+    "nazi", "hitler", "white power", "kkk", "neo nazi", "terrorist",
 
-  // ======================
-  // DRUGS / ILLEGAL
-  // ======================
-  "cocaine","heroin","meth","weed","marijuana","lsd","ecstasy","mdma","fentanyl",
-  "opioid","overdose","dealer","drug dealer","xanax","adderall","percocet",
-  "oxycontin","codeine","shrooms",
+    // ======================
+    // VIOLENCE / THREATS
+    // ======================
+    "murder", "rape", "shoot", "stab", "suicide", "die", "dead", "massacre",
+    "assault", "kidnap", "behead", "genocide", "slaughter",
+    "school shooting", "mass shooting", "bomb threat", "i will kill you",
 
-  // ======================
-  // SPAM / SCAMS
-  // ======================
-  "crypto","bitcoin giveaway","guaranteed profit","onlyfans link",
-  "cashapp","venmo me","paypal me","telegram",
+    // ======================
+    // DRUGS / ILLEGAL
+    // ======================
+    "cocaine", "heroin", "meth", "weed", "marijuana", "lsd", "ecstasy", "mdma", "fentanyl",
+    "opioid", "overdose", "dealer", "drug dealer", "xanax", "adderall", "percocet",
+    "oxycontin", "codeine", "shrooms",
+
+    // ======================
+    // SPAM / SCAMS
+    // ======================
+    "crypto", "bitcoin giveaway", "guaranteed profit", "onlyfans link",
+    "cashapp", "venmo me", "paypal me", "telegram",
 ];
 
 /**
  * Checks if content contains banned words or phrases
  */
 export function containsBannedWords(content: string): boolean {
-  const normalized = content
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ");
+    const normalized = content
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ");
 
-  return BANNED_WORDS.some(word => normalized.includes(word));
+    return BANNED_WORDS.some(word => normalized.includes(word));
 }
 
 /**

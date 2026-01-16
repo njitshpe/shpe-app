@@ -93,16 +93,27 @@ export async function fetchPostById(postId: string): Promise<ServiceResponse<Fee
 export async function fetchFeedPosts(
     page: number = 0,
     limit: number = 20,
-    userId?: string
+    userId?: string,
+    eventId?: string // Added eventId param
 ): Promise<ServiceResponse<FeedPostUI[]>> {
     try {
         const currentUser = (await supabase.auth.getUser()).data.user;
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('feed_posts_visible')
             .select('*')
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
+
+        if (userId) {
+            query = query.eq('user_id', userId);
+        }
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             return { success: false, error: mapSupabaseError(error) };
@@ -394,6 +405,13 @@ export async function createPost(
         }
 
         // Create post
+        console.log('[createPost] Attempting to insert post:', {
+            user_id: user.id,
+            contentLength: content.length,
+            hasImages: imageUrls.length > 0,
+            eventId: eventId || null
+        });
+
         const { data: post, error } = await supabase
             .from('feed_posts')
             .insert({
@@ -406,11 +424,14 @@ export async function createPost(
             .single();
 
         if (error) {
+            console.error('[createPost] Supabase insert error:', error);
             return {
                 success: false,
                 error: createError('Failed to create post', 'DATABASE_ERROR', undefined, error.message),
             };
         }
+
+        console.log('[createPost] Post created successfully:', post.id);
 
         // Record post creation for rate limiting
         recordPostCreation(user.id);
@@ -622,9 +643,35 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
             };
         }
 
-        const comments = data.map(mapFeedCommentDBToUI);
+        // Transform DB comments to UI structure
+        const flatComments = data.map(mapFeedCommentDBToUI);
 
-        return { success: true, data: comments };
+        // Build tree structure
+        const commentMap = new Map<string, FeedCommentUI>();
+        const rootComments: FeedCommentUI[] = [];
+
+        // First pass: create all comment objects
+        flatComments.forEach(comment => {
+            comment.replies = []; // Initialize replies array
+            commentMap.set(comment.id, comment);
+        });
+
+        // Second pass: link repies to parents
+        flatComments.forEach(comment => {
+            if (comment.parentId) {
+                const parent = commentMap.get(comment.parentId);
+                if (parent) {
+                    parent.replies?.push(comment);
+                } else {
+                    // Parent not found (maybe loaded separately or deleted), treat as root for now
+                    rootComments.push(comment);
+                }
+            } else {
+                rootComments.push(comment);
+            }
+        });
+
+        return { success: true, data: rootComments };
     } catch (error) {
         return {
             success: false,
@@ -645,7 +692,7 @@ export async function createComment(
     request: CreateCommentRequest
 ): Promise<ServiceResponse<FeedCommentUI>> {
     try {
-        const { postId, content } = request;
+        const { postId, content, parentId } = request;
 
         // Validate content
         const validationError = validateCommentContent(content);
@@ -673,6 +720,7 @@ export async function createComment(
                 post_id: postId,
                 user_id: user.id,
                 content,
+                parent_id: parentId || null,
             })
             .select(`
         *,
@@ -757,7 +805,8 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
                     }
                 } catch (err) {
                     // If we can't get file info, continue without size validation
-                    console.warn('Could not get file size for:', uri);
+                    // This often happens on first pick on iOS but doesn't prevent upload
+                    if (__DEV__) console.log('Notice: Could not get file size for:', uri);
                 }
 
                 // Validate image before upload (with size if available)
@@ -772,29 +821,34 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
                 // Compress image using shared helper
                 const compressedImage = await PhotoHelper.compressImage(uri);
 
+                // Determine file type and name based on whether compression happened (webp) or fallback (original)
+                const isWebP = compressedImage.endsWith('.webp');
+                const extension = isWebP ? 'webp' : uri.split('.').pop() || 'jpg';
+                const mimeType = isWebP ? 'image/webp' : `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+
                 // Generate unique path
                 const timestamp = Date.now();
-                const path = `${userId}/${timestamp}_${index}.webp`;
+                const path = `${userId}/${timestamp}_${index}.${extension}`;
 
                 // For React Native, we need to use the file URI directly
                 const formData = new FormData();
                 formData.append('file', {
                     uri: compressedImage,
-                    type: 'image/webp',
-                    name: `${timestamp}_${index}.webp`,
+                    type: mimeType,
+                    name: `${timestamp}_${index}.${extension}`,
                 } as any);
 
                 // Upload to Supabase Storage using FormData
                 const { data, error } = await supabase.storage
                     .from('feed-images')
                     .upload(path, formData, {
-                        contentType: 'image/webp',
+                        contentType: mimeType,
                         upsert: false,
                     });
 
                 if (error) {
-                    console.error('Upload error:', error);
-                    throw error;
+                    console.error('Upload error details:', error);
+                    throw new Error(`Upload failed: ${error.message}`);
                 }
 
                 // Return public URL
