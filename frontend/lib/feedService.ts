@@ -884,6 +884,7 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
 export async function updatePost(
     postId: string,
     content: string,
+    imageUris: string[],
     eventId?: string
 ): Promise<ServiceResponse<FeedPostUI>> {
     try {
@@ -907,10 +908,32 @@ export async function updatePost(
             };
         }
 
+        // Handle images
+        let finalImageUrls: string[] = [];
+        const existingUrls = imageUris.filter(uri => uri.startsWith('http'));
+        const newUris = imageUris.filter(uri => !uri.startsWith('http'));
+
+        try {
+            const uploadedUrls = await uploadImages(user.id, newUris);
+            finalImageUrls = [...existingUrls, ...uploadedUrls];
+        } catch (uploadError: any) {
+            if (uploadError.code === 'VALIDATION_ERROR') {
+                return {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: uploadError.message,
+                    },
+                };
+            }
+            throw uploadError;
+        }
+
         const { data: post, error } = await supabase
             .from('feed_posts')
             .update({
                 content,
+                image_urls: finalImageUrls,
                 event_id: eventId || null,
                 updated_at: new Date().toISOString(),
             })
