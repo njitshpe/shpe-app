@@ -172,7 +172,31 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
             </View>
 
             {/* Content */}
-            <Text style={[styles.content, { color: theme.text }]}>{post.content}</Text>
+            <Text style={[styles.content, { color: theme.text }]}>
+                {post.content.split(/(@\w+\s?)/g).map((part, index) => {
+                    if (part.startsWith('@')) {
+                        const mentionName = part.substring(1).trim();
+                        // Find the user with this name in taggedUsers
+                        const taggedUser = post.taggedUsers.find(
+                            u => `${u.firstName}${u.lastName}` === mentionName ||
+                                `${u.firstName} ${u.lastName}` === mentionName
+                        );
+
+                        if (taggedUser) {
+                            return (
+                                <Text
+                                    key={index}
+                                    style={{ color: theme.primary, fontWeight: '600' }}
+                                    onPress={() => router.push(`/profile/${taggedUser.id}`)}
+                                >
+                                    {part}
+                                </Text>
+                            );
+                        }
+                    }
+                    return <Text key={index}>{part}</Text>;
+                })}
+            </Text>
 
             {/* Images */}
             {post.imageUrls.length > 0 && (
@@ -204,10 +228,19 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
             {/* Tagged Users */}
             {post.taggedUsers.length > 0 && (
                 <View style={styles.tagsContainer}>
-                    <Ionicons name="pricetag" size={14} color={theme.subtext} />
-                    <Text style={[styles.tagsText, { color: theme.subtext }]}>
-                        {post.taggedUsers.map(u => `${u.firstName} ${u.lastName}`).join(', ')}
-                    </Text>
+                    <Ionicons name="pricetag" size={14} color={theme.subtext} style={{ marginTop: 2 }} />
+                    <View style={styles.tagsList}>
+                        {post.taggedUsers.map((user, index) => (
+                            <TouchableOpacity
+                                key={user.id}
+                                onPress={() => router.push(`/profile/${user.id}`)}
+                            >
+                                <Text style={[styles.tagsText, { color: theme.primary }]}>
+                                    {user.firstName} {user.lastName}{index < post.taggedUsers.length - 1 ? ',' : ''}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
             )}
 
@@ -338,9 +371,14 @@ const styles = StyleSheet.create({
     },
     tagsContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 6,
         marginBottom: 8,
+    },
+    tagsList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
     },
     tagsText: {
         fontSize: 13,
