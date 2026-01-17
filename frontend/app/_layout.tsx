@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
 import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
 
 // Providers
@@ -11,7 +11,7 @@ import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 import { SuccessToast } from '@/components/ui/SuccessToast';
-import { AnimatedSplash } from '@/components/AnimatedSplash';
+import { AnimatedSplash, useSplashReady } from '@/components/AnimatedSplash';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
@@ -39,13 +39,21 @@ function formatActionLabel(actionType: string): string {
  * Handles redirects based on authentication state
  */
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, user, profile } = useAuth();
+  const { session, isLoading, isBootstrapping, user, profile } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
+  const { setReady } = useSplashReady();
 
   // Toast State for Points
   const [toast, setToast] = React.useState({ visible: false, message: '' });
+
+  // Signal to AnimatedSplash that the app is ready once bootstrapping is complete
+  useEffect(() => {
+    if (!isBootstrapping) {
+      setReady();
+    }
+  }, [isBootstrapping, setReady]);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -172,13 +180,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     };
   }, [session, isLoading]);
 
-  // Loading State - wait for auth to load
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1C1C1E' }}>
-        <ActivityIndicator size="large" color="#D35400" />
-      </View>
-    );
+  // During initial bootstrap, render children but AnimatedSplash handles the visual loading state
+  // After bootstrap, if still loading (e.g., profile refresh), show a subtle indicator
+  if (isBootstrapping) {
+    // Render children so they can initialize, but AnimatedSplash covers them
+    return <>{children}</>;
   }
 
   return (

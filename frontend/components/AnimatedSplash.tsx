@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
 import {
   View,
   StyleSheet,
@@ -25,6 +25,29 @@ import Svg, {
   Stop,
   Circle as SvgCircle,
 } from 'react-native-svg';
+
+// ============================================================================
+// SPLASH READY CONTEXT
+// Allows child components to signal when the app is ready
+// ============================================================================
+interface SplashReadyContextType {
+  setReady: () => void;
+}
+
+const SplashReadyContext = createContext<SplashReadyContextType | null>(null);
+
+/**
+ * Hook for child components to signal that the app is ready.
+ * Call setReady() when your critical initialization is complete.
+ */
+export function useSplashReady() {
+  const context = useContext(SplashReadyContext);
+  if (!context) {
+    // If not wrapped in AnimatedSplash, provide a no-op
+    return { setReady: () => {} };
+  }
+  return context;
+}
 
 // ============================================================================
 // CONFIGURATION
@@ -237,9 +260,15 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplashProps) {
   const shouldSkip = hasShownSplashThisSession;
-  const [phase, setPhase] = useState<'waiting' | 'animating' | 'complete'>(
+  const [phase, setPhase] = useState<'waiting' | 'animating' | 'finishing' | 'complete'>(
     shouldSkip ? 'complete' : 'waiting'
   );
+  const [isReady, setIsReady] = useState(false);
+
+  // Memoized callback for context - stable reference
+  const setReady = useCallback(() => {
+    setIsReady(true);
+  }, []);
 
   // Shared values - all start at 0/hidden
   const logoScale = useSharedValue(0);
@@ -247,6 +276,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
   const glowOpacity = useSharedValue(0);
   const whiteLogoOpacity = useSharedValue(0);
   const coloredLogoOpacity = useSharedValue(0);
+  const blackBgOpacity = useSharedValue(1); // Black background opacity
   const splashContainerOpacity = useSharedValue(1);
   const appContentOpacity = useSharedValue(0);
 
@@ -257,6 +287,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
 
   const whiteLogoStyle = useAnimatedStyle(() => ({ opacity: whiteLogoOpacity.value }));
   const coloredLogoStyle = useAnimatedStyle(() => ({ opacity: coloredLogoOpacity.value }));
+  const blackBgStyle = useAnimatedStyle(() => ({ opacity: blackBgOpacity.value }));
 
   const runAnimation = useCallback(() => {
     hasShownSplashThisSession = true;
@@ -344,41 +375,47 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
     );
 
     // ============================================================
-    // COLORED LOGO OPACITY: 0 -> 1 (during Dip) -> 0 (during explode)
-    // Crossfades in as white fades out, then fades during explosion
+    // COLORED LOGO OPACITY: 0 -> 1 (during Dip) -> 0 (fast fade during explode)
+    // Crossfades in as white fades out, then fades quickly during explosion
     // ============================================================
     coloredLogoOpacity.value = withDelay(T_DIP_START,
       withSequence(
         // Crossfade in during the Dip (synced with white fading out)
         withTiming(1, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.quad) }),
-        // Fade out as it explodes
-        withDelay(50,
-          withTiming(0, { duration: T_EXPLODE - 100, easing: Easing.out(Easing.quad) })
-        )
+        // Fade out quickly as it explodes (200ms instead of 500ms)
+        withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) })
       )
+    );
+
+    // ============================================================
+    // BLACK BACKGROUND: Fade out simultaneously with colored logo
+    // ============================================================
+    blackBgOpacity.value = withDelay(T_IGNITION,
+      withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) })
     );
 
     // ============================================================
     // APP CONTENT: Fade in during explosion
     // ============================================================
-    appContentOpacity.value = withDelay(T_IGNITION + 150,
+    appContentOpacity.value = withDelay(T_IGNITION,
       withTiming(1, { duration: 350 })
     );
 
     // ============================================================
-    // SPLASH CONTAINER: Fade out at end
+    // SPLASH CONTAINER: Mark animation as done (but don't fade yet)
+    // The actual fade happens when isReady is true
     // ============================================================
     splashContainerOpacity.value = withDelay(T_IGNITION + T_EXPLODE,
-      withTiming(0, { duration: 200 }, (finished) => {
+      withTiming(1, { duration: 1 }, (finished) => {
         if (finished) {
-          runOnJS(setPhase)('complete');
-          if (onAnimationComplete) runOnJS(onAnimationComplete)();
+          runOnJS(setPhase)('finishing');
         }
       })
     );
 
-  }, [onAnimationComplete]);
+  }, []);
 
+  // Start the animation on mount
   useEffect(() => {
     if (shouldSkip) {
       SplashScreen.hideAsync();
@@ -396,44 +433,66 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
     return () => handle.cancel();
   }, [runAnimation]);
 
+  // Complete the transition when both animation is done AND app is ready
+  useEffect(() => {
+    if (phase === 'finishing' && isReady) {
+      // Fade out the splash overlay
+      splashContainerOpacity.value = withTiming(0, { duration: 200 }, (finished) => {
+        if (finished) {
+          runOnJS(setPhase)('complete');
+          if (onAnimationComplete) runOnJS(onAnimationComplete)();
+        }
+      });
+    }
+  }, [phase, isReady, onAnimationComplete]);
+
+  // Context value - memoized to prevent unnecessary re-renders
+  const contextValue = React.useMemo(() => ({ setReady }), [setReady]);
+
   if (phase === 'complete') {
-    return <View style={styles.childrenContainer}>{children}</View>;
+    return (
+      <SplashReadyContext.Provider value={contextValue}>
+        <View style={styles.childrenContainer}>{children}</View>
+      </SplashReadyContext.Provider>
+    );
   }
 
   const GlowComponent = !isExpoGo && Canvas ? SkiaGlow : FallbackGlow;
 
   return (
-    <View style={styles.container}>
-      {/* APP CONTENT (fades in at end) */}
-      <Animated.View style={[styles.appContent, { opacity: appContentOpacity }]}>
-        {children}
-      </Animated.View>
-
-      {/* SPLASH OVERLAY */}
-      <Animated.View
-        style={[styles.overlay, { opacity: splashContainerOpacity }]}
-        pointerEvents="none"
-      >
-        <View style={styles.blackBg} />
-
-        {/* GLOW LAYER */}
-        <GlowComponent opacity={glowOpacity} scale={glowScale} />
-
-        {/* LOGO LAYER */}
-        <Animated.View style={[styles.logoContainer, containerTransform]}>
-          <Animated.Image
-            source={whiteLogo}
-            style={[styles.logoImage, whiteLogoStyle]}
-            resizeMode="contain"
-          />
-          <Animated.Image
-            source={coloredLogo}
-            style={[styles.logoImage, coloredLogoStyle]}
-            resizeMode="contain"
-          />
+    <SplashReadyContext.Provider value={contextValue}>
+      <View style={styles.container}>
+        {/* APP CONTENT (fades in at end) */}
+        <Animated.View style={[styles.appContent, { opacity: appContentOpacity }]}>
+          {children}
         </Animated.View>
-      </Animated.View>
-    </View>
+
+        {/* SPLASH OVERLAY */}
+        <Animated.View
+          style={[styles.overlay, { opacity: splashContainerOpacity }]}
+          pointerEvents="none"
+        >
+          <Animated.View style={[styles.blackBg, blackBgStyle]} />
+
+          {/* GLOW LAYER */}
+          <GlowComponent opacity={glowOpacity} scale={glowScale} />
+
+          {/* LOGO LAYER */}
+          <Animated.View style={[styles.logoContainer, containerTransform]}>
+            <Animated.Image
+              source={whiteLogo}
+              style={[styles.logoImage, whiteLogoStyle]}
+              resizeMode="contain"
+            />
+            <Animated.Image
+              source={coloredLogo}
+              style={[styles.logoImage, coloredLogoStyle]}
+              resizeMode="contain"
+            />
+          </Animated.View>
+        </Animated.View>
+      </View>
+    </SplashReadyContext.Provider>
   );
 }
 
