@@ -23,6 +23,7 @@ import { validatePostContent } from '@/utils/feed';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { EventAutocomplete } from '@/components/feed';
 import { UserAutocomplete } from '@/components/feed/UserAutocomplete';
+import { mentionCacheService } from '@/services/mentionCache.service';
 import { supabase } from '@/lib/supabase';
 import type { UserProfile } from '@/types/userProfile';
 
@@ -36,7 +37,7 @@ export default function CreatePostScreen() {
     const [imageUris, setImageUris] = useState<string[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<{ id: string; name: string } | null>(null);
     const [taggedUsers, setTaggedUsers] = useState<UserProfile[]>([]);
-    const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [isLoadingPost, setIsLoadingPost] = useState(false);
 
@@ -205,7 +206,7 @@ export default function CreatePostScreen() {
                                 if (lastWord && lastWord.startsWith('@')) {
                                     setMentionQuery(lastWord.substring(1));
                                 } else {
-                                    setMentionQuery('');
+                                    setMentionQuery(null);
                                 }
                             }}
                             multiline
@@ -219,11 +220,13 @@ export default function CreatePostScreen() {
                                 words.pop(); // Remove the partial @mention
                                 words.push(`@${user.first_name}${user.last_name} `);
                                 setContent(words.join(' '));
-                                setMentionQuery('');
+                                setMentionQuery(null);
                                 // Add to tagged users if not already added
                                 if (!taggedUsers.find(u => u.id === user.id)) {
                                     setTaggedUsers(prev => [...prev, user]);
                                 }
+                                // Save to recently used cache
+                                mentionCacheService.saveRecent(user);
                             }}
                         />
                     </View>
