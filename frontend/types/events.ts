@@ -14,6 +14,7 @@ export type EventTag =
 
 export interface Event {
   id: string; // event_id from database
+  uuid: string; // Internal UUID from database
   title: string; // name from database
   description?: string;
   startTimeISO: string; // start_time from database

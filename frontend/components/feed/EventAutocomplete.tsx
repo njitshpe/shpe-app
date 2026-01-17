@@ -133,7 +133,7 @@ export function EventAutocomplete({ onSelect, initialEvent }: EventAutocompleteP
 
 const styles = StyleSheet.create({
     container: {
-        zIndex: 10,
+        zIndex: 20, // Higher than inputContainer in create.tsx (which is 10)
         marginBottom: 12,
     },
     inputContainer: {

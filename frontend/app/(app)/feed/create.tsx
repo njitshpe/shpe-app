@@ -9,6 +9,7 @@ import {
     Image,
     Alert,
     ActivityIndicator,
+    DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -21,7 +22,10 @@ import { usePost } from '@/hooks/feed';
 import { validatePostContent } from '@/utils/feed';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { EventAutocomplete } from '@/components/feed';
+import { UserAutocomplete } from '@/components/feed/UserAutocomplete';
+import { mentionCacheService } from '@/services/mentionCache.service';
 import { supabase } from '@/lib/supabase';
+import type { UserProfile } from '@/types/userProfile';
 
 export default function CreatePostScreen() {
     const { theme } = useTheme();
@@ -32,6 +36,8 @@ export default function CreatePostScreen() {
     const [content, setContent] = useState('');
     const [imageUris, setImageUris] = useState<string[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<{ id: string; name: string } | null>(null);
+    const [taggedUsers, setTaggedUsers] = useState<UserProfile[]>([]);
+    const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [isLoadingPost, setIsLoadingPost] = useState(false);
 
@@ -43,22 +49,32 @@ export default function CreatePostScreen() {
 
     const fetchPostDetails = async (postId: string) => {
         setIsLoadingPost(true);
-        const { data, error } = await supabase
+        const { data: post, error } = await supabase
             .from('feed_posts')
-            .select(`
-                content,
-                image_urls,
-                event:events(id, name)
-            `)
+            .select('content, image_urls, event_id')
             .eq('id', postId)
             .single();
 
-        if (data) {
-            setContent(data.content);
-            setImageUris(data.image_urls || []);
-            if (data.event) {
-                // @ts-ignore
-                setSelectedEvent(data.event);
+        if (error) {
+            console.error('[CreatePost] Error fetching post:', error);
+            setIsLoadingPost(false);
+            return;
+        }
+
+        if (post) {
+            setContent(post.content);
+            setImageUris(post.image_urls || []);
+
+            if (post.event_id) {
+                const { data: event } = await supabase
+                    .from('events')
+                    .select('id, name')
+                    .eq('id', post.event_id)
+                    .single();
+
+                if (event) {
+                    setSelectedEvent(event);
+                }
             }
         }
         setIsLoadingPost(false);
@@ -98,12 +114,13 @@ export default function CreatePostScreen() {
 
         let result;
         if (id) {
-            result = await update(id, content, selectedEvent?.id);
+            result = await update(id, content, imageUris, selectedEvent?.id);
         } else {
             result = await create({
                 content,
                 imageUris,
                 eventId: selectedEvent?.id,
+                taggedUserIds: taggedUsers.map(u => u.id),
             });
         }
 
@@ -127,6 +144,7 @@ export default function CreatePostScreen() {
     };
 
     const handleSuccessHide = () => {
+        DeviceEventEmitter.emit('feed:refresh');
         setShowSuccess(false);
         router.back();
     };
@@ -176,16 +194,42 @@ export default function CreatePostScreen() {
                     />
 
                     {/* Text Input */}
-                    <TextInput
-                        style={[styles.input, { color: theme.text }]}
-                        placeholder="What's on your mind?"
-                        placeholderTextColor={theme.subtext}
-                        value={content}
-                        onChangeText={setContent}
-                        multiline
-                        maxLength={5000}
-                        autoFocus
-                    />
+                    <View style={styles.inputContainer}>
+                        <TextInput
+                            style={[styles.input, { color: theme.text }]}
+                            placeholder="What's on your mind? Type @ to tag someone..."
+                            placeholderTextColor={theme.subtext}
+                            value={content}
+                            onChangeText={(text) => {
+                                setContent(text);
+                                const lastWord = text.split(' ').pop();
+                                if (lastWord && lastWord.startsWith('@')) {
+                                    setMentionQuery(lastWord.substring(1));
+                                } else {
+                                    setMentionQuery(null);
+                                }
+                            }}
+                            multiline
+                            maxLength={5000}
+                            autoFocus
+                        />
+                        <UserAutocomplete
+                            query={mentionQuery}
+                            onSelect={(user) => {
+                                const words = content.split(' ');
+                                words.pop(); // Remove the partial @mention
+                                words.push(`@${user.first_name}${user.last_name} `);
+                                setContent(words.join(' '));
+                                setMentionQuery(null);
+                                // Add to tagged users if not already added
+                                if (!taggedUsers.find(u => u.id === user.id)) {
+                                    setTaggedUsers(prev => [...prev, user]);
+                                }
+                                // Save to recently used cache
+                                mentionCacheService.saveRecent(user);
+                            }}
+                        />
+                    </View>
 
                     {/* Character Count */}
                     <Text style={[styles.charCount, { color: theme.subtext }]}>
@@ -271,6 +315,10 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         padding: 16,
+    },
+    inputContainer: {
+        position: 'relative',
+        zIndex: 10,
     },
     input: {
         fontSize: 16,

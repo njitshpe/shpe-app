@@ -93,16 +93,27 @@ export async function fetchPostById(postId: string): Promise<ServiceResponse<Fee
 export async function fetchFeedPosts(
     page: number = 0,
     limit: number = 20,
-    userId?: string
+    userId?: string,
+    eventId?: string // Added eventId param
 ): Promise<ServiceResponse<FeedPostUI[]>> {
     try {
         const currentUser = (await supabase.auth.getUser()).data.user;
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('feed_posts_visible')
             .select('*')
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
+
+        if (userId) {
+            query = query.eq('user_id', userId);
+        }
+
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
             return { success: false, error: mapSupabaseError(error) };
@@ -171,37 +182,52 @@ export async function fetchFeedPosts(
         const postsWithCounts = await Promise.all(
             rows.map(async (post: any) => {
                 // Get like count
-                const { count: likeCount, error: likeCountError } = await supabase
+                const { count: likeCount } = await supabase
                     .from('feed_likes')
                     .select('*', { count: 'exact', head: true })
                     .eq('post_id', post.id);
-                if (__DEV__ && likeCountError) {
-                    console.warn('[Feed] Failed to fetch like count:', likeCountError);
-                }
 
                 // Get comment count
-                const { count: commentCount, error: commentCountError } = await supabase
+                const { count: commentCount } = await supabase
                     .from('feed_comments')
                     .select('*', { count: 'exact', head: true })
                     .eq('post_id', post.id)
                     .eq('is_active', true);
-                if (__DEV__ && commentCountError) {
-                    console.warn('[Feed] Failed to fetch comment count:', commentCountError);
-                }
 
                 // Check if current user liked
                 let isLiked = false;
                 if (currentUser) {
-                    const { data: likeData, error: likedError } = await supabase
+                    const { data: likeData } = await supabase
                         .from('feed_likes')
                         .select('id')
                         .eq('post_id', post.id)
                         .eq('user_id', currentUser.id)
                         .maybeSingle();
-                    if (__DEV__ && likedError) {
-                        console.warn('[Feed] Failed to fetch like status:', likedError);
-                    }
                     isLiked = !!likeData;
+                }
+
+                // Get tagged users
+                const { data: tagsData } = await supabase
+                    .from('feed_post_tags')
+                    .select('tagged_user_id')
+                    .eq('post_id', post.id);
+
+                let taggedUsers: any[] = [];
+                if (tagsData && tagsData.length > 0) {
+                    const tagUserIds = tagsData.map(t => t.tagged_user_id);
+                    const { data: tagProfiles } = await supabase
+                        .from('user_profiles')
+                        .select('id, first_name, last_name, profile_picture_url')
+                        .in('id', tagUserIds);
+
+                    if (tagProfiles) {
+                        taggedUsers = tagProfiles.map(p => ({
+                            id: p.id,
+                            firstName: p.first_name,
+                            lastName: p.last_name,
+                            profilePictureUrl: p.profile_picture_url
+                        }));
+                    }
                 }
 
                 return {
@@ -211,11 +237,15 @@ export async function fetchFeedPosts(
                     like_count: likeCount || 0,
                     comment_count: commentCount || 0,
                     is_liked_by_current_user: isLiked,
+                    tagged_users: taggedUsers,
                 };
             })
         );
 
-        const posts = postsWithCounts.map(mapFeedPostDBToUI);
+        const posts = postsWithCounts.map(p => ({
+            ...mapFeedPostDBToUI(p),
+            taggedUsers: p.tagged_users || []
+        }));
 
         return { success: true, data: posts };
     } catch (error) {
@@ -406,6 +436,7 @@ export async function createPost(
             .single();
 
         if (error) {
+            console.error('[createPost] Supabase insert error:', error);
             return {
                 success: false,
                 error: createError('Failed to create post', 'DATABASE_ERROR', undefined, error.message),
@@ -622,9 +653,35 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
             };
         }
 
-        const comments = data.map(mapFeedCommentDBToUI);
+        // Transform DB comments to UI structure
+        const flatComments = data.map(mapFeedCommentDBToUI);
 
-        return { success: true, data: comments };
+        // Build tree structure
+        const commentMap = new Map<string, FeedCommentUI>();
+        const rootComments: FeedCommentUI[] = [];
+
+        // First pass: create all comment objects
+        flatComments.forEach(comment => {
+            comment.replies = []; // Initialize replies array
+            commentMap.set(comment.id, comment);
+        });
+
+        // Second pass: link repies to parents
+        flatComments.forEach(comment => {
+            if (comment.parentId) {
+                const parent = commentMap.get(comment.parentId);
+                if (parent) {
+                    parent.replies?.push(comment);
+                } else {
+                    // Parent not found (maybe loaded separately or deleted), treat as root for now
+                    rootComments.push(comment);
+                }
+            } else {
+                rootComments.push(comment);
+            }
+        });
+
+        return { success: true, data: rootComments };
     } catch (error) {
         return {
             success: false,
@@ -645,7 +702,7 @@ export async function createComment(
     request: CreateCommentRequest
 ): Promise<ServiceResponse<FeedCommentUI>> {
     try {
-        const { postId, content } = request;
+        const { postId, content, parentId } = request;
 
         // Validate content
         const validationError = validateCommentContent(content);
@@ -673,6 +730,7 @@ export async function createComment(
                 post_id: postId,
                 user_id: user.id,
                 content,
+                parent_id: parentId || null,
             })
             .select(`
         *,
@@ -714,11 +772,29 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
             };
         }
 
-        const { error } = await supabase
+        console.log('Attempting to delete comment:', { commentId, userId: user.id });
+
+        // Try hard delete first for now
+        const { error, data } = await supabase
             .from('feed_comments')
-            .update({ is_active: false })
+            .delete()
             .eq('id', commentId)
-            .eq('user_id', user.id);
+            .eq('user_id', user.id)
+            .select();
+
+        console.log('Delete comment response:', { error, data });
+
+        if (error) {
+            console.error('Supabase delete error:', error);
+            throw error;
+        }
+
+        // Check if any row was actually updated
+        if (!data || data.length === 0) {
+            console.warn('No comment was deleted. Verify undefined ID or permissions.');
+            // We won't throw here to avoid breaking UI if it was already deleted, 
+            // but it's good to know.
+        }
 
         if (error) {
             return {
@@ -757,7 +833,8 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
                     }
                 } catch (err) {
                     // If we can't get file info, continue without size validation
-                    console.warn('Could not get file size for:', uri);
+                    // This often happens on first pick on iOS but doesn't prevent upload
+                    if (__DEV__) console.log('Notice: Could not get file size for:', uri);
                 }
 
                 // Validate image before upload (with size if available)
@@ -772,29 +849,34 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
                 // Compress image using shared helper
                 const compressedImage = await PhotoHelper.compressImage(uri);
 
+                // Determine file type and name based on whether compression happened (webp) or fallback (original)
+                const isWebP = compressedImage.endsWith('.webp');
+                const extension = isWebP ? 'webp' : uri.split('.').pop() || 'jpg';
+                const mimeType = isWebP ? 'image/webp' : `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+
                 // Generate unique path
                 const timestamp = Date.now();
-                const path = `${userId}/${timestamp}_${index}.webp`;
+                const path = `${userId}/${timestamp}_${index}.${extension}`;
 
                 // For React Native, we need to use the file URI directly
                 const formData = new FormData();
                 formData.append('file', {
                     uri: compressedImage,
-                    type: 'image/webp',
-                    name: `${timestamp}_${index}.webp`,
+                    type: mimeType,
+                    name: `${timestamp}_${index}.${extension}`,
                 } as any);
 
                 // Upload to Supabase Storage using FormData
                 const { data, error } = await supabase.storage
                     .from('feed-images')
                     .upload(path, formData, {
-                        contentType: 'image/webp',
+                        contentType: mimeType,
                         upsert: false,
                     });
 
                 if (error) {
-                    console.error('Upload error:', error);
-                    throw error;
+                    console.error('Upload error details:', error);
+                    throw new Error(`Upload failed: ${error.message}`);
                 }
 
                 // Return public URL
@@ -820,6 +902,7 @@ async function uploadImages(userId: string, imageUris: string[]): Promise<string
 export async function updatePost(
     postId: string,
     content: string,
+    imageUris: string[],
     eventId?: string
 ): Promise<ServiceResponse<FeedPostUI>> {
     try {
@@ -843,10 +926,32 @@ export async function updatePost(
             };
         }
 
+        // Handle images
+        let finalImageUrls: string[] = [];
+        const existingUrls = imageUris.filter(uri => uri.startsWith('http'));
+        const newUris = imageUris.filter(uri => !uri.startsWith('http'));
+
+        try {
+            const uploadedUrls = await uploadImages(user.id, newUris);
+            finalImageUrls = [...existingUrls, ...uploadedUrls];
+        } catch (uploadError: any) {
+            if (uploadError.code === 'VALIDATION_ERROR') {
+                return {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: uploadError.message,
+                    },
+                };
+            }
+            throw uploadError;
+        }
+
         const { data: post, error } = await supabase
             .from('feed_posts')
             .update({
                 content,
+                image_urls: finalImageUrls,
                 event_id: eventId || null,
                 updated_at: new Date().toISOString(),
             })
