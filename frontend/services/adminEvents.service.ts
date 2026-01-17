@@ -50,6 +50,7 @@ class AdminEventsService {
                 location_address: eventData.location_address,
                 start_time: eventData.start_time,
                 end_time: eventData.end_time,
+                max_attendees: eventData.max_attendees,
                 cover_image_url: eventData.cover_image_url,
                 tags: eventData.tags,
                 latitude: eventData.latitude,
