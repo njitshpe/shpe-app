@@ -1,1 +1,0 @@
-export { useProfilePhoto } from './useProfilePhoto';
