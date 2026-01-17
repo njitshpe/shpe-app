@@ -38,30 +38,30 @@ class ProfileService {
             }
 
             const request: Promise<ServiceResponse<UserProfile | null>> = (async () => {
-            if (__DEV__) {
-                console.log('[ProfileService] Fetching profile for user:', userId);
-            }
-            const { data, error } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', userId)
-                .maybeSingle(); // Use maybeSingle() instead of single() to handle missing profiles gracefully
+                if (__DEV__) {
+                    console.log('[ProfileService] Fetching profile for user:', userId);
+                }
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .maybeSingle(); // Use maybeSingle() instead of single() to handle missing profiles gracefully
 
-            if (__DEV__) {
-                console.log('[ProfileService] Profile fetch result:', { hasData: !!data, error: error?.message });
-            }
+                if (__DEV__) {
+                    console.log('[ProfileService] Profile fetch result:', { hasData: !!data, error: error?.message });
+                }
 
-            // If no profile exists (data is null and no error), return success with null data
-            if (!data && !error) {
-                return {
-                    success: true,
-                    data: null, // Profile doesn't exist yet (e.g., during onboarding)
-                };
-            }
+                // If no profile exists (data is null and no error), return success with null data
+                if (!data && !error) {
+                    return {
+                        success: true,
+                        data: null, // Profile doesn't exist yet (e.g., during onboarding)
+                    };
+                }
 
-            // Flatten profile_data for backward compatibility
-            const flattenedData = this.flattenProfileData(data);
-            return handleSupabaseError(flattenedData, error);
+                // Flatten profile_data for backward compatibility
+                const flattenedData = this.flattenProfileData(data);
+                return handleSupabaseError(flattenedData, error);
             })();
 
             this.inFlight.set(userId, request);
@@ -185,6 +185,35 @@ class ProfileService {
                 success: false,
                 error: createError(
                     'Failed to delete profile',
+                    'UNKNOWN_ERROR',
+                    undefined,
+                    error instanceof Error ? error.message : 'Unknown error'
+                ),
+            };
+        }
+    }
+    // Search profiles by name
+    async searchProfiles(query: string, limit: number = 10): Promise<ServiceResponse<UserProfile[]>> {
+        try {
+            if (!query.trim()) return { success: true, data: [] };
+
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+                .limit(limit);
+
+            if (error) {
+                return handleSupabaseError([], error);
+            }
+
+            const profiles = (data || []).map(p => this.flattenProfileData(p));
+            return { success: true, data: profiles };
+        } catch (error) {
+            return {
+                success: false,
+                error: createError(
+                    'Failed to search profiles',
                     'UNKNOWN_ERROR',
                     undefined,
                     error instanceof Error ? error.message : 'Unknown error'

@@ -149,9 +149,9 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                             {post.event && (
                                 <View style={styles.headerEventTag}>
                                     <View style={[styles.dot, { backgroundColor: theme.subtext }]} />
-                                    <Ionicons name="location-outline" size={12} color={theme.subtext} />
+                                    <Ionicons name="location-outline" size={12} color={theme.primary} />
                                     <TouchableOpacity onPress={handleEventPress}>
-                                        <Text style={[styles.headerEventText, { color: theme.subtext }]}>
+                                        <Text style={[styles.headerEventText, { color: theme.primary }]}>
                                             {post.event.name}
                                         </Text>
                                     </TouchableOpacity>
@@ -164,78 +164,127 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                     </View>
                 </TouchableOpacity>
 
-                {!compact && (
-                    <TouchableOpacity onPress={handleOptionsPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Ionicons name="ellipsis-horizontal" size={20} color={theme.subtext} />
-                    </TouchableOpacity>
-                )}
-            </View>
+                {
+                    !compact && (
+                        <TouchableOpacity onPress={handleOptionsPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <Ionicons name="ellipsis-horizontal" size={20} color={theme.subtext} />
+                        </TouchableOpacity>
+                    )
+                }
+            </View >
 
             {/* Content */}
-            <Text style={[styles.content, { color: theme.text }]}>{post.content}</Text>
+            < Text style={[styles.content, { color: theme.text }]} >
+                {
+                    post.content.split(/(@\w+\s?)/g).map((part, index) => {
+                        if (part.startsWith('@')) {
+                            const mentionName = part.substring(1).trim();
+
+                            // Find the user with this name in taggedUsers
+                            const taggedUser = post.taggedUsers.find(
+                                u => {
+                                    const fullName = `${u.firstName}${u.lastName}`.toLowerCase();
+                                    const spacedName = `${u.firstName} ${u.lastName}`.toLowerCase();
+                                    const search = mentionName.toLowerCase();
+                                    const match = fullName === search || spacedName === search;
+                                    return match;
+                                }
+                            );
+
+                            if (taggedUser) {
+                                return (
+                                    <Text
+                                        key={index}
+                                        style={{ color: theme.primary, fontWeight: '600' }}
+                                        onPress={() => router.push(`/profile/${taggedUser.id}`)}
+                                    >
+                                        {part}
+                                    </Text>
+                                );
+                            }
+                        }
+                        return <Text key={index}>{part}</Text>;
+                    })
+                }
+            </Text >
 
             {/* Images */}
-            {post.imageUrls.length > 0 && (
-                <View style={styles.imagesContainer}>
-                    {post.imageUrls.slice(0, compact ? 1 : 4).map((url, index) => {
-                        return (
-                            <Image
-                                key={index}
-                                source={{ uri: url }}
-                                style={[
-                                    styles.image,
-                                    post.imageUrls.length === 1 && styles.singleImage,
-                                    post.imageUrls.length > 1 && styles.multiImage,
-                                ]}
-                                resizeMode="cover"
-                            />
-                        );
-                    })}
-                    {post.imageUrls.length > 4 && !compact && (
-                        <View style={[styles.moreImagesOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-                            <Text style={styles.moreImagesText}>+{post.imageUrls.length - 4}</Text>
-                        </View>
-                    )}
-                </View>
-            )}
+            {
+                post.imageUrls.length > 0 && (
+                    <View style={styles.imagesContainer}>
+                        {post.imageUrls.slice(0, compact ? 1 : 4).map((url, index) => {
+                            return (
+                                <Image
+                                    key={index}
+                                    source={{ uri: url }}
+                                    style={[
+                                        styles.image,
+                                        post.imageUrls.length === 1 && styles.singleImage,
+                                        post.imageUrls.length > 1 && styles.multiImage,
+                                    ]}
+                                    resizeMode="cover"
+                                />
+                            );
+                        })}
+                        {post.imageUrls.length > 4 && !compact && (
+                            <View style={[styles.moreImagesOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+                                <Text style={styles.moreImagesText}>+{post.imageUrls.length - 4}</Text>
+                            </View>
+                        )}
+                    </View>
+                )
+            }
 
 
 
             {/* Tagged Users */}
-            {post.taggedUsers.length > 0 && (
-                <View style={styles.tagsContainer}>
-                    <Ionicons name="pricetag" size={14} color={theme.subtext} />
-                    <Text style={[styles.tagsText, { color: theme.subtext }]}>
-                        {post.taggedUsers.map(u => `${u.firstName} ${u.lastName}`).join(', ')}
-                    </Text>
-                </View>
-            )}
+            {
+                post.taggedUsers.length > 0 && (
+                    <View style={styles.tagsContainer}>
+                        <Ionicons name="pricetag" size={14} color={theme.subtext} style={{ marginTop: 2 }} />
+                        <View style={styles.tagsList}>
+                            {post.taggedUsers.map((user, index) => (
+                                <TouchableOpacity
+                                    key={user.id}
+                                    onPress={() => router.push(`/profile/${user.id}`)}
+                                >
+                                    <Text style={[styles.tagsText, { color: theme.primary }]}>
+                                        {user.firstName} {user.lastName}{index < post.taggedUsers.length - 1 ? ',' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                )
+            }
 
             {/* Actions */}
-            {!compact && (
-                <View style={[styles.actions, { borderTopColor: theme.border }]}>
-                    <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
-                        <Ionicons
-                            name={isLiked ? 'heart' : 'heart-outline'}
-                            size={22}
-                            color={isLiked ? theme.error : theme.subtext}
-                        />
-                        <Text style={[styles.actionText, { color: theme.subtext }]}>
-                            {likeCount}
-                        </Text>
-                    </TouchableOpacity>
+            {
+                !compact && (
+                    <View style={[styles.actions, { borderTopColor: theme.border }]}>
+                        <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+                            <Ionicons
+                                name={isLiked ? 'heart' : 'heart-outline'}
+                                size={22}
+                                color={isLiked ? theme.error : theme.subtext}
+                            />
+                            <Text style={[styles.actionText, { color: theme.subtext }]}>
+                                {likeCount}
+                            </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => onCommentPress?.(post.id)}
-                    >
-                        <Ionicons name="chatbubble-outline" size={20} color={theme.subtext} />
-                        <Text style={[styles.actionText, { color: theme.subtext }]}>
-                            {post.commentCount}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => onCommentPress?.(post.id)}
+                        >
+                            <Ionicons name="chatbubble-outline" size={20} color={theme.subtext} />
+                            <Text style={[styles.actionText, { color: theme.subtext }]}>
+                                {post.commentCount}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )
+            }
 
             {/* Report Modal */}
             <ReportModal
@@ -245,7 +294,7 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
                 targetId={post.id}
                 targetName={`${post.author.firstName} ${post.author.lastName}`}
             />
-        </View>
+        </View >
     );
 }
 
@@ -338,9 +387,14 @@ const styles = StyleSheet.create({
     },
     tagsContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         gap: 6,
         marginBottom: 8,
+    },
+    tagsList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
     },
     tagsText: {
         fontSize: 13,

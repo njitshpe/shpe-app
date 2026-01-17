@@ -21,6 +21,7 @@ export interface FeedCommentDB {
     id: string;
     post_id: string;
     user_id: string;
+    parent_id: string | null;
     content: string;
     created_at: string;
     updated_at: string;
@@ -70,6 +71,7 @@ export interface FeedCommentUI {
     id: string;
     postId: string;
     userId: string;
+    parentId: string | null;
     content: string;
     createdAt: string;
     updatedAt: string;
@@ -79,6 +81,7 @@ export interface FeedCommentUI {
         lastName: string;
         profilePictureUrl?: string;
     };
+    replies?: FeedCommentUI[]; // For UI tree structure
 }
 
 // API request/response types
@@ -92,6 +95,7 @@ export interface CreatePostRequest {
 export interface CreateCommentRequest {
     postId: string;
     content: string;
+    parentId?: string;
 }
 
 export interface LikePostRequest {

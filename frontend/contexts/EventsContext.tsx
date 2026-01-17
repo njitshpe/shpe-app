@@ -111,6 +111,7 @@ function mapEventRowToEvent(row: EventRow): Event {
 
   return {
     id: row.event_id || String(row.id),
+    uuid: row.id,
     title: row.name,
     description: row.description ?? undefined,
     startTimeISO: row.start_time,
