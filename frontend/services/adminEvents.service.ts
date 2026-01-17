@@ -33,6 +33,7 @@ export interface CreateEventData {
     latitude?: number;
     longitude?: number;
     requires_rsvp: boolean; // Correct variable name
+    event_limit?: number;
 
     // New Question interfaces
     registration_questions?: EventQuestion[];
@@ -54,6 +55,7 @@ class AdminEventsService {
                 latitude: eventData.latitude,
                 longitude: eventData.longitude,
                 requires_rsvp: eventData.requires_rsvp,
+                event_limit: eventData.event_limit,
                 registration_questions: eventData.registration_questions || [],
             };
 
@@ -91,6 +93,7 @@ class AdminEventsService {
 
     async updateEvent(eventId: string, eventData: Partial<CreateEventData>): Promise<ServiceResponse<any>> {
         try {
+            // Create the payload and map frontend names to database names
             const payload: any = { ...eventData };
 
             const { data, error } = await supabase.functions.invoke('admin-event', {
@@ -102,7 +105,7 @@ class AdminEventsService {
             });
 
             if (error) {
-                console.error('Event update failed:', error);
+                console.error('Edge Function Error:', error);
                 return {
                     success: false,
                     error: createError('Failed to update event', 'EVENT_UPDATE_FAILED', undefined, error.message),
@@ -118,7 +121,7 @@ class AdminEventsService {
 
             return { success: true, data: data.event };
         } catch (error) {
-            console.error('Update event error:', error);
+            console.error('Update event catch block:', error);
             return {
                 success: false,
                 error: createError('Failed to update event', 'UNKNOWN_ERROR', undefined, String(error)),
