@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/app-white-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
@@ -62,6 +62,14 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/app-white-icon.png",
+          "imageWidth": 200
+        }
+      ],
       [
         "expo-camera",
         {

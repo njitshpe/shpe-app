@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
 
@@ -11,6 +11,7 @@ import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 import { SuccessToast } from '@/components/ui/SuccessToast';
+import { AnimatedSplash } from '@/components/AnimatedSplash';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
@@ -196,24 +197,27 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
  * Root Layout
  * Wraps the app with all necessary providers
  * ThemeProvide  is at the top level so it prevents crashing.
+ * AnimatedSplash wraps everything to provide the Luma-style splash animation.
  */
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <ErrorBoundary>
-        <AuthProvider>
-          <BlockProvider>
-            <NotificationProvider>
-              <EventsProvider>
-                <AuthGuard>
-                  <OfflineNotice />
-                  <Slot />
-                </AuthGuard>
-              </EventsProvider>
-            </NotificationProvider>
-          </BlockProvider>
-        </AuthProvider>
-      </ErrorBoundary>
-    </ThemeProvider>
+    <AnimatedSplash>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <BlockProvider>
+              <NotificationProvider>
+                <EventsProvider>
+                  <AuthGuard>
+                    <OfflineNotice />
+                    <Slot />
+                  </AuthGuard>
+                </EventsProvider>
+              </NotificationProvider>
+            </BlockProvider>
+          </AuthProvider>
+        </ErrorBoundary>
+      </ThemeProvider>
+    </AnimatedSplash>
   );
 }
