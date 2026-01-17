@@ -26,6 +26,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  isBootstrapping: boolean; // True until initial auth check completes
   profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBootstrapping, setIsBootstrapping] = useState(true); // Initial app load
   const [profileLoading, setProfileLoading] = useState(false);
 
   // Track if we're currently loading a profile to avoid concurrent requests
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setIsLoading(false);
+        setIsBootstrapping(false);
       })
       .catch((error) => {
         console.error('Failed to get session:', error);
@@ -114,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
         setIsLoading(false);
+        setIsBootstrapping(false);
         setProfileLoading(false);
       });
 
@@ -491,6 +495,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     isLoading,
+    isBootstrapping,
     profileLoading,
     signIn,
     signUp,
