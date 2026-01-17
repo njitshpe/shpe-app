@@ -216,16 +216,15 @@ supabase/
  └─ functions/
      ├─ check-in/
      │   └─ index.ts
-     ├─ award-points/
-     │   └─ index.ts
      └─ admin-event/
          └─ index.ts
 ```
 
+**Note:** Points awarding is handled by the `award_points` Postgres RPC function, not an Edge Function.
+
 ### Edge Functions Handle
 
 * QR check-in (atomic + secure)
-* Points awarding
 * Event open / close
 * Admin-only mutations
 

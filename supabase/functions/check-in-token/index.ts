@@ -9,16 +9,13 @@ const corsHeaders = {
 };
 
 interface EventRow {
-  id: number;
-  event_id: string;
+  id: string; // UUID is string
+  event_id: string; // The text slug
   name: string;
   start_time: string;
   end_time: string;
-  check_in_opens: string | null;
-  check_in_closes: string | null;
-  created_by: string;
   is_active: boolean;
-  is_archived: boolean;
+  deleted_at: string | null;
 }
 
 serve(async (req) => {
@@ -60,29 +57,28 @@ serve(async (req) => {
 
     // Parse request
     const url = new URL(req.url);
-    const eventId = url.pathname.split("/").pop();
+    const eventIdParam = url.pathname.split("/").pop(); // This is the 'event_id' (slug) passed in URL
 
-    if (!eventId) {
+    if (!eventIdParam) {
       return new Response(JSON.stringify({ error: "Event ID required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Verify user is admin (event_manager or super_admin)
-    const { data: adminRoles, error: adminError } = await supabase
+    // Verify user is admin (any valid, non-revoked admin role)
+    const { data: adminRole, error: adminError } = await supabase
       .from("admin_roles")
       .select("id, role_type")
       .eq("user_id", user.id)
-      .in("role_type", ["event_manager", "super_admin"])
       .is("revoked_at", null)
-      .limit(1);
+      .maybeSingle();
 
-    if (adminError || !adminRoles || adminRoles.length === 0) {
+    if (adminError || !adminRole) {
       console.error("Admin role check failed:", adminError);
       return new Response(
         JSON.stringify({
-          error: "Forbidden: Event manager or super admin access required",
+          error: "Forbidden: Admin access required",
           code: "FORBIDDEN",
         }),
         {
@@ -93,14 +89,16 @@ serve(async (req) => {
     }
 
     // Get event details
+    // Note: We use the 'event_id' column (slug) for lookup, not UUID, since that's likely what front-end sends.
     const { data: event, error: eventError } = await supabase
       .from("events")
       .select("*")
-      .eq("event_id", eventId)
-      .eq("is_archived", false)
+      .eq("event_id", eventIdParam)
+      .is("deleted_at", null) // Use deleted_at instead of is_archived
       .single<EventRow>();
 
     if (eventError || !event) {
+      console.error("Event lookup failed:", eventError);
       return new Response(
         JSON.stringify({
           error: "Event not found",
@@ -131,12 +129,9 @@ serve(async (req) => {
     const now = new Date();
     const startTime = new Date(event.start_time);
     const endTime = new Date(event.end_time);
-    const checkInOpens = event.check_in_opens
-      ? new Date(event.check_in_opens)
-      : startTime;
-    const checkInCloses = event.check_in_closes
-      ? new Date(event.check_in_closes)
-      : endTime;
+
+    const checkInOpens = startTime;
+    const checkInCloses = endTime;
 
     // Check if current time is within check-in window
     if (now < checkInOpens) {
@@ -188,8 +183,10 @@ serve(async (req) => {
       ["sign", "verify"]
     );
 
+    // Payload uses 'id' (UUID) for internal consistency, and 'event_id' (slug) for record keeping
     const payload = {
-      event_id: event.event_id,
+      event_id: event.id, // Using UUID for the token payload is usually safer
+      event_slug: event.event_id,
       event_name: event.name,
       iat: Math.floor(now.getTime() / 1000),
       exp: Math.floor(checkInCloses.getTime() / 1000),
@@ -203,7 +200,8 @@ serve(async (req) => {
         success: true,
         token,
         event: {
-          id: event.event_id,
+          id: event.id,
+          slug: event.event_id,
           name: event.name,
           checkInOpens: checkInOpens.toISOString(),
           checkInCloses: checkInCloses.toISOString(),
@@ -214,12 +212,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating check-in token:", error);
     return new Response(
       JSON.stringify({
         error: "Internal server error",
-        errorCode: "INTERNAL_ERROR",
+        details: error.message,
       }),
       {
         status: 500,

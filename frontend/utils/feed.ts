@@ -1,4 +1,5 @@
 import type { FeedPostDB, FeedPostUI, FeedCommentDB, FeedCommentUI } from '../types/feed';
+import { resolveProfilePictureUrl } from './profilePicture';
 
 /**
  * Maps a feed post from database schema (snake_case) to UI schema (camelCase)
@@ -18,7 +19,7 @@ export function mapFeedPostDBToUI(db: any): FeedPostUI {
             id: db.author?.id || db.user_id,
             firstName: db.author?.first_name || '',
             lastName: db.author?.last_name || '',
-            profilePictureUrl: db.author?.profile_picture_url,
+            profilePictureUrl: resolveProfilePictureUrl(db.author?.profile_picture_url),
         },
         likeCount: db.like_count || 0,
         commentCount: db.comment_count || 0,
@@ -47,7 +48,7 @@ export function mapFeedCommentDBToUI(db: any): FeedCommentUI {
             id: db.author?.id || db.user_id,
             firstName: db.author?.first_name || '',
             lastName: db.author?.last_name || '',
-            profilePictureUrl: db.author?.profile_picture_url,
+            profilePictureUrl: resolveProfilePictureUrl(db.author?.profile_picture_url),
         },
     };
 }

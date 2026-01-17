@@ -25,7 +25,6 @@ RETURNS TABLE (
   last_name text,
   user_type text,
   major text,
-  expected_graduation_year integer,
   graduation_year integer,
   profile_picture_url text,
   rank_points integer,
@@ -90,10 +89,9 @@ BEGIN
       AND up.user_type IS NOT NULL
       -- Apply major filter if provided
       AND (p_major IS NULL OR up.major = p_major)
-      -- Apply class year filter if provided (check both student and alumni)
+      -- Apply class year filter if provided
       AND (
         p_class_year IS NULL
-        OR up.expected_graduation_year = p_class_year
         OR up.graduation_year = p_class_year
       )
   )
@@ -103,7 +101,6 @@ BEGIN
     up.last_name,
     up.user_type,
     up.major,
-    up.expected_graduation_year,
     up.graduation_year,
     up.profile_picture_url,
     upts.total_points::integer as rank_points,

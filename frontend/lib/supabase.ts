@@ -21,22 +21,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Database types for events table
 export interface EventRow {
-  id: number;
+  id: string; // Changed to UUID string based on schema
   event_id: string;
   name: string;
   description: string | null;
   start_time: string;
   end_time: string;
-  check_in_opens?: string | null;
-  check_in_closes?: string | null;
-  location: string | null;
   location_name: string;
-  latitude: number | null;
-  longitude: number | null;
+  location_address: string | null; // Renamed from location
+  latitude?: number | null;
+  longitude?: number | null;
   cover_image_url: string | null;
-  host_name: string | null;
-  price_label: string | null;
   tags: string[];
-  is_archived: boolean;
   is_active: boolean;
+  registration_questions?: any[];
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
 }

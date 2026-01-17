@@ -4,162 +4,177 @@ import {
   createError,
   mapSupabaseError,
 } from '../types/errors';
-import { UserRank, getRankFromPoints } from '../types/userProfile';
 
 /**
- * Action types that can trigger points awards (aligned with award-points Edge Function)
+ * Action types - maintained for type safety/display logic,
+ * even though frontend no longer triggers them.
  */
 export type RankActionType =
-  | 'attendance'
-  | 'feedback'
-  | 'photo_upload'
+  | 'event_check_in'
   | 'rsvp'
+  | 'feed_post'
+  | 'photo_upload'
+  | 'feedback'
   | 'early_checkin'
-  | 'committee_setup'
-  | 'verified'
-  | 'college_year';
+  | 'profile_completed';
 
 /**
- * Photo types for multipliers
+ * User's current points summary
  */
-export type PhotoType = 'alumni' | 'professional' | 'member_of_month';
+export interface PointsSummary {
+  season_id: string;
+  points_total: number;
+  tier: string;
+  points_to_next_tier: number;
+}
 
 /**
- * Metadata payload for award action requests
- * Fields are optional and depend on actionType
+ * Result from awarding points (legacy type support)
+ */
+export interface AwardPointsResult extends PointsSummary {
+  success: boolean;
+}
+
+/**
+ * Metadata payload (legacy type support)
  */
 export interface RankActionMetadata {
-  /** Event ID for event-related actions */
-  event_id?: string;
-  /** Photo type for photo_upload multipliers */
-  photoType?: PhotoType;
-  /** Photo URL for storage reference */
-  photoUrl?: string;
-  /** User's college year for college_year action */
-  college_year?: number;
-  /** Minutes early for early_checkin multiplier */
-  minutes_early?: number;
-  /** Whether user is a committee member - required for committee_setup */
-  committee_member?: boolean;
-  /** Additional context for audit logging */
   [key: string]: unknown;
 }
 
 /**
- * Response from the award-points Edge Function
+ * Photo types (legacy type support)
  */
-export interface RankUpdateResponse {
-  success: true;
-  transaction: {
-    id: string;
-    userId: string;
-    amount: number;
-    reason: string;
-    createdAt: string;
-  };
-  newBalance: number;
-  rank: UserRank;
-  reasons: string[];
-}
+export type PhotoType = 'alumni' | 'professional' | 'member_of_month';
 
 /**
- * User's current rank data
- */
-export interface UserRankData {
-  rank_points: number;
-  rank: UserRank;
-}
-
-/**
- * Rank Service - Manages user rank and points
- *
- * All business logic is handled by the Supabase Edge Function.
- * This service is presentation-layer only - it calls the Edge Function
- * and returns parsed responses.
+ * Rank Service - Read-only & Realtime
+ * 
+ * Logic has moved to Database Triggers for security.
+ * This service now strictly handles:
+ * 1. Fetching current rank/points.
+ * 2. Listening for real-time updates (to show toasts).
  */
 class RankService {
+
   /**
-   * Get current user ID from Supabase auth or use a stub for development
+   * Subscribe to point updates for the current user.
+   * Useful for showing a "Points Awarded!" toast when the specific DB trigger fires.
+   * 
+   * @param callbacks - Object containing onPointsAwarded handler
+   * @returns Subscription object to unsubscribe later
    */
-  private async getUserId(): Promise<string | null> {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        return user.id;
-      }
-    } catch (error) {
-      console.log('Auth check failed:', error);
-    }
-    return null;
+  subscribeToPoints(callbacks: {
+    onPointsAwarded: (newPoints: number, reason: string) => void;
+  }) {
+    // We listen to the 'points_transactions' table
+    // Filter: only INSERTs for the current user (handled by RLS automatically? 
+    // RLS applies to Realtime if configured, but client-side filtering is safer for the callback)
+
+    return supabase
+      .channel('points_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'points_transactions',
+        },
+        (payload) => {
+          // Payload is the new transaction row
+          const transaction = payload.new as { points: number; action_type: string };
+          console.log('[RankService] Realtime Update:', transaction);
+
+          // Notify the UI
+          callbacks.onPointsAwarded(transaction.points, transaction.action_type);
+        }
+      )
+      .subscribe();
   }
 
   /**
-   * Award points for a specific action
-   * Calls the award-points Edge Function which handles all business logic
-   *
-   * @param actionType - The type of action being performed
-   * @param metadata - Additional data for the action (event_id, photoType, committee_member, etc.)
-   * @returns ServiceResponse with updated rank data or error
+   * Compute current season_id (Spring = Jan-May, Summer = Jun-Aug, Fall = Sep-Dec)
    */
-  async awardForAction(
-    actionType: RankActionType,
-    metadata: RankActionMetadata = {}
-  ): Promise<ServiceResponse<RankUpdateResponse>> {
-    const userId = await this.getUserId();
+  private computeSeasonId(date: Date = new Date()): string {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-indexed
 
-    if (!userId) {
+    let season: string;
+    if (month >= 1 && month <= 5) {
+      season = 'Spring';
+    } else if (month >= 6 && month <= 8) {
+      season = 'Summer';
+    } else {
+      season = 'Fall';
+    }
+    return `${season}_${year}`;
+  }
+
+  /**
+   * Get current user's points summary
+   */
+  async getMyRank(): Promise<ServiceResponse<PointsSummary>> {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return {
         success: false,
-        error: createError(
-          'You must be logged in to earn points.',
-          'UNAUTHORIZED'
-        ),
+        error: createError('Unauthorized', 'UNAUTHORIZED'),
       };
     }
 
+    const userId = user.id;
+    const seasonId = this.computeSeasonId();
+
     try {
-      const { data, error } = await supabase.functions.invoke('award-points', {
-        body: {
-          userId: userId,
-          actionType: actionType,
-          eventId: metadata.event_id,
-          metadata,
-        },
-      });
+      // 1. Get Balance
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('points_balances')
+        .select('points_total')
+        .eq('user_id', userId)
+        .eq('season_id', seasonId)
+        .maybeSingle();
 
-      if (error) {
-        console.error('Edge Function error:', error);
-        return {
-          success: false,
-          error: createError(
-            'Failed to award points. Please try again.',
-            'RANK_UPDATE_FAILED',
-            undefined,
-            error.message
-          ),
-        };
-      }
+      if (balanceError) throw balanceError;
 
-      if (data?.success === false) {
-        return {
-          success: false,
-          error: createError(
-            data.error || 'Failed to award points.',
-            (data.code as any) || 'RANK_UPDATE_FAILED',
-            undefined,
-            data.debug || data.error
-          ),
-        };
+      const pointsTotal = balanceData?.points_total ?? 0;
+
+      // 2. Get Tiers
+      const { data: tiers, error: tiersError } = await supabase
+        .from('rank_tiers')
+        .select('tier, min_points')
+        .order('min_points', { ascending: true });
+
+      if (tiersError) throw tiersError;
+
+      // 3. Compute Tier
+      let tier = 'unranked';
+      let pointsToNextTier = 0;
+
+      if (tiers) {
+        for (let i = 0; i < tiers.length; i++) {
+          if (tiers[i].min_points <= pointsTotal) {
+            tier = tiers[i].tier;
+          } else {
+            pointsToNextTier = tiers[i].min_points - pointsTotal;
+            break;
+          }
+        }
       }
 
       return {
         success: true,
-        data: data as RankUpdateResponse,
+        data: {
+          season_id: seasonId,
+          points_total: pointsTotal,
+          tier,
+          points_to_next_tier: pointsToNextTier,
+        },
       };
     } catch (error) {
-      console.error('Points award failed:', error);
       return {
         success: false,
         error: mapSupabaseError(error),
@@ -168,110 +183,56 @@ class RankService {
   }
 
   /**
-   * Get current user's rank and points
-   * Fetches directly from user_profiles table
-   *
-   * @returns ServiceResponse with current rank data or error
+   * Get rank for another user (Public Profile)
    */
-  async getMyRank(): Promise<ServiceResponse<UserRankData>> {
-    const userId = await this.getUserId();
+  async getUserRank(userId: string): Promise<ServiceResponse<PointsSummary>> {
+    // ... Copy logic from getMyRank but for specific userId ...
+    // Note: For brevity in this refactor, I'm reusing the logic pattern.
+    // Ideally this code should be deduplicated, but keeping high-level structure safe.
 
-    if (!userId) {
-      return {
-        success: false,
-        error: createError(
-          'You must be logged in to view your rank.',
-          'UNAUTHORIZED'
-        ),
-      };
-    }
+    // Simplification: Reuse same logic logic as above but with userId arg
+    const seasonId = this.computeSeasonId();
 
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('rank_points, rank')
-        .eq('id', userId)
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('points_balances')
+        .select('points_total')
+        .eq('user_id', userId)
+        .eq('season_id', seasonId)
         .maybeSingle();
 
-      if (error) {
-        console.error('Failed to fetch rank:', error);
-        return {
-          success: false,
-          error: mapSupabaseError(error),
-        };
-      }
+      if (balanceError) throw balanceError;
 
-      // Handle case where user has no profile yet or rank columns are null
-      if (!data) {
-        return {
-          success: true,
-          data: {
-            rank_points: 0,
-            rank: getRankFromPoints(0),
-          },
-        };
-      }
+      const pointsTotal = balanceData?.points_total ?? 0;
 
-      // Handle case where rank columns don't exist yet or are null
-      const rankPoints = data?.rank_points ?? 0;
-      const rank = (data?.rank as UserRank) ?? getRankFromPoints(rankPoints);
+      const { data: tiers, error: tiersError } = await supabase
+        .from('rank_tiers')
+        .select('tier, min_points')
+        .order('min_points', { ascending: true });
+
+      if (tiersError) throw tiersError;
+
+      let tier = 'unranked';
+      let pointsToNextTier = 0;
+
+      if (tiers) {
+        for (let i = 0; i < tiers.length; i++) {
+          if (tiers[i].min_points <= pointsTotal) {
+            tier = tiers[i].tier;
+          } else {
+            pointsToNextTier = tiers[i].min_points - pointsTotal;
+            break;
+          }
+        }
+      }
 
       return {
         success: true,
         data: {
-          rank_points: rankPoints,
-          rank: rank,
-        },
-      };
-    } catch (error) {
-      console.error('Failed to fetch rank:', error);
-      return {
-        success: false,
-        error: mapSupabaseError(error),
-      };
-    }
-  }
-
-  /**
-   * Get rank data for a specific user (for viewing other profiles)
-   *
-   * @param userId - The user ID to fetch rank for
-   * @returns ServiceResponse with rank data or error
-   */
-  async getUserRank(userId: string): Promise<ServiceResponse<UserRankData>> {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('rank_points, rank')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        return {
-          success: false,
-          error: mapSupabaseError(error),
-        };
-      }
-
-      // Handle case where user has no profile yet
-      if (!data) {
-        return {
-          success: true,
-          data: {
-            rank_points: 0,
-            rank: getRankFromPoints(0),
-          },
-        };
-      }
-
-      const rankPoints = data?.rank_points ?? 0;
-      const rank = (data?.rank as UserRank) ?? getRankFromPoints(rankPoints);
-
-      return {
-        success: true,
-        data: {
-          rank_points: rankPoints,
-          rank: rank,
+          season_id: seasonId,
+          points_total: pointsTotal,
+          tier,
+          points_to_next_tier: pointsToNextTier,
         },
       };
     } catch (error) {

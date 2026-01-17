@@ -1,23 +1,29 @@
 // types/events.ts
 
 // UI-friendly Event type (mapped from EventRow)
+export const EVENT_TAGS = {
+  TYPE: ['GBM', 'Workshop', 'Social', 'Corporate', 'Conference'],
+  FOCUS: ['Technical', 'Professional', 'Academic', 'Volunteering'],
+  PERKS: ['Food Provided']
+} as const;
+
+export type EventTag =
+  | typeof EVENT_TAGS.TYPE[number]
+  | typeof EVENT_TAGS.FOCUS[number]
+  | typeof EVENT_TAGS.PERKS[number];
+
 export interface Event {
   id: string; // event_id from database
   title: string; // name from database
   description?: string;
   startTimeISO: string; // start_time from database
   endTimeISO: string; // end_time from database
-  checkInOpens?: string; // check_in_opens from database
-  checkInCloses?: string; // check_in_closes from database
   locationName: string; // location_name from database
-  address?: string; // location from database
+  address?: string; // location_address from database
   latitude?: number;
   longitude?: number;
   coverImageUrl?: string; // cover_image_url from database
-  hostName?: string; // host_name from database
-  tags: string[];
-  priceLabel?: string; // price_label from database
-  capacityLabel?: string;
+  tags: EventTag[];
   status: 'upcoming' | 'past';
 }
 
@@ -27,16 +33,16 @@ export interface EventDB {
   event_id: string;  // The simple ID used in QR codes
   name: string;
   description?: string;
-  location?: string;
+  location_name: string;
+  location_address?: string;
   start_time: string;
   end_time: string;
-  check_in_opens?: string;
-  check_in_closes?: string;
-  max_attendees?: number;
-  created_by?: string;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  registration_questions?: any[]; // JSONB
 }
 
 // 2. Update this to use EventDB
@@ -44,10 +50,11 @@ export interface EventAttendance {
   id: string;
   event_id: string;
   user_id: string;
-  checked_in_at: string;
-  check_in_method: 'qr_scan' | 'manual';
-  latitude?: number;
-  longitude?: number;
+  rsvp_at?: string;
+  checked_in_at?: string;
+  checked_out_at?: string;
+  status?: string; // e.g. 'confirmed', 'pending'
+  registration_answers?: any; // JSONB
 }
 
 export interface CheckInResponse {

@@ -40,21 +40,15 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "package": "com.shpenjit.officialapp",
       "permissions": [
         "CAMERA",
         "READ_CALENDAR",
         "WRITE_CALENDAR",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "CAMERA",
-        "READ_CALENDAR",
-        "WRITE_CALENDAR",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.shpenjit.officialapp"
+        "android.permission.CAMERA"
+      ]
     },
     "notification": {
       "icon": "./assets/icon.png",

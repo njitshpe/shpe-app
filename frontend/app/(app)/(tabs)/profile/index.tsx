@@ -10,6 +10,7 @@ import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
 
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
+import { useRank } from '@/hooks/profile/useRank';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
 import { fetchUserPosts, deletePost } from '@/lib/feedService';
@@ -22,6 +23,9 @@ export default function ProfileScreen() {
     const { user, profile, loadProfile, profileLoading } = useAuth();
     const { theme, isDark } = useTheme();
     const router = useRouter();
+
+    // Fetch points/tier from points_balances
+    const { tier, pointsTotal, refreshRank } = useRank();
 
     // Load profile on mount if missing and not already loading
     React.useEffect(() => {
@@ -60,8 +64,8 @@ export default function ProfileScreen() {
     const { signedUrl, loading: resumeLoading } = useSecureResume(profile?.resume_url || null);
 
     // --- PROFILE DISPLAY HOOK ---
-    // Extract all display-related helper functions
-    const profileDisplay = useProfileDisplay({ profile, user });
+    // Extract all display-related helper functions, passing points data from useRank
+    const profileDisplay = useProfileDisplay({ profile, user, pointsTotal, tier });
 
     const handleOpenResume = () => {
         if (!signedUrl) {
@@ -88,7 +92,8 @@ export default function ProfileScreen() {
             setRefreshing(true);
             await Promise.all([
                 loadProfile(user.id),
-                loadPosts()
+                loadPosts(),
+                refreshRank()
             ]);
             setRefreshing(false);
         }
@@ -135,7 +140,7 @@ export default function ProfileScreen() {
                         {/* Profile Header */}
                         {profile && (
                             <ProfileHeader
-                                profilePictureUrl={profile.profile_picture_url}
+                                profilePictureUrl={profile.profile_picture_url ?? undefined}
                                 initials={profileDisplay.initials}
                                 userTypeBadge={profileDisplay.userTypeBadge}
                                 displayName={profileDisplay.displayName}

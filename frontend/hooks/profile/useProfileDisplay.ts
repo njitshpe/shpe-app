@@ -1,12 +1,16 @@
-import { UserProfile, getRankFromPoints } from '@/types/userProfile';
+import { UserProfile, getProfileValue } from '@/types/userProfile';
 import { User } from '@supabase/supabase-js';
 
 interface UseProfileDisplayProps {
     profile: UserProfile | null;
     user: User | null;
+    /** Points total from points_balances (optional, defaults to 0) */
+    pointsTotal?: number;
+    /** Tier name from rank_tiers (optional, defaults to 'Chick') */
+    tier?: string;
 }
 
-export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
+export function useProfileDisplay({ profile, user, pointsTotal = 0, tier = 'Chick' }: UseProfileDisplayProps) {
     const getDisplayName = () => {
         if (profile?.first_name && profile?.last_name) {
             return `${profile.first_name} ${profile.last_name}`;
@@ -26,26 +30,26 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
 
         if (profile.user_type === 'student') {
             const major = profile.major || "Major";
-            const year = profile.expected_graduation_year || new Date().getFullYear();
+            const year = profile.graduation_year || new Date().getFullYear();
             return `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'alumni') {
             const major = profile.major || "Major";
-            const degreeType = profile.degree_type;
-            const year = profile.graduation_year || profile.expected_graduation_year || new Date().getFullYear();
+            const degreeType = getProfileValue(profile, 'degree_type');
+            const year = profile.graduation_year || new Date().getFullYear();
             // Show degree type and major for alumni (e.g., "B.S. Computer Science | Class of 2020")
             return degreeType ? `${degreeType} ${major} | Class of ${year}` : `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'guest') {
             const major = profile.major || "Guest Member";
-            const year = profile.expected_graduation_year || new Date().getFullYear();
+            const year = profile.graduation_year || new Date().getFullYear();
             return `${major} | Class of ${year}`;
         }
 
         if (profile.user_type === 'other') {
-            return profile.affiliation || "Member";
+            return "Member";
         }
 
         return "Member";
@@ -56,8 +60,8 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
 
         // Show job info for alumni
         if (profile.user_type === 'alumni') {
-            const position = profile.current_position;
-            const company = profile.current_company;
+            const position = getProfileValue(profile, 'job_title');
+            const company = getProfileValue(profile, 'company');
 
             if (position && company) {
                 return `${position} at ${company}`;
@@ -84,29 +88,27 @@ export function useProfileDisplay({ profile, user }: UseProfileDisplayProps) {
     };
 
     const getRankColor = () => {
-        // Calculate rank from points if not provided
-        const points = profile?.rank_points || 0;
-        const rank = profile?.rank || getRankFromPoints(points);
-
-        switch (rank) {
-            case 'gold':
-                return '#FFD700';
-            case 'silver':
-                return '#C0C0C0';
-            case 'bronze':
-                return '#CD7F32';
-            default:
-                return '#8E8E93';
+        // Map tier names to colors
+        const tierLower = tier.toLowerCase();
+        if (tierLower.includes('gold') || tierLower.includes('dorado')) {
+            return '#FFD700';
         }
+        if (tierLower.includes('silver') || tierLower.includes('plata')) {
+            return '#C0C0C0';
+        }
+        if (tierLower.includes('bronze') || tierLower.includes('bronce')) {
+            return '#CD7F32';
+        }
+        // Default color for other tiers (Chick, Pollito, etc.)
+        return '#8E8E93';
     };
 
     const getPoints = () => {
-        return profile?.rank_points || 0;
+        return pointsTotal;
     };
 
     const getRank = () => {
-        const points = profile?.rank_points || 0;
-        return profile?.rank || getRankFromPoints(points);
+        return tier;
     };
 
     return {

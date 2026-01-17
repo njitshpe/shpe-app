@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { BlurView } from 'expo-blur';
 
+import * as Haptics from 'expo-haptics';
+
 interface SuccessToastProps {
     visible: boolean;
     message: string;
@@ -18,6 +20,9 @@ export function SuccessToast({ visible, message, onHide, duration = 2000 }: Succ
 
     useEffect(() => {
         if (visible) {
+            // Trigger Haptic Feedback
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
             Animated.parallel([
                 Animated.timing(opacity, {
                     toValue: 1,

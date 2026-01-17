@@ -10,11 +10,28 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
+import { SuccessToast } from '@/components/ui/SuccessToast';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
 import { notificationService } from '@/services/notification.service';
-import { pointsListener } from '@/services/pointsListener.service';
+import { rankService } from '@/services/rank.service';
+
+/**
+ * Helper to format action types into user-friendly text
+ */
+function formatActionLabel(actionType: string): string {
+  const map: Record<string, string> = {
+    event_check_in: 'Event Check-In',
+    rsvp_confirmed_bonus: 'Confirmed RSVP',
+    volunteer_bonus: 'Volunteer Bonus',
+    feed_post_text: 'New Post',
+    feed_post_photo: 'Photo Upload',
+    referral_bonus: 'Referral',
+    streak_bonus: 'Streak Bonus',
+  };
+  return map[actionType] || 'Points Awarded';
+}
 
 /**
  * Auth Guard Component
@@ -26,16 +43,25 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Toast State for Points
+  const [toast, setToast] = React.useState({ visible: false, message: '' });
+
   useEffect(() => {
     // Wait for auth to finish loading
     if (isLoading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding = segments[0] === 'onboarding';
-    const inAlumniOnboarding = segments[0] === 'alumni-onboarding';
-    const inGuestOnboarding = segments[0] === 'guest-onboarding';
-    const inRoleSelection = segments[0] === 'role-selection';
-    const inApp = segments[0] === '(app)' || segments.includes('(tabs)');
+    // NOTE: Prefer pathname checks over segments for robustness across expo-router versions.
+    const inAuthGroup = segments[0] === '(auth)' || pathname === '/login' || pathname === '/signup';
+    const inOnboarding = segments[0] === 'onboarding' || pathname === '/onboarding';
+    const inAlumniOnboarding = segments[0] === 'alumni-onboarding' || pathname === '/alumni-onboarding';
+    const inGuestOnboarding = segments[0] === 'guest-onboarding' || pathname === '/guest-onboarding';
+    const inRoleSelection = segments[0] === 'role-selection' || pathname === '/role-selection';
+    const inRoot = pathname === '/';
+    const inApp =
+      (segments[0] === '(app)' || segments.includes('(tabs)')) &&
+      !inRoot;
+    const isNonAppRoute = inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection || inRoot;
+    const isInApp = !isNonAppRoute || inApp;
 
     const userType = user?.user_metadata?.user_type;
     const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
@@ -49,8 +75,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (__DEV__) {
       console.log('[AuthGuard] Debug:', {
         hasSession: !!session,
+        pathname,
+        segments,
         inAuthGroup,
-        inApp,
+        inApp: isInApp,
         segment: segments[0],
         onboardingCompleted,
         userType,
@@ -113,24 +141,33 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         return;
       }
       // If we are not in app (e.g. root), go to home
-      if (!inApp) {
+      if (!isInApp) {
         replaceIfNeeded('/home');
         return;
       }
     }
   }, [session, isLoading, segments, user, profile, pathname, router]);
 
-  // 2. POINTS LISTENER (Notification logic is now in Context)
+  // 2. POINTS LISTENER (Realtime)
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+
     if (!isLoading && session) {
-      // Start listening for events to award points
-      pointsListener.start();
-    } else if (!session) {
-      pointsListener.stop();
+      // Subscribe to Realtime Points
+      subscription = rankService.subscribeToPoints({
+        onPointsAwarded: (points, actionType) => {
+          // Show the toast!
+          const label = formatActionLabel(actionType);
+          setToast({
+            visible: true,
+            message: `+${points}\n${label}`
+          });
+        }
+      });
     }
 
     return () => {
-      pointsListener.stop();
+      if (subscription) subscription.unsubscribe();
     };
   }, [session, isLoading]);
 
@@ -143,7 +180,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <SuccessToast
+        visible={toast.visible}
+        message={toast.message}
+        onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+    </>
+  );
 }
 
 /**
@@ -161,7 +207,7 @@ export default function RootLayout() {
               <EventsProvider>
                 <AuthGuard>
                   <OfflineNotice />
-                <Slot />
+                  <Slot />
                 </AuthGuard>
               </EventsProvider>
             </NotificationProvider>
