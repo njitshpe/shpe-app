@@ -3,10 +3,11 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Scr
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
+import { mentionCacheService } from '@/services/mentionCache.service';
 import type { UserProfile } from '@/types/userProfile';
 
 interface UserAutocompleteProps {
-    query: string;
+    query: string | null;
     onSelect: (user: UserProfile) => void;
 }
 
@@ -16,12 +17,28 @@ export function UserAutocomplete({ query, onSelect }: UserAutocompleteProps) {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const fetchSuggestions = async () => {
-            if (!query.trim()) {
-                setSuggestions([]);
+        if (query === null) return;
+
+        const loadSuggestions = async () => {
+            // Case 1: Query is empty or too short -> show recent tags
+            if (!query || query.trim().length < 3) {
+                setLoading(false);
+                const recents = await mentionCacheService.getRecents();
+                // Filter recents by query if there is one (even if < 3 chars)
+                if (query && query.trim().length > 0) {
+                    const lowerQuery = query.toLowerCase();
+                    const filtered = recents.filter(u =>
+                        u.first_name.toLowerCase().includes(lowerQuery) ||
+                        u.last_name.toLowerCase().includes(lowerQuery)
+                    );
+                    setSuggestions(filtered);
+                } else {
+                    setSuggestions(recents);
+                }
                 return;
             }
 
+            // Case 2: Query is long enough -> search database
             setLoading(true);
             const { data } = await profileService.searchProfiles(query);
             if (data) {
@@ -30,16 +47,18 @@ export function UserAutocomplete({ query, onSelect }: UserAutocompleteProps) {
             setLoading(false);
         };
 
-        const timeout = setTimeout(fetchSuggestions, 300); // 300ms debounce
+        // 300ms delay to prevent too many requests or flickering
+        const timeout = setTimeout(loadSuggestions, 300); 
         return () => clearTimeout(timeout);
     }, [query]);
 
-    if (!query) return null;
+    // If query is null, it means we are NOT in a tagging state
+    if (query === null) return null;
 
     if (loading) {
         return (
             <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <ActivityIndicator color={theme.primary} size="small" />
+                <ActivityIndicator color={theme.primary} size="small" style={{ margin: 10 }} />
             </View>
         );
     }
@@ -85,18 +104,20 @@ export function UserAutocomplete({ query, onSelect }: UserAutocompleteProps) {
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        bottom: 60, // Above toolbar
-        left: 10,
-        right: 10,
+        top: '100%', // Position below the input box
+        left: 0,
+        right: 0,
+        backgroundColor: 'white',
         maxHeight: 200,
-        borderRadius: 12,
+        borderRadius: 8,
         borderWidth: 1,
+        marginTop: 4, // Little bit of spacing
         elevation: 5,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
-        zIndex: 1000,
+        zIndex: 9999, // Ensure it's on top
     },
     item: {
         flexDirection: 'row',
