@@ -23,6 +23,7 @@ import { ReportModal } from '@/components/shared/ReportModal';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
 import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
+import { rankService, PointsSummary } from '@/services/rank.service';
 
 import type { UserProfile } from '@/types/userProfile';
 import type { FeedPostUI } from '@/types/feed';
@@ -43,12 +44,23 @@ export default function PublicProfileScreen() {
     const [showBlockModal, setShowBlockModal] = useState(false);
     const [blockActionLoading, setBlockActionLoading] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [rankData, setRankData] = useState<PointsSummary>({
+        season_id: '',
+        points_total: 0,
+        tier: 'Chick',
+        points_to_next_tier: 0,
+    });
 
     // --- SECURE RESUME HOOK ---
     const { signedUrl, loading: resumeLoading } = useSecureResume(profile?.resume_url || null);
 
     // --- PROFILE DISPLAY HOOK ---
-    const profileDisplay = useProfileDisplay({ profile, user: { id: id || '' } as any });
+    const profileDisplay = useProfileDisplay({
+        profile,
+        user: { id: id || '' } as any,
+        pointsTotal: rankData.points_total,
+        tier: rankData.tier,
+    });
 
     const loadData = async () => {
         if (!id) return;
@@ -69,6 +81,12 @@ export default function PublicProfileScreen() {
             const postsReq = await fetchUserPosts(id, 0, 20);
             if (postsReq.success && postsReq.data) {
                 setPosts(postsReq.data);
+            }
+
+            // 3. Fetch Points/Tier
+            const rankReq = await rankService.getUserRank(id);
+            if (rankReq.success && rankReq.data) {
+                setRankData(rankReq.data);
             }
         } catch (error) {
             console.error('Error loading public profile:', error);
@@ -219,7 +237,7 @@ export default function PublicProfileScreen() {
                         )}
 
                         <ProfileHeader
-                            profilePictureUrl={profile.profile_picture_url}
+                            profilePictureUrl={profile.profile_picture_url ?? undefined}
                             initials={profileDisplay.initials}
                             userTypeBadge={profileDisplay.userTypeBadge}
                             displayName={profileDisplay.displayName}

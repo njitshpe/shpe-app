@@ -173,9 +173,9 @@ export default function AlumniOnboardingWizard() {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         major: formData.major.trim() || undefined,
-        degree_type: formData.degreeType.trim() || undefined,
-        expected_graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
+        graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
         university: 'NJIT', // Default university for NJIT alumni
+        degree_type: formData.degreeType.trim() || undefined,
         company: formData.company?.trim() || undefined,
         job_title: formData.jobTitle?.trim() || undefined,
         industry: formData.industry?.trim() || undefined,

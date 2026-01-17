@@ -11,7 +11,7 @@ import { eventsService } from '../services/events.service';
 import { adminService } from '../services/admin.service';
 import { adminEventsService, CreateEventData } from '../services/adminEvents.service';
 import { supabase, EventRow } from '../lib/supabase';
-import { Event } from '../types/events';
+import { Event, EventTag } from '../types/events';
 import { mapSupabaseError } from '../types/errors';
 
 // State shape
@@ -115,17 +115,12 @@ function mapEventRowToEvent(row: EventRow): Event {
     description: row.description ?? undefined,
     startTimeISO: row.start_time,
     endTimeISO: row.end_time,
-    checkInOpens: row.check_in_opens ?? undefined,
-    checkInCloses: row.check_in_closes ?? undefined,
     locationName: row.location_name,
-    address: row.location ?? undefined,
+    address: row.location_address ?? undefined,
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
-    hostName: row.host_name ?? undefined,
-    tags: row.tags ?? [],
-    priceLabel: row.price_label ?? undefined,
-    capacityLabel: undefined,
+    tags: (row.tags as EventTag[]) ?? [],
     status: isPast ? 'past' : 'upcoming',
   };
 }

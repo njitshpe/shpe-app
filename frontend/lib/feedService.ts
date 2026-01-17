@@ -100,11 +100,7 @@ export async function fetchFeedPosts(
 
         const { data, error } = await supabase
             .from('feed_posts_visible')
-            .select(`
-        *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
-        event:events(id, event_id, name)
-      `)
+            .select('*')
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
 
@@ -112,36 +108,106 @@ export async function fetchFeedPosts(
             return { success: false, error: mapSupabaseError(error) };
         }
 
+        const rows = data ?? [];
+
+        // Fetch joined data in separate queries because PostgREST cannot reliably infer
+        // relationships from a view (e.g. feed_posts_visible).
+        const userIds = Array.from(
+            new Set(rows.map((row: any) => row.user_id).filter(Boolean))
+        ) as string[];
+
+        const authorsById = new Map<string, any>();
+        if (userIds.length > 0) {
+            const { data: authors, error: authorsError } = await supabase
+                .from('user_profiles')
+                .select('id, first_name, last_name, profile_picture_url')
+                .in('id', userIds);
+            if (!authorsError) {
+                (authors ?? []).forEach((author: any) => authorsById.set(author.id, author));
+            } else if (__DEV__) {
+                console.warn('[Feed] Failed to fetch authors:', authorsError);
+            }
+        }
+
+        const rawEventIds = Array.from(
+            new Set(rows.map((row: any) => row.event_id).filter(Boolean))
+        ) as string[];
+        const eventsByKey = new Map<string, any>();
+        if (rawEventIds.length > 0) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            const eventUuidIds = rawEventIds.filter((v) => uuidRegex.test(v));
+            const eventPublicIds = rawEventIds.filter((v) => !uuidRegex.test(v));
+
+            if (eventUuidIds.length > 0) {
+                const { data: eventsByUuid, error: eventsByUuidError } = await supabase
+                    .from('events')
+                    .select('id, event_id, name')
+                    .in('id', eventUuidIds);
+                if (__DEV__ && eventsByUuidError) {
+                    console.warn('[Feed] Failed to fetch events by id:', eventsByUuidError);
+                }
+                (eventsByUuid ?? []).forEach((evt: any) => {
+                    eventsByKey.set(evt.id, evt);
+                    if (evt.event_id) eventsByKey.set(evt.event_id, evt);
+                });
+            }
+
+            if (eventPublicIds.length > 0) {
+                const { data: eventsByPublic, error: eventsByPublicError } = await supabase
+                    .from('events')
+                    .select('id, event_id, name')
+                    .in('event_id', eventPublicIds);
+                if (__DEV__ && eventsByPublicError) {
+                    console.warn('[Feed] Failed to fetch events by event_id:', eventsByPublicError);
+                }
+                (eventsByPublic ?? []).forEach((evt: any) => {
+                    eventsByKey.set(evt.id, evt);
+                    if (evt.event_id) eventsByKey.set(evt.event_id, evt);
+                });
+            }
+        }
+
         // Get counts separately for each post
         const postsWithCounts = await Promise.all(
-            data.map(async (post) => {
+            rows.map(async (post: any) => {
                 // Get like count
-                const { count: likeCount } = await supabase
+                const { count: likeCount, error: likeCountError } = await supabase
                     .from('feed_likes')
                     .select('*', { count: 'exact', head: true })
                     .eq('post_id', post.id);
+                if (__DEV__ && likeCountError) {
+                    console.warn('[Feed] Failed to fetch like count:', likeCountError);
+                }
 
                 // Get comment count
-                const { count: commentCount } = await supabase
+                const { count: commentCount, error: commentCountError } = await supabase
                     .from('feed_comments')
                     .select('*', { count: 'exact', head: true })
                     .eq('post_id', post.id)
                     .eq('is_active', true);
+                if (__DEV__ && commentCountError) {
+                    console.warn('[Feed] Failed to fetch comment count:', commentCountError);
+                }
 
                 // Check if current user liked
                 let isLiked = false;
                 if (currentUser) {
-                    const { data: likeData } = await supabase
+                    const { data: likeData, error: likedError } = await supabase
                         .from('feed_likes')
                         .select('id')
                         .eq('post_id', post.id)
                         .eq('user_id', currentUser.id)
                         .maybeSingle();
+                    if (__DEV__ && likedError) {
+                        console.warn('[Feed] Failed to fetch like status:', likedError);
+                    }
                     isLiked = !!likeData;
                 }
 
                 return {
                     ...post,
+                    author: authorsById.get(post.user_id) ?? null,
+                    event: post.event_id ? eventsByKey.get(post.event_id) ?? null : null,
                     like_count: likeCount || 0,
                     comment_count: commentCount || 0,
                     is_liked_by_current_user: isLiked,
@@ -177,14 +243,7 @@ export async function fetchUserPosts(
 
         const { data, error } = await supabase
             .from('feed_posts_visible')
-            .select(`
-        *,
-        author:user_profiles!user_id(id, first_name, last_name, profile_picture_url),
-        likes:feed_likes(count),
-        comments:feed_comments(count),
-        tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
-        event:events(id, name)
-      `)
+            .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(page * limit, (page + 1) * limit - 1);
@@ -193,9 +252,60 @@ export async function fetchUserPosts(
             return { success: false, error: mapSupabaseError(error) };
         }
 
+        const rows = data ?? [];
+
+        const authorsById = new Map<string, any>();
+        const { data: author, error: authorError } = await supabase
+            .from('user_profiles')
+            .select('id, first_name, last_name, profile_picture_url')
+            .eq('id', userId)
+            .maybeSingle();
+        if (__DEV__ && authorError) {
+            console.warn('[Feed] Failed to fetch author profile:', authorError);
+        }
+        if (author) authorsById.set(author.id, author);
+
+        const rawEventIds = Array.from(
+            new Set(rows.map((row: any) => row.event_id).filter(Boolean))
+        ) as string[];
+        const eventsByKey = new Map<string, any>();
+        if (rawEventIds.length > 0) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            const eventUuidIds = rawEventIds.filter((v) => uuidRegex.test(v));
+            const eventPublicIds = rawEventIds.filter((v) => !uuidRegex.test(v));
+
+            if (eventUuidIds.length > 0) {
+                const { data: eventsByUuid, error: eventsByUuidError } = await supabase
+                    .from('events')
+                    .select('id, event_id, name')
+                    .in('id', eventUuidIds);
+                if (__DEV__ && eventsByUuidError) {
+                    console.warn('[Feed] Failed to fetch events by id:', eventsByUuidError);
+                }
+                (eventsByUuid ?? []).forEach((evt: any) => {
+                    eventsByKey.set(evt.id, evt);
+                    if (evt.event_id) eventsByKey.set(evt.event_id, evt);
+                });
+            }
+
+            if (eventPublicIds.length > 0) {
+                const { data: eventsByPublic, error: eventsByPublicError } = await supabase
+                    .from('events')
+                    .select('id, event_id, name')
+                    .in('event_id', eventPublicIds);
+                if (__DEV__ && eventsByPublicError) {
+                    console.warn('[Feed] Failed to fetch events by event_id:', eventsByPublicError);
+                }
+                (eventsByPublic ?? []).forEach((evt: any) => {
+                    eventsByKey.set(evt.id, evt);
+                    if (evt.event_id) eventsByKey.set(evt.event_id, evt);
+                });
+            }
+        }
+
         // Check if current user liked each post
         const postsWithLikeStatus = await Promise.all(
-            data.map(async (post) => {
+            rows.map(async (post: any) => {
                 if (!currentUser) {
                     return { ...post, is_liked_by_current_user: false };
                 }
@@ -205,9 +315,14 @@ export async function fetchUserPosts(
                     .select('id')
                     .eq('post_id', post.id)
                     .eq('user_id', currentUser.id)
-                    .single();
+                    .maybeSingle();
 
-                return { ...post, is_liked_by_current_user: !!likeData };
+                return {
+                    ...post,
+                    author: authorsById.get(post.user_id) ?? null,
+                    event: post.event_id ? eventsByKey.get(post.event_id) ?? null : null,
+                    is_liked_by_current_user: !!likeData,
+                };
             })
         );
 
@@ -326,7 +441,7 @@ export async function createPost(
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
-        event:events(id, name)
+        event:events(id, event_id, name)
       `)
             .eq('id', post.id)
             .single();
@@ -513,12 +628,12 @@ export async function fetchComments(postId: string): Promise<ServiceResponse<Fee
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }
@@ -578,12 +693,12 @@ export async function createComment(
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }
@@ -616,12 +731,12 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }
@@ -756,7 +871,7 @@ export async function updatePost(
         likes:feed_likes(count),
         comments:feed_comments(count),
         tagged_users:feed_post_tags(tagged_user:user_profiles(id, first_name, last_name)),
-        event:events(id, name)
+        event:events(id, event_id, name)
       `)
             .eq('id', post.id)
             .single();
@@ -767,12 +882,12 @@ export async function updatePost(
     } catch (error) {
         return {
             success: false,
-            error: {
-                code: 'UNKNOWN_ERROR',
-                message: 'An unexpected error occurred',
-                details: error instanceof Error ? error.message : 'Unknown error',
-                severity: 'error',
-            },
+            error: createError(
+                'An unexpected error occurred',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
         };
     }
 }

@@ -22,7 +22,7 @@ import { FeedSkeleton } from '@/components/ui/FeedSkeleton';
 export default function FeedScreen() {
     const { theme } = useTheme();
     const router = useRouter();
-    const { posts, isLoading, isRefreshing, hasMore, loadMore, refresh } = useFeed();
+    const { posts, isLoading, isRefreshing, error, hasMore, loadMore, refresh } = useFeed();
     const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
     const handleCommentPress = (postId: string) => {
@@ -78,6 +78,14 @@ export default function FeedScreen() {
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             {renderHeader()}
 
+            {error ? (
+                <View style={[styles.errorBanner, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                    <Text style={[styles.errorText, { color: theme.error }]}>
+                        {error}
+                    </Text>
+                </View>
+            ) : null}
+
             <FlatList
                 data={posts}
                 renderItem={renderPost}
@@ -121,6 +129,17 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    errorBanner: {
+        marginHorizontal: 16,
+        marginTop: 12,
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    errorText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
     header: {
         flexDirection: 'row',

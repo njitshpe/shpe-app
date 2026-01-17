@@ -21,7 +21,7 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
 
   const renderInput = (
     label: string,
-    field: keyof UserProfile | 'major' | 'expected_graduation_year' | 'graduation_year' | 'current_company' | 'current_position' | 'affiliation' | 'school_name' | 'reason_for_joining' | 'ucid',
+    field: keyof UserProfile | 'major' | 'graduation_year' | 'company' | 'job_title' | 'ucid' | 'phone_number' | 'linkedin_url',
     placeholder: string,
     maxLength?: number,
     keyboardType: 'default' | 'email-address' | 'numeric' | 'phone-pad' = 'default',
@@ -80,7 +80,7 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
       {profile.user_type === 'student' && (
         <>
           {renderInput('Major', 'major', 'e.g. Computer Science')}
-          {renderInput('Graduation Year', 'expected_graduation_year', 'e.g. 2025', 4, 'numeric')}
+          {renderInput('Graduation Year', 'graduation_year', 'e.g. 2025', 4, 'numeric')}
           {renderInput('UCID', 'ucid', 'e.g. yrc')}
         </>
       )}
@@ -90,17 +90,8 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
         <>
           {renderInput('Major', 'major', 'e.g. Computer Science')}
           {renderInput('Graduation Year', 'graduation_year', 'e.g. 2020', 4, 'numeric')}
-          {renderInput('Current Company', 'current_company', 'e.g. Google')}
-          {renderInput('Current Position', 'current_position', 'e.g. Software Engineer')}
-        </>
-      )}
-
-      {/* OTHER SPECIFIC */}
-      {profile.user_type === 'other' && (
-        <>
-          {renderInput('Affiliation', 'affiliation', 'e.g. Faculty, Recruiter')}
-          {renderInput('School / Organization', 'school_name', 'e.g. NJIT')}
-          {renderInput('Reason for Joining', 'reason_for_joining', 'Why do you want to join SHPE?')}
+          {renderInput('Current Company', 'company', 'e.g. Google')}
+          {renderInput('Current Position', 'job_title', 'e.g. Software Engineer')}
         </>
       )}
     </View>

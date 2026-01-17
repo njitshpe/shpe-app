@@ -10,26 +10,24 @@ import { storageService } from '@/services/storage.service';
 import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
 import WizardLayout from '../components/WizardLayout.native';
 import IdentityStep from '../screens/shared/IdentityStep.native';
-import GuestAffiliationStep from '../screens/guest/GuestAffiliationStep.native';
 import InterestsStep from '../screens/shared/InterestsStep.native';
 import GuestReviewStep from '../screens/guest/GuestReviewStep.native';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const DEFAULT_GRAD_YEAR = String(CURRENT_YEAR);
 
-// Guest-specific FormData interface
+// Guest-specific FormData interface (simplified)
 interface GuestOnboardingFormData {
-  // Step 1: Identity (reuse existing)
+  // Step 0: Identity
   firstName: string;
   lastName: string;
-  major: string; // Will be used for "Role/Major" in affiliation
-  graduationYear: string; // Not used for guests, but required by IdentityStep
+  university: string;
+  major: string;
+  graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Interests (reuse existing)
+  // Step 1: Interests
   interests: string[];
   phoneNumber: string;
-  // Step 3: Affiliation (NEW)
-  university: string;
 }
 
 export default function GuestOnboardingWizard() {
@@ -43,17 +41,16 @@ export default function GuestOnboardingWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
   const [formData, setFormData] = useState<GuestOnboardingFormData>({
-    // Step 1
+    // Step 0: Identity
     firstName: '',
     lastName: '',
-    major: '', // Role/Major from affiliation step
-    graduationYear: DEFAULT_GRAD_YEAR, // Dummy value for guests
+    university: '',
+    major: '',
+    graduationYear: DEFAULT_GRAD_YEAR,
     profilePhoto: null,
-    // Step 2
+    // Step 1: Interests
     interests: [],
     phoneNumber: '',
-    // Step 3
-    university: '',
   });
 
   // Helper function to merge partial data into main state
@@ -81,7 +78,7 @@ export default function GuestOnboardingWizard() {
 
   // Navigation helpers
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 3)); // 4 steps (0-3)
+    setCurrentStep((prev) => Math.min(prev + 1, 2)); // 3 steps (0-2)
   };
 
   const prevStep = () => {
@@ -110,8 +107,7 @@ export default function GuestOnboardingWizard() {
     return (
       formData.firstName.trim() !== '' ||
       formData.lastName.trim() !== '' ||
-      formData.major.trim() !== '' ||
-      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
+      formData.university.trim() !== '' ||
       formData.profilePhoto !== null
     );
   };
@@ -178,8 +174,8 @@ export default function GuestOnboardingWizard() {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         university: formData.university.trim(),
-        major: formData.major?.trim() || undefined,
-        expected_graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
+        major: formData.major.trim(),
+        graduation_year: parseInt(formData.graduationYear, 10),
         bio: '',
         interests: mappedInterests,
         phone_number: formData.phoneNumber?.trim() || undefined,
@@ -227,7 +223,7 @@ export default function GuestOnboardingWizard() {
   return (
     <WizardLayout
       currentStep={currentStep}
-      totalSteps={4}
+      totalSteps={3}
       onBack={handleBack}
       hasFormData={hasFormData()}
       showConfirmation={currentStep === 0}
@@ -250,12 +246,14 @@ export default function GuestOnboardingWizard() {
                   data={{
                     firstName: formData.firstName,
                     lastName: formData.lastName,
+                    university: formData.university,
                     major: formData.major,
                     graduationYear: formData.graduationYear,
                     profilePhoto: formData.profilePhoto,
                   }}
                   update={updateFormData}
                   onNext={nextStep}
+                  isGuestMode
                 />
               </MotiView>
             )}
@@ -289,32 +287,13 @@ export default function GuestOnboardingWizard() {
                 transition={{ type: 'timing', duration: 300 }}
                 style={styles.stepWrapper}
               >
-                <GuestAffiliationStep
-                  data={{
-                    university: formData.university,
-                    major: formData.major,
-                  }}
-                  update={updateFormData}
-                  onNext={nextStep}
-                />
-              </MotiView>
-            )}
-
-            {currentStep === 3 && (
-              <MotiView
-                key="step-3"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
                 <GuestReviewStep
                   data={{
                     firstName: formData.firstName,
                     lastName: formData.lastName,
-                    major: formData.major,
                     university: formData.university,
+                    major: formData.major,
+                    graduationYear: formData.graduationYear,
                     profilePhoto: formData.profilePhoto,
                     interests: formData.interests,
                     phoneNumber: formData.phoneNumber,
