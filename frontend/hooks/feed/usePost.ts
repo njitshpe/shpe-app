@@ -37,10 +37,10 @@ export function usePost() {
         }
     };
 
-    const update = async (postId: string, content: string, eventId?: string): Promise<FeedPostUI | null> => {
+    const update = async (postId: string, content: string, imageUris: string[], eventId?: string): Promise<FeedPostUI | null> => {
         setIsCreating(true); // Reuse creating state for loading
 
-        const response = await updatePost(postId, content, eventId);
+        const response = await updatePost(postId, content, imageUris, eventId);
 
         setIsCreating(false);
 

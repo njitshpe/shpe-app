@@ -16,7 +16,7 @@ import { fetchUserPosts } from '@/lib/feedService';
 // Note: We're importing from the (tabs) group which is a sibling of this directory's parent
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
-import { FeedCard } from '@/components/feed'; // Assuming FeedCard is exported from here
+import { FeedList } from '@/components/feed/FeedList';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
 import { BlockUserModal } from '@/components/shared/BlockUserModal';
 import { ReportModal } from '@/components/shared/ReportModal';
@@ -36,10 +36,8 @@ export default function PublicProfileScreen() {
     const { isUserBlocked, blockUser, unblockUser } = useBlock();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [posts, setPosts] = useState<FeedPostUI[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [postsLoading, setPostsLoading] = useState(true);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
     const [showBlockModal, setShowBlockModal] = useState(false);
     const [blockActionLoading, setBlockActionLoading] = useState(false);
@@ -76,14 +74,7 @@ export default function PublicProfileScreen() {
                 return;
             }
 
-            // 2. Fetch Posts
-            setPostsLoading(true);
-            const postsReq = await fetchUserPosts(id, 0, 20);
-            if (postsReq.success && postsReq.data) {
-                setPosts(postsReq.data);
-            }
-
-            // 3. Fetch Points/Tier
+            // 2. Fetch Points/Tier (Posts fetched by FeedList)
             const rankReq = await rankService.getUserRank(id);
             if (rankReq.success && rankReq.data) {
                 setRankData(rankReq.data);
@@ -92,7 +83,7 @@ export default function PublicProfileScreen() {
             console.error('Error loading public profile:', error);
         } finally {
             setLoading(false);
-            setPostsLoading(false);
+            setLoading(false);
         }
     };
 
@@ -304,22 +295,7 @@ export default function PublicProfileScreen() {
                                 <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
                             </View>
 
-                            {postsLoading ? (
-                                <ActivityIndicator color={theme.primary} />
-                            ) : posts.length > 0 ? (
-                                <View style={styles.postsList}>
-                                    {posts.map(post => (
-                                        <FeedCard
-                                            key={post.id}
-                                            post={post}
-                                            compact={true}
-                                        // No edit/delete handlers passed
-                                        />
-                                    ))}
-                                </View>
-                            ) : (
-                                <Text style={[styles.noPostsText, { color: theme.subtext }]}>No posts yet.</Text>
-                            )}
+                            {id && <FeedList userId={id} scrollEnabled={false} />}
                         </View>
 
                         <View style={{ height: 40 }} />
