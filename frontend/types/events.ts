@@ -26,6 +26,7 @@ export interface Event {
   coverImageUrl?: string; // cover_image_url from database
   tags: EventTag[];
   status: 'upcoming' | 'past';
+  registration_questions?: any[];
 }
 
 // 1. Rename 'Event' to 'EventDB' to match your imports and avoid conflicts
