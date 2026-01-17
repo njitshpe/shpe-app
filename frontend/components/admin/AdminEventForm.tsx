@@ -16,7 +16,7 @@ import {
     Switch,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { CreateEventData, EventQuestion, QuestionType } from '@/services/adminEvents.service';
+import { CreateEventData, EventQuestion, QuestionType, adminEventsService } from '@/services/adminEvents.service';
 import { Ionicons } from '@expo/vector-icons';
 import { PhotoHelper } from '@/services/photo.service';
 import { storageService } from '@/services/storage.service';
@@ -57,6 +57,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [loading, setLoading] = useState(false);
 
     // --- Form State ---
+    const [eventLimit, setEventLimit] = useState(initialData?.event_limit ? String(initialData.event_limit) : '');
     const [name, setName] = useState(initialData?.name || '');
     const [description, setDescription] = useState(initialData?.description || '');
     const [locationName, setLocationName] = useState(initialData?.location_name || '');
@@ -181,6 +182,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 const tempEventId = `temp-${Date.now()}`;
                 const uploadResult = await storageService.uploadEventPoster(tempEventId, selectedImage);
                 setUploadingImage(false);
+                
                 if (!uploadResult.success || !uploadResult.data) {
                     Alert.alert('Upload Error', 'Failed to upload poster image');
                     setLoading(false);
@@ -189,7 +191,6 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 posterUrl = uploadResult.data.url;
             }
 
-            // CLEAN THE OPTIONS
             const cleanedQuestions = questions.map(q => ({
                 ...q,
                 options: q.options?.filter(o => o.trim() !== '') || []
@@ -205,19 +206,31 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 cover_image_url: posterUrl || undefined,
                 requires_rsvp: requiresRSVP,
                 registration_questions: requiresRSVP ? cleanedQuestions : [],
+                event_limit: eventLimit.trim() === '' ? undefined : parseInt(eventLimit, 10),
             };
 
-            const success = await onSubmit(eventData);
-            if (success) {
+            // Call the service and capture the result
+            const result = initialData 
+                ? await adminEventsService.updateEvent(initialData.id, eventData)
+                : await adminEventsService.createEvent(eventData);
+
+            if (result.success) {
+                // Only call the parent onSubmit once, with the fresh data from the DB
+                if (onSubmit) {
+                    await onSubmit(result.data);
+                }
+
                 Alert.alert(
                     'Success',
-                    `Event ${mode === 'create' ? 'created' : 'updated'} successfully!`,
+                    `Event ${initialData ? 'updated' : 'created'} successfully!`,
                     [{ text: 'OK', onPress: onCancel }]
                 );
             } else {
-                Alert.alert('Error', `Failed to ${mode} event. Please try again.`);
+                // Use the actual error message from the service
+                Alert.alert('Error', result.error?.message || `Failed to save event.`);
             }
         } catch (error) {
+            console.error('Submit error:', error);
             Alert.alert('Error', 'An unexpected error occurred');
         } finally {
             setLoading(false);
@@ -383,6 +396,23 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                     </TouchableOpacity>
                                 </View>
                             </View>
+                            {/* Guest Limit Input */}
+                            <View style={styles.field}>
+                                <Text style={[styles.label, dynamicStyles.text]}>Guest Limit</Text>
+                                <TextInput
+                                    style={[styles.input, dynamicStyles.input]}
+                                    value={eventLimit}
+                                    onChangeText={setEventLimit}
+                                    placeholder="Enter maximum guests (e.g. 50)"
+                                    placeholderTextColor={theme.subtext}
+                                    keyboardType="numeric" // This ensures the number pad opens
+                                />
+                                <Text style={[styles.subtext, dynamicStyles.subtext]}>
+                                    Leave blank if there is no limit for this event.
+                                </Text>
+                            </View>
+
+                            <View style={styles.separator} />
 
                             {/* --- RSVP & QUESTIONS --- */}
                             <View style={styles.separator} />
