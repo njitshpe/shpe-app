@@ -14,7 +14,7 @@ import { useRank } from '@/hooks/profile/useRank';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
 import { fetchUserPosts, deletePost } from '@/lib/feedService';
-import { FeedCard } from '@/components/feed';
+import { FeedList } from '@/components/feed/FeedList';
 import type { FeedPostUI } from '@/types/feed';
 import { useRouter } from 'expo-router';
 import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
@@ -37,27 +37,6 @@ export default function ProfileScreen() {
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const [posts, setPosts] = useState<FeedPostUI[]>([]);
-    const [postsLoading, setPostsLoading] = useState(false);
-
-    const loadPosts = async () => {
-        if (!user?.id) return;
-        setPostsLoading(true);
-        try {
-            const result = await fetchUserPosts(user.id, 0, 20);
-            if (result.success && result.data) {
-                setPosts(result.data);
-            }
-        } catch (error) {
-            console.error('Error loading posts:', error);
-        } finally {
-            setPostsLoading(false);
-        }
-    };
-
-    React.useEffect(() => {
-        loadPosts();
-    }, [user?.id]);
 
     // --- SECURE RESUME HOOK ---
     // This converts the storage path (e.g. "123/resume.pdf") into a viewable link
@@ -92,7 +71,6 @@ export default function ProfileScreen() {
             setRefreshing(true);
             await Promise.all([
                 loadProfile(user.id),
-                loadPosts(),
                 refreshRank()
             ]);
             setRefreshing(false);
@@ -237,29 +215,7 @@ export default function ProfileScreen() {
                             </View>
 
                             {/* Post List */}
-                            {postsLoading ? (
-                                <ActivityIndicator color={theme.primary} style={{ marginTop: 20 }} />
-                            ) : posts.length > 0 ? (
-                                <View style={styles.postsList}>
-                                    {posts.map(post => (
-                                        <FeedCard
-                                            key={post.id}
-                                            post={post}
-                                            onEdit={(post) => router.push({ pathname: '/feed/create', params: { id: post.id } })}
-                                            onDelete={async (postId) => {
-                                                const result = await deletePost(postId);
-                                                if (result.success) {
-                                                    loadPosts();
-                                                } else {
-                                                    Alert.alert('Error', result.error?.message || 'Failed to delete post');
-                                                }
-                                            }}
-                                        />
-                                    ))}
-                                </View>
-                            ) : (
-                                <Text style={[styles.noPostsText, { color: theme.subtext }]}>You haven't posted anything yet.</Text>
-                            )}
+                            {user?.id && <FeedList userId={user.id} scrollEnabled={false} />}
                         </View>
 
                     </ScrollView>

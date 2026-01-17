@@ -12,6 +12,7 @@ import {
     Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useComments } from '@/hooks/feed';
 import { formatRelativeTime } from '@/utils/feed';
@@ -24,15 +25,18 @@ interface CommentListProps {
 
 export function CommentList({ postId, currentUserId }: CommentListProps) {
     const { theme } = useTheme();
+    const headerHeight = useHeaderHeight();
     const { comments, isLoading, isCreating, addComment, removeComment } = useComments(postId);
     const [commentText, setCommentText] = useState('');
+    const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
 
     const handleSubmit = async () => {
         if (!commentText.trim()) return;
 
-        const success = await addComment(commentText);
+        const success = await addComment(commentText, replyingTo?.id);
         if (success) {
             setCommentText('');
+            setReplyingTo(null);
         }
     };
 
@@ -51,8 +55,12 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
         );
     };
 
-    const renderComment = ({ item }: { item: FeedCommentUI }) => (
-        <View style={styles.commentContainer}>
+    const renderComment = ({ item, isReply = false, depth = 0 }: { item: FeedCommentUI; isReply?: boolean; depth?: number }) => (
+        <View style={[
+            styles.commentContainer,
+            isReply && styles.replyContainer,
+            isReply && { borderLeftColor: theme.border }
+        ]}>
             <View style={styles.commentHeader}>
                 {item.author.profilePictureUrl ? (
                     <Image
@@ -74,19 +82,44 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
                         </Text>
                     </View>
                     <Text style={[styles.commentText, { color: theme.text }]}>{item.content}</Text>
+
+                    {/* Actions Row */}
+                    <View style={styles.actionRow}>
+                        {depth < 5 && (
+                            <TouchableOpacity
+                                onPress={() => setReplyingTo({ id: item.id, name: `${item.author.firstName} ${item.author.lastName}` })}
+                                style={styles.replyButton}
+                            >
+                                <Text style={[styles.replyButtonText, { color: theme.subtext }]}>Reply</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {currentUserId === item.userId && (
+                            <TouchableOpacity onPress={() => handleDelete(item.id)}>
+                                <Ionicons name="trash-outline" size={16} color={theme.error} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
-                {currentUserId === item.userId && (
-                    <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                        <Ionicons name="trash-outline" size={16} color={theme.error} />
-                    </TouchableOpacity>
-                )}
             </View>
+
+            {/* Nested Replies */}
+            {item.replies && item.replies.length > 0 && (
+                <View style={styles.repliesList}>
+                    {item.replies.map((reply, index) => (
+                        <View key={reply.id} style={index === item.replies!.length - 1 ? { marginBottom: 0 } : { marginBottom: 16 }}>
+                            {renderComment({ item: reply, isReply: true, depth: depth + 1 })}
+                        </View>
+                    ))}
+                </View>
+            )}
         </View>
     );
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight + 60 : 0}
             style={styles.container}
         >
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
@@ -97,9 +130,10 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
 
             <FlatList
                 data={comments}
-                renderItem={renderComment}
+                renderItem={(props) => renderComment({ ...props, isReply: false })}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Ionicons name="chatbubble-outline" size={48} color={theme.subtext} />
@@ -111,29 +145,41 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
             />
 
             <View style={[styles.inputContainer, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
-                <TextInput
-                    style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
-                    placeholder="Add a comment..."
-                    placeholderTextColor={theme.subtext}
-                    value={commentText}
-                    onChangeText={setCommentText}
-                    multiline
-                    maxLength={1000}
-                />
-                <TouchableOpacity
-                    style={[
-                        styles.sendButton,
-                        { backgroundColor: commentText.trim() ? theme.primary : theme.border },
-                    ]}
-                    onPress={handleSubmit}
-                    disabled={!commentText.trim() || isCreating}
-                >
-                    {isCreating ? (
-                        <Ionicons name="hourglass-outline" size={20} color="#FFFFFF" />
-                    ) : (
-                        <Ionicons name="send" size={20} color="#FFFFFF" />
-                    )}
-                </TouchableOpacity>
+                {replyingTo && (
+                    <View style={[styles.replyingToBar, { backgroundColor: theme.background }]}>
+                        <Text style={[styles.replyingToText, { color: theme.subtext }]}>
+                            Replying to <Text style={{ fontWeight: 'bold' }}>{replyingTo.name}</Text>
+                        </Text>
+                        <TouchableOpacity onPress={() => setReplyingTo(null)}>
+                            <Ionicons name="close-circle" size={20} color={theme.subtext} />
+                        </TouchableOpacity>
+                    </View>
+                )}
+                <View style={styles.inputWrapper}>
+                    <TextInput
+                        style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+                        placeholder="Add a comment..."
+                        placeholderTextColor={theme.subtext}
+                        value={commentText}
+                        onChangeText={setCommentText}
+                        multiline
+                        maxLength={1000}
+                    />
+                    <TouchableOpacity
+                        style={[
+                            styles.sendButton,
+                            { backgroundColor: commentText.trim() ? theme.primary : theme.border },
+                        ]}
+                        onPress={handleSubmit}
+                        disabled={!commentText.trim() || isCreating}
+                    >
+                        {isCreating ? (
+                            <Ionicons name="hourglass-outline" size={20} color="#FFFFFF" />
+                        ) : (
+                            <Ionicons name="send" size={20} color="#FFFFFF" />
+                        )}
+                    </TouchableOpacity>
+                </View>
             </View>
         </KeyboardAvoidingView>
     );
@@ -155,7 +201,7 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     commentContainer: {
-        marginBottom: 16,
+        // marginBottom removed here and handled by parent wrapper or list separator
     },
     commentHeader: {
         flexDirection: 'row',
@@ -221,4 +267,49 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    actionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+        gap: 12,
+    },
+    replyButton: {
+        paddingVertical: 2,
+    },
+    replyButtonText: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    replyContainer: {
+        marginLeft: 16,
+        marginTop: 8,
+        paddingLeft: 12,
+        borderLeftWidth: 2,
+        // color set dynamically in component
+    },
+    repliesList: {
+        marginTop: 4,
+    },
+    replyingToBar: {
+        position: 'absolute',
+        top: -30,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
+        zIndex: 1,
+    },
+    replyingToText: {
+        fontSize: 12,
+    },
+    inputWrapper: {
+        flexDirection: 'row',
+        gap: 10,
+        flex: 1,
+    }
 });

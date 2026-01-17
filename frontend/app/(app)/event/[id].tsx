@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatTime, formatDateHeader } from '@/utils';
 import { useEvents } from '@/contexts/EventsContext';
+import { Event } from '@/types/events';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '@/components/shared';
 import {
@@ -31,6 +32,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
+import { FeedList } from '@/components/feed/FeedList';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -52,6 +54,7 @@ export default function EventDetailScreen() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showHighlights, setShowHighlights] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0); // Force re-render for time updates
 
   // Auto-refresh button state every 60 seconds
@@ -63,16 +66,12 @@ export default function EventDetailScreen() {
     return () => clearInterval(interval);
   }, []);
 
-  // Defensive: handle null/undefined hostName
-  const hostName = (event?.hostName ?? '').trim();
-  const hostInitial = (hostName[0] ?? '?').toUpperCase();
-
   // Check if event has passed (based on end time)
   const hasEventPassed = event ? new Date(event.endTimeISO) < new Date() : false;
 
-  // Get check-in window times (use checkInOpens/checkInCloses if set, otherwise fall back to event times)
-  const checkInOpens = event?.checkInOpens || event?.startTimeISO || '';
-  const checkInCloses = event?.checkInCloses || event?.endTimeISO || '';
+  // Check-in window times default to event times since specific columns were removed
+  const checkInOpens = event?.startTimeISO || '';
+  const checkInCloses = event?.endTimeISO || '';
 
   // Calculate check-in state for admin button
   // useMemo with refreshTrigger dependency causes re-calculation every 60 seconds
@@ -391,23 +390,6 @@ export default function EventDetailScreen() {
             />
           </View>
 
-          {/* Hosts Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Hosts</Text>
-            <View style={styles.hostRow}>
-              <View style={[styles.hostAvatarLarge, dynamicStyles.hostAvatar]}>
-                <Text style={[styles.hostAvatarLargeText, dynamicStyles.hostAvatarText]}>{hostInitial}</Text>
-              </View>
-              <View style={styles.hostInfo}>
-                <Text style={[styles.hostNameLarge, dynamicStyles.text]}>{hostName || 'Unknown host'}</Text>
-                <Text style={[styles.hostMeta, dynamicStyles.subtext]}>Event organizer</Text>
-              </View>
-              <Pressable onPress={() => console.log('Contact host')}>
-                <Ionicons name="mail-outline" size={22} color={theme.text} />
-              </Pressable>
-            </View>
-          </View>
-
           {/* Attendees Preview Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, dynamicStyles.text]}>Who's Going</Text>
@@ -450,14 +432,6 @@ export default function EventDetailScreen() {
             </View>
           )}
 
-          {/* Capacity Warning */}
-          {event.capacityLabel && (
-            <View style={[styles.capacityWarning, dynamicStyles.capacityWarning]}>
-              <Ionicons name="alert-circle-outline" size={18} color="#F59E0B" style={styles.warningIcon} />
-              <Text style={styles.capacityText}>{event.capacityLabel}</Text>
-            </View>
-          )}
-
           {/* Tags */}
           {event.tags.length > 0 && (
             <View style={styles.tagsRow}>
@@ -468,6 +442,31 @@ export default function EventDetailScreen() {
               ))}
             </View>
           )}
+
+          {/* Highlights Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Highlights</Text>
+            {!showHighlights ? (
+              <TouchableOpacity
+                style={[styles.highlightsButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+                onPress={() => setShowHighlights(true)}
+              >
+                <Ionicons name="images-outline" size={24} color={theme.primary} />
+                <Text style={[styles.highlightsButtonText, { color: theme.text }]}>View Event Highlights</Text>
+                <Ionicons name="chevron-down" size={20} color={theme.subtext} />
+              </TouchableOpacity>
+            ) : (
+              <View>
+                <FeedList eventId={event.uuid} scrollEnabled={false} />
+                <TouchableOpacity
+                  style={styles.hideHighlightsButton}
+                  onPress={() => setShowHighlights(false)}
+                >
+                  <Text style={{ color: theme.subtext }}>Hide Highlights</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
 
 
         </View>
@@ -526,11 +525,9 @@ export default function EventDetailScreen() {
               name: event.title,
               description: event.description,
               location_name: event.locationName,
-              location: event.address,
+              location_address: event.address,
               start_time: event.startTimeISO,
               end_time: event.endTimeISO,
-              host_name: event.hostName,
-              price_label: event.priceLabel,
               cover_image_url: event.coverImageUrl,
             }}
             onSubmit={handleEditSubmit}
@@ -789,6 +786,55 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  // ADMIN BUTTONS
+  adminCheckInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF', // Default blue, overridden by dynamic check-in state
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  adminButtonDisabled: {
+    backgroundColor: '#F2F2F7', // Light gray
+  },
+  adminButtonExpired: {
+    backgroundColor: '#E5E5EA', // Darker gray
+  },
+  adminButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  adminHint: {
+    textAlign: 'center',
+    fontSize: 13,
+    marginBottom: 24,
+  },
+
+  // HIGHLIGHTS
+  highlightsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  highlightsButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  hideHighlightsButton: {
+    alignItems: 'center',
+    padding: 16,
+    marginTop: 8,
+  },
+
   // ERROR STATE
   errorContainer: {
     flex: 1,
@@ -813,32 +859,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ADMIN SECTION
-  adminCheckInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  adminButtonDisabled: {
-    backgroundColor: '#e9ecef',
-    opacity: 0.6,
-  },
-  adminButtonExpired: {
-    backgroundColor: '#dc3545',
-    opacity: 0.6,
-  },
-  adminButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  adminHint: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
+
 });
