@@ -8,42 +8,34 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    Pressable,
+    useColorScheme,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../contexts/AuthContext';
-import { AuthInput } from '../../components/AuthInput';
-import type { UserType } from '../../types/userProfile';
+import * as WebBrowser from 'expo-web-browser';
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthInput, AuthLogo } from '@/components/auth';
+import { getAuthBackgroundColors, getAuthPalette } from '@/constants/authTheme';
+import { LEGAL_URLS } from '@/constants/legal';
 
 export default function SignupScreen() {
     const router = useRouter();
-    const [userType, setUserType] = useState<UserType | null>(null);
-    const [ucid, setUcid] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const { signUp, signInWithGoogle } = useAuth();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+    const backgroundColors = getAuthBackgroundColors(isDark);
+    const palette = getAuthPalette(isDark);
 
     const handleSignup = async () => {
-        // Validate user type selection
-        if (!userType) {
-            Alert.alert('Error', 'Please select your user type');
+        if (!email) {
+            Alert.alert('Error', 'Please enter your email');
             return;
-        }
-
-        // Determine final email based on user type
-        let finalEmail = email;
-        if (userType === 'student') {
-            if (!ucid) {
-                Alert.alert('Error', 'Please enter your UCID');
-                return;
-            }
-            finalEmail = `${ucid.toLowerCase().trim()}@njit.edu`;
-        } else {
-            if (!email) {
-                Alert.alert('Error', 'Please enter your email');
-                return;
-            }
         }
 
         if (!password || !confirmPassword) {
@@ -63,8 +55,7 @@ export default function SignupScreen() {
 
         setLoading(true);
 
-        const result = await signUp(finalEmail, password, {
-            user_type: userType,
+        const result = await signUp(email, password, {
             onboarding_completed: false,
         });
 
@@ -73,11 +64,10 @@ export default function SignupScreen() {
         } else if (result.needsEmailConfirmation) {
             Alert.alert(
                 'Verify Your Email',
-                `We've sent a verification link to ${finalEmail}. Please check your email and click the link to verify your account. Once verified, you can sign in.`,
-                [{ text: 'OK', onPress: () => router.replace('/(auth)/login') }]
+                `We've sent a verification link to ${email}. Please check your email and click the link to verify your account. Once verified, you can sign in.`,
+                [{ text: 'OK', onPress: () => router.replace({ pathname: '/(auth)/login', params: { email } }) }]
             );
         } else {
-            // User is automatically signed in (email confirmation disabled)
             Alert.alert(
                 'Success',
                 'Account created successfully!',
@@ -95,286 +85,244 @@ export default function SignupScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <LinearGradient
+            colors={backgroundColors}
+            style={styles.gradient}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
         >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <View style={styles.header}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>SHPE</Text>
-                    </View>
-                    <Text style={styles.title}>Create Account</Text>
-                    <Text style={styles.subtitle}>Join the SHPE NJIT community</Text>
-                </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Logo */}
+                    <AuthLogo />
 
-                <View style={styles.form}>
-                    <TouchableOpacity
-                        style={[styles.googleButton, loading && styles.buttonDisabled]}
-                        onPress={handleGoogleSignup}
-                        disabled={loading}
-                    >
-                        <Text style={styles.googleButtonText}>Continue with Google</Text>
-                    </TouchableOpacity>
+                    {/* Title */}
+                    <Text style={[styles.title, { color: palette.text }]}>Sign up Account</Text>
 
-                    <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or</Text>
-                        <View style={styles.dividerLine} />
-                    </View>
+                    {/* Account Requirement Explanation */}
+                    <Text style={[styles.helperText, { color: palette.subtext }]}>
+                        Join our network, RSVP to events, engage with members, and win points.
+                    </Text>
 
-                    {/* User Type Selection */}
-                    <View style={styles.userTypeSection}>
-                        <Text style={styles.sectionLabel}>I am a:</Text>
-                        <View style={styles.userTypeButtons}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.userTypeButton,
-                                    userType === 'student' && styles.userTypeButtonActiveRed,
-                                ]}
-                                onPress={() => setUserType('student')}
-                                disabled={loading}
-                            >
-                                <Text style={[
-                                    styles.userTypeButtonText,
-                                    userType === 'student' && styles.userTypeButtonTextActive,
-                                ]}>
-                                    NJIT Student
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.userTypeButton,
-                                    userType === 'alumni' && styles.userTypeButtonActiveOrange,
-                                ]}
-                                onPress={() => setUserType('alumni')}
-                                disabled={loading}
-                            >
-                                <Text style={[
-                                    styles.userTypeButtonText,
-                                    userType === 'alumni' && styles.userTypeButtonTextActive,
-                                ]}>
-                                    Alumni
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.userTypeButton,
-                                    userType === 'other' && styles.userTypeButtonActiveOrange,
-                                ]}
-                                onPress={() => setUserType('other')}
-                                disabled={loading}
-                            >
-                                <Text style={[
-                                    styles.userTypeButtonText,
-                                    userType === 'other' && styles.userTypeButtonTextActive,
-                                ]}>
-                                    Other
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {/* Conditional Input: UCID for students, Email for others */}
-                    {userType === 'student' ? (
-                        <AuthInput
-                            label="UCID"
-                            value={ucid}
-                            onChangeText={setUcid}
-                            placeholder="e.g., yrc"
-                            autoCapitalize="none"
-                        />
-                    ) : userType ? (
+                    {/* Form */}
+                    <View style={styles.form}>
                         <AuthInput
                             label="Email"
                             value={email}
                             onChangeText={setEmail}
-                            placeholder="you@email.com"
+                            placeholder="Enter your email"
                             keyboardType="email-address"
+                            autoCapitalize="none"
                         />
-                    ) : null}
 
-                    <AuthInput
-                        label="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="At least 6 characters"
-                        secureTextEntry
-                    />
+                        <AuthInput
+                            label="Password"
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="Enter your Password"
+                            secureTextEntry
+                        />
 
-                    <AuthInput
-                        label="Confirm Password"
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        placeholder="Confirm your password"
-                        secureTextEntry
-                    />
+                        <AuthInput
+                            label="Confirm Password"
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            placeholder="Confirm Password"
+                            secureTextEntry
+                        />
 
-                    <TouchableOpacity
-                        style={[styles.button, loading && styles.buttonDisabled]}
-                        onPress={handleSignup}
-                        disabled={loading}
-                    >
-                        <Text style={styles.buttonText}>
-                            {loading ? 'Creating account...' : 'Sign Up'}
-                        </Text>
-                    </TouchableOpacity>
+                        {/* Terms & Privacy */}
+                        <View style={styles.termsRow}>
+                            <Text
+                                style={[styles.checkboxLabel, { color: palette.subtext }]}
+                            >
+                                By creating an account, you agree to our
+                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}>
+                                    {' '}Terms of Use
+                                </Text>
+                                {' '}and
+                                <Text style={[styles.linkText, { color: palette.link }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}>
+                                    {' '}Privacy Policy
+                                </Text>
+                            </Text>
+                        </View>
 
+                        {/* Sign Up Button */}
+                        <Pressable
+                            onPress={handleSignup}
+                            disabled={loading}
+                            style={({ pressed }) => [
+                                styles.signupButton,
+                                loading && styles.buttonDisabled,
+                                pressed && styles.buttonPressed,
+                            ]}
+                        >
+                            <LinearGradient
+                                colors={['#7FB3FF', '#5C8DFF', '#3B6BFF']}
+                                style={styles.buttonGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                            >
+                                <Text style={styles.signupButtonText}>
+                                    {loading ? 'Creating account...' : 'Sign Up'}
+                                </Text>
+                            </LinearGradient>
+                        </Pressable>
+
+                        {/* Divider */}
+                        <View style={styles.divider}>
+                            <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                            <Text style={[styles.dividerText, { color: palette.muted }]}>Or</Text>
+                            <View style={[styles.dividerLine, { backgroundColor: palette.divider }]} />
+                        </View>
+
+                        {/* Social Buttons */}
+                        <View style={styles.socialRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.socialButton,
+                                    { backgroundColor: palette.socialBg, borderColor: palette.socialBorder },
+                                ]}
+                                onPress={handleGoogleSignup}
+                                disabled={loading}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="logo-google" size={20} color={palette.text} />
+                                <Text style={[styles.socialButtonText, { color: palette.text }]}>Google</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Footer */}
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Already have an account? </Text>
+                        <Text style={[styles.footerText, { color: palette.muted }]}>Already have an account? </Text>
                         <TouchableOpacity onPress={() => router.replace('/login')}>
-                            <Text style={styles.link}>Sign In</Text>
+                            <Text style={[styles.footerLink, { color: palette.link }]}>Log In</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
+    gradient: {
+        flex: 1,
+    },
     container: {
         flex: 1,
-        backgroundColor: '#fff',
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
-        padding: 24,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 40,
-    },
-    logoPlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#D35400',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    logoText: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: 'bold',
+        paddingHorizontal: 28,
+        paddingTop: 80,
+        paddingBottom: 40,
     },
     title: {
         fontSize: 28,
-        fontWeight: 'bold',
-        color: '#1a1a1a',
-        marginBottom: 8,
+        fontWeight: '700',
+        color: '#F5F8FF',
+        textAlign: 'center',
+        marginBottom: 12,
+        letterSpacing: 0.3,
     },
-    subtitle: {
-        fontSize: 16,
-        color: '#666',
+    helperText: {
+        fontSize: 14,
+        fontWeight: '400',
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 32,
+        paddingHorizontal: 16,
     },
     form: {
-        width: '100%',
+        flex: 1,
     },
-    googleButton: {
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        padding: 16,
-        borderRadius: 8,
-        marginBottom: 20,
+    termsRow: {
+        marginTop: 4,
+        marginBottom: 24,
     },
-    googleButtonText: {
-        color: '#333',
-        textAlign: 'center',
+    checkboxLabel: {
+        fontSize: 14,
+        fontWeight: '400',
+        lineHeight: 18,
+    },
+    linkText: {
+        textDecorationLine: 'underline',
         fontWeight: '600',
+    },
+    signupButton: {
+        borderRadius: 10,
+        overflow: 'hidden',
+        marginBottom: 24,
+    },
+    buttonGradient: {
+        paddingVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    signupButtonText: {
         fontSize: 16,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        letterSpacing: 0.3,
+    },
+    buttonPressed: {
+        opacity: 0.9,
+        transform: [{ scale: 0.98 }],
+    },
+    buttonDisabled: {
+        opacity: 0.5,
     },
     divider: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#ddd',
     },
     dividerText: {
         marginHorizontal: 16,
-        color: '#999',
         fontSize: 14,
+        fontWeight: '500',
     },
-    userTypeSection: {
-        marginBottom: 20,
-    },
-    sectionLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 12,
-    },
-    userTypeButtons: {
+    socialRow: {
         flexDirection: 'row',
+        gap: 12,
+        marginBottom: 32,
+    },
+    socialButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 10,
         gap: 8,
     },
-    userTypeButton: {
-        flex: 1,
-        backgroundColor: '#fff',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        paddingVertical: 12,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    userTypeButtonActiveRed: {
-        backgroundColor: '#CC0000',
-        borderColor: '#CC0000',
-        borderWidth: 2,
-    },
-    userTypeButtonActiveOrange: {
-        backgroundColor: '#D35400',
-        borderColor: '#D35400',
-        borderWidth: 2,
-    },
-    userTypeButtonText: {
-        color: '#666',
-        fontSize: 14,
+    socialButtonText: {
+        fontSize: 15,
         fontWeight: '600',
-        textAlign: 'center',
-    },
-    userTypeButtonTextActive: {
-        color: '#fff',
-    },
-    button: {
-        backgroundColor: '#D35400',
-        padding: 16,
-        borderRadius: 8,
-        marginTop: 8,
-    },
-    buttonDisabled: {
-        opacity: 0.6,
-    },
-    buttonText: {
-        color: '#fff',
-        textAlign: 'center',
-        fontWeight: '600',
-        fontSize: 16,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 24,
+        alignItems: 'center',
+        paddingTop: 16,
     },
     footerText: {
-        color: '#666',
         fontSize: 14,
     },
-    link: {
-        color: '#D35400',
+    footerLink: {
         fontSize: 14,
         fontWeight: '600',
     },

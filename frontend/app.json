@@ -1,22 +1,26 @@
 {
   "expo": {
-    "name": "shpe-app",
+    "name": "SHPE NJIT",
     "slug": "shpe-app",
     "scheme": "shpe-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0F172A"
     },
     "ios": {
+      "bundleIdentifier": "com.shpenjit.officialapp",
+      "buildNumber": "4",
       "supportsTablet": true,
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "LSApplicationQueriesSchemes": [
           "instagram",
           "fb",
@@ -25,7 +29,8 @@
         ],
         "NSCameraUsageDescription": "This app needs camera access to scan QR codes for event check-in.",
         "NSCalendarsUsageDescription": "This app needs calendar access to add events to your calendar.",
-        "NSCalendarsWriteOnlyAccessUsageDescription": "This app needs permission to add events to your calendar."
+        "NSCalendarsWriteOnlyAccessUsageDescription": "This app needs permission to add events to your calendar.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -39,8 +44,17 @@
         "CAMERA",
         "READ_CALENDAR",
         "WRITE_CALENDAR",
-        "android.permission.POST_NOTIFICATIONS"
-      ]
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "READ_CALENDAR",
+        "WRITE_CALENDAR",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.shpenjit.officialapp"
     },
     "notification": {
       "icon": "./assets/icon.png",
@@ -60,11 +74,15 @@
           "photosPermission": "The app needs to access your photos to let you change your profile picture.",
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
-      "supabaseUrl": "https://jsayqpclkkoqglulvzbu.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpzYXlxcGNsa2tvcWdsdWx2emJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2MjU0ODcsImV4cCI6MjA4MjIwMTQ4N30.kX0uOlcXtXYHxsH83HfAzE00BVG6VnmVwKDMan-x6BI"
-    }
+      "router": {},
+      "eas": {
+        "projectId": "8e59eebf-ca7c-46de-88a6-f0757b12ba62"
+      }
+    },
+    "owner": "njitwebmaster"
   }
 }

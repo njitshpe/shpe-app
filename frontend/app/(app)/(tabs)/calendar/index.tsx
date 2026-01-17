@@ -1,124 +1,100 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     StyleSheet,
-    ScrollView,
     Text,
     ActivityIndicator,
-    LayoutChangeEvent,
+    Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEvents } from '../../../../contexts/EventsContext';
-import { useAdaptiveTheme } from '../../../../hooks/calendar/useAdaptiveTheme';
-import { CalendarHeader } from '../../../../components/calendar/CalendarHeader';
-import { WeekStrip } from '../../../../components/calendar/WeekStrip';
-import { MonthPicker } from '../../../../components/calendar/MonthPicker';
-import { EventsList } from '../../../../components/calendar/EventsList';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useEvents } from '@/contexts/EventsContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { EventsFeed } from '@/components/events/EventsFeed';
+import { CalendarView } from '@/components/calendar';
 
-export default function CalendarScreen() {
-    const { events, isLoading, error } = useEvents();
-    const theme = useAdaptiveTheme();
+type ViewMode = 'calendar' | 'feed';
+
+export default function EventsScreen() {
+    const { events, isLoading, error, refetchEvents } = useEvents();
+    const { theme } = useTheme();
+    const router = useRouter();
+    const { view } = useLocalSearchParams<{ view?: string }>();
+
+    // Set initial view mode based on query parameter
+    const [viewMode, setViewMode] = useState<ViewMode>(
+        view === 'feed' ? 'feed' : 'calendar'
+    );
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
-    const [headerHeight, setHeaderHeight] = useState(0);
-    const [pickerTopOffset, setPickerTopOffset] = useState(0);
-    const scrollViewRef = useRef<ScrollView>(null);
-    const headerRef = useRef<View>(null);
 
-    const handleHeaderPress = () => {
-        if (isMonthPickerOpen) {
-            setIsMonthPickerOpen(false);
-            return;
-        }
-        const openPickerAt = (offset: number) => {
-            setPickerTopOffset(offset);
-            setIsMonthPickerOpen(true);
-        };
-        if (headerRef.current?.measureInWindow) {
-            headerRef.current.measureInWindow((_x, y, _width, height) => {
-                openPickerAt(Math.max(y + height, headerHeight));
-            });
-            return;
-        }
-        openPickerAt(headerHeight);
+    const handleQRScanPress = () => {
+        router.push('/check-in');
+    };
+
+    const toggleViewMode = () => {
+        setViewMode((prev) => (prev === 'calendar' ? 'feed' : 'calendar'));
     };
 
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date);
-        setIsMonthPickerOpen(false);
-    };
-
-    const handleMonthPickerClose = () => {
-        setIsMonthPickerOpen(false);
-    };
-
-    const handleTodayPress = () => {
-        const today = new Date();
-        setSelectedDate(today);
-        setIsMonthPickerOpen(false);
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    };
-
-    const handleHeaderLayout = (event: LayoutChangeEvent) => {
-        if (headerHeight === 0) {
-            setHeaderHeight(event.nativeEvent.layout.height);
-        }
     };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-            <View style={styles.content}>
-                {/* Month Picker */}
-                <MonthPicker
-                    selectedDate={selectedDate}
-                    events={events}
-                    onDateSelect={handleDateSelect}
-                    onClose={handleMonthPickerClose}
-                    visible={isMonthPickerOpen}
-                    topOffset={pickerTopOffset}
-                />
-
-                <ScrollView
-                    ref={scrollViewRef}
-                    style={styles.scrollView}
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>Events</Text>
+                <Pressable
+                    onPress={toggleViewMode}
+                    style={styles.calendarButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    {/* Header */}
-                    <View ref={headerRef} onLayout={handleHeaderLayout}>
-                        <CalendarHeader
-                            selectedDate={selectedDate}
-                            onHeaderPress={handleHeaderPress}
-                            isMonthPickerOpen={isMonthPickerOpen}
-                            onTodayPress={handleTodayPress}
-                        />
-                    </View>
-
-                    {/* Week Strip */}
-                    <WeekStrip
-                        selectedDate={selectedDate}
-                        onDateSelect={handleDateSelect}
-                        events={events}
-                        scrollViewRef={scrollViewRef}
+                    <Ionicons
+                        name={viewMode === 'calendar' ? 'list-outline' : 'calendar-outline'}
+                        size={24}
+                        color={theme.text}
                     />
-
-                    {/* Events List with Loading/Error States */}
-                    {isLoading ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#10B981" />
-                            <Text style={styles.loadingText}>Loading events...</Text>
-                        </View>
-                    ) : error ? (
-                        <View style={styles.errorContainer}>
-                            <Text style={styles.errorIcon}>⚠️</Text>
-                            <Text style={styles.errorText}>Failed to load events</Text>
-                            <Text style={styles.errorSubtext}>{error}</Text>
-                        </View>
-                    ) : (
-                        <EventsList events={events} selectedDate={selectedDate} />
-                    )}
-                </ScrollView>
+                </Pressable>
             </View>
+
+            {/* Content */}
+            {isLoading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={theme.primary} />
+                    <Text style={[styles.loadingText, { color: theme.subtext }]}>Loading events...</Text>
+                </View>
+            ) : error ? (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorIcon}>⚠️</Text>
+                    <Text style={[styles.errorText, { color: theme.error }]}>Failed to load events</Text>
+                    <Text style={[styles.errorSubtext, { color: theme.subtext }]}>{error}</Text>
+                </View>
+            ) : (
+                <>
+                    {viewMode === 'feed' ? (
+                        <EventsFeed
+                            events={events}
+                            isRefreshing={isLoading}
+                            onRefresh={refetchEvents}
+                        />
+                    ) : (
+                        <CalendarView
+                            events={events}
+                            selectedDate={selectedDate}
+                            onDateSelect={handleDateSelect}
+                        />
+                    )}
+                </>
+            )}
+
+            {/* QR Scanner FAB */}
+            <Pressable
+                style={[styles.fab, { backgroundColor: theme.fabBackground }]}
+                onPress={handleQRScanPress}
+            >
+                <Ionicons name="qr-code-outline" size={28} color={theme.fabIcon} />
+            </Pressable>
         </SafeAreaView>
     );
 }
@@ -127,14 +103,21 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    content: {
-        flex: 1,
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
     },
-    scrollView: {
-        flex: 1,
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: '700',
+        letterSpacing: -0.5,
     },
-    scrollContent: {
-        paddingBottom: 40,
+    calendarButton: {
+        padding: 8,
     },
     loadingContainer: {
         flex: 1,
@@ -146,7 +129,6 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
         fontWeight: '500',
-        color: '#6B7280',
     },
     errorContainer: {
         flex: 1,
@@ -162,14 +144,27 @@ const styles = StyleSheet.create({
     errorText: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#EF4444',
         marginBottom: 8,
         textAlign: 'center',
     },
     errorSubtext: {
         fontSize: 14,
-        color: '#9CA3AF',
         textAlign: 'center',
         lineHeight: 20,
+    },
+    fab: {
+        position: 'absolute',
+        bottom: 24,
+        right: 20,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
     },
 });

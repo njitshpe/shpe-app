@@ -6,13 +6,20 @@ import React, {
   useEffect,
   useCallback,
 } from 'react';
-import { Event } from '../data/mockEvents';
+import { useAuth } from '@/contexts/AuthContext';
+import { eventsService } from '../services/events.service';
+import { adminService } from '../services/admin.service';
+import { adminEventsService, CreateEventData } from '../services/adminEvents.service';
 import { supabase, EventRow } from '../lib/supabase';
+import { Event, EventTag } from '../types/events';
+import { mapSupabaseError } from '../types/errors';
 
 // State shape
 interface EventsState {
   events: Event[];
   isAdminMode: boolean;
+  isCurrentUserAdmin: boolean;
+  isCurrentUserSuperAdmin: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -23,6 +30,8 @@ type EventsAction =
   | { type: 'UPDATE_EVENT'; payload: { id: string; event: Event } }
   | { type: 'DELETE_EVENT'; payload: string }
   | { type: 'TOGGLE_ADMIN_MODE' }
+  | { type: 'SET_ADMIN_STATUS'; payload: boolean }
+  | { type: 'SET_SUPER_ADMIN_STATUS'; payload: boolean }
   | { type: 'SET_EVENTS'; payload: Event[] }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null };
@@ -34,6 +43,9 @@ interface EventsContextValue extends EventsState {
   deleteEvent: (id: string) => void;
   toggleAdminMode: () => void;
   refetchEvents: () => Promise<void>;
+  createEvent: (eventData: CreateEventData) => Promise<boolean>;
+  updateEventAdmin: (eventId: string, eventData: Partial<CreateEventData>) => Promise<boolean>;
+  deleteEventAdmin: (eventId: string) => Promise<boolean>;
 }
 
 // Create context
@@ -64,6 +76,16 @@ function eventsReducer(state: EventsState, action: EventsAction): EventsState {
         ...state,
         isAdminMode: !state.isAdminMode,
       };
+    case 'SET_ADMIN_STATUS':
+      return {
+        ...state,
+        isCurrentUserAdmin: action.payload,
+      };
+    case 'SET_SUPER_ADMIN_STATUS':
+      return {
+        ...state,
+        isCurrentUserSuperAdmin: action.payload,
+      };
     case 'SET_EVENTS':
       return {
         ...state,
@@ -89,19 +111,17 @@ function mapEventRowToEvent(row: EventRow): Event {
 
   return {
     id: row.event_id || String(row.id),
+    uuid: row.id,
     title: row.name,
     description: row.description ?? undefined,
     startTimeISO: row.start_time,
     endTimeISO: row.end_time,
     locationName: row.location_name,
-    address: row.location ?? undefined,
+    address: row.location_address ?? undefined,
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
-    hostName: row.host_name,
-    tags: row.tags ?? [],
-    priceLabel: row.price_label ?? undefined,
-    capacityLabel: undefined,
+    tags: (row.tags as EventTag[]) ?? [],
     status: isPast ? 'past' : 'upcoming',
   };
 }
@@ -111,9 +131,13 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(eventsReducer, {
     events: [],
     isAdminMode: false,
+    isCurrentUserAdmin: false,
+    isCurrentUserSuperAdmin: false,
     isLoading: true,
     error: null,
   });
+
+  const { session } = useAuth();
 
   const addEvent = (event: Event) => {
     dispatch({ type: 'ADD_EVENT', payload: event });
@@ -131,11 +155,46 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'TOGGLE_ADMIN_MODE' });
   };
 
+  const createEvent = async (eventData: CreateEventData): Promise<boolean> => {
+    const response = await adminEventsService.createEvent(eventData);
+    if (response.success) {
+      await refetchEvents();
+      return true;
+    }
+    console.error('Failed to create event:', response.error);
+    return false;
+  };
+
+  const updateEventAdmin = async (
+    eventId: string,
+    eventData: Partial<CreateEventData>
+  ): Promise<boolean> => {
+    const response = await adminEventsService.updateEvent(eventId, eventData);
+    if (response.success) {
+      await refetchEvents();
+      return true;
+    }
+    console.error('Failed to update event:', response.error);
+    return false;
+  };
+
+  const deleteEventAdmin = async (eventId: string): Promise<boolean> => {
+    const response = await adminEventsService.deleteEvent(eventId);
+    if (response.success) {
+      await refetchEvents();
+      return true;
+    }
+    console.error('Failed to delete event:', response.error);
+    return false;
+  };
+
   const refetchEvents = useCallback(async () => {
+    console.log('[EventsContext] 🔄 Starting refetch...');
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
+      console.log('[EventsContext] 📡 Querying Supabase for events...');
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -143,31 +202,69 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         .order('start_time', { ascending: true });
 
       if (error) {
-        console.error('[EventsContext] Supabase error:', error.message);
-        dispatch({ type: 'SET_ERROR', payload: error.message });
+        console.error('[EventsContext] ❌ Supabase error:', error.message);
+        console.error('[EventsContext] Error details:', JSON.stringify(error, null, 2));
+        dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(error).message });
         return;
       }
 
+      console.log('[EventsContext] ✅ Query successful!');
+      console.log('[EventsContext] 📊 Raw rows returned:', data?.length ?? 0);
+      console.log('[EventsContext] 📋 First row sample:', data?.[0] ? JSON.stringify(data[0], null, 2) : 'No data');
+
       const mappedEvents = (data ?? []).map(mapEventRowToEvent);
+      console.log('[EventsContext] 🗺️  Mapped events:', mappedEvents.length);
+      console.log('[EventsContext] 📌 First mapped event:', mappedEvents[0] ? JSON.stringify(mappedEvents[0], null, 2) : 'No events');
+
       dispatch({ type: 'SET_EVENTS', payload: mappedEvents });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load events';
-      console.error('[EventsContext] Fetch error:', message);
-      dispatch({ type: 'SET_ERROR', payload: message });
+      console.error('[EventsContext] ❌ Fetch error:', err);
+      dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(err).message });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
+      console.log('[EventsContext] ✅ Refetch complete');
     }
   }, []);
 
+  // Initial fetch and listen for auth changes
   useEffect(() => {
-    refetchEvents();
-  }, [refetchEvents]);
+    if (session?.user?.id) {
+      console.log('[EventsContext] 👤 User authenticated, fetching events...');
+      refetchEvents();
+    }
+  }, [session?.user?.id, refetchEvents]);
+
+  useEffect(() => {
+    // Check admin status
+    const checkAdminStatus = async () => {
+      console.log('[EventsContext] Checking admin status...');
+      const response = await adminService.isCurrentUserAdmin();
+      console.log('[EventsContext] Admin status response:', response);
+      if (response.success && response.data !== undefined) {
+        console.log('[EventsContext] Setting admin status to:', response.data);
+        dispatch({ type: 'SET_ADMIN_STATUS', payload: response.data });
+      }
+
+      // Check super admin status
+      const superAdminResponse = await adminService.isCurrentUserSuperAdmin();
+      if (superAdminResponse.success && superAdminResponse.data !== undefined) {
+        console.log('[EventsContext] Setting super admin status to:', superAdminResponse.data);
+        dispatch({ type: 'SET_SUPER_ADMIN_STATUS', payload: superAdminResponse.data });
+      }
+    };
+
+    if (session?.user?.id) {
+      checkAdminStatus();
+    }
+  }, [session?.user?.id]);
 
   return (
     <EventsContext.Provider
       value={{
         events: state.events,
         isAdminMode: state.isAdminMode,
+        isCurrentUserAdmin: state.isCurrentUserAdmin,
+        isCurrentUserSuperAdmin: state.isCurrentUserSuperAdmin,
         isLoading: state.isLoading,
         error: state.error,
         addEvent,
@@ -175,6 +272,9 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         deleteEvent,
         toggleAdminMode,
         refetchEvents,
+        createEvent,
+        updateEventAdmin,
+        deleteEventAdmin,
       }}
     >
       {children}

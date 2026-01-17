@@ -25,6 +25,7 @@ export type ErrorCode =
 
   // Authentication errors
   | 'INVALID_CREDENTIALS'
+  | 'AUTH_ERROR'
   | 'USER_NOT_FOUND'
   | 'USER_ALREADY_EXISTS'
   | 'EMAIL_ALREADY_IN_USE'
@@ -42,17 +43,32 @@ export type ErrorCode =
   | 'DATABASE_ERROR'
   | 'NOT_FOUND'
   | 'ALREADY_EXISTS'
+  | 'UPLOAD_ERROR'
+  | 'DELETE_ERROR'
 
   // Permission errors
   | 'PERMISSION_DENIED'
   | 'CAMERA_PERMISSION_DENIED'
+  | 'CAMERA_PERMISSION_DENIED'
   | 'NOTIFICATION_PERMISSION_DENIED'
+  | 'NOTIFICATION_FAILED'
 
   // Logic errors
   | 'EVENT_NOT_FOUND'
   | 'ALREADY_CHECKED_IN'
   | 'CHECK_IN_CLOSED'
   | 'EVENT_FULL'
+
+  // Rank errors
+  | 'RANK_UPDATE_FAILED'
+  | 'INVALID_ACTION_TYPE'
+  | 'RULES_NOT_FOUND'
+
+  // Admin event errors
+  | 'EVENT_CREATE_FAILED'
+  | 'EVENT_UPDATE_FAILED'
+  | 'EVENT_DELETE_FAILED'
+  | 'FORBIDDEN'
 
   // Configuration errors
   | 'CONFIGURATION_ERROR'
@@ -62,11 +78,10 @@ export type ErrorCode =
   | 'UNKNOWN_ERROR';
 
 // Standard response with error handling
-export interface ServiceResponse<T = void> {
-  success: boolean;
-  data?: T;
-  error?: AppError;
-}
+// Standard response with error handling
+export type ServiceResponse<T = void> =
+  | { success: true; data: T; error?: never }
+  | { success: false; error: AppError; data?: never };
 
 // Helper function to create standardized error objects
 export function createError(

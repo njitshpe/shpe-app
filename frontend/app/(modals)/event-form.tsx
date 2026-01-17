@@ -6,12 +6,12 @@ import {
   TextInput,
   ScrollView,
   Pressable,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useEvents } from '../../contexts/EventsContext';
-import { Event } from '../../data/mockEvents';
+import { useEvents } from '@/contexts/EventsContext';
+import { Event } from '@/data/mockEvents';
 
 export default function EventFormScreen() {
   const router = useRouter();

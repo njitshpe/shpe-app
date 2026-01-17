@@ -1,0 +1,107 @@
+import { useState, useEffect, useMemo } from 'react';
+import { Alert } from 'react-native';
+import { fetchComments, createComment, deleteComment } from '../../lib/feedService';
+import { useBlock } from '../../contexts/BlockContext';
+import type { FeedCommentUI, CreateCommentRequest } from '../../types/feed';
+
+export function useComments(postId: string) {
+    const [comments, setComments] = useState<FeedCommentUI[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { blockedUserIds } = useBlock();
+
+    const loadComments = async () => {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetchComments(postId);
+
+        if (response.success && response.data) {
+            setComments(response.data);
+        } else {
+            setError(response.error?.message || 'Failed to load comments');
+        }
+        setIsLoading(false);
+    };
+
+    const addComment = async (content: string, parentId?: string): Promise<boolean> => {
+        setIsCreating(true);
+
+        const request: CreateCommentRequest = { postId, content, parentId };
+        const response = await createComment(request);
+
+        setIsCreating(false);
+
+        if (response.success && response.data) {
+            const newComment = response.data!;
+
+            if (parentId) {
+                // Helper to recursively find parent and add reply
+                const addReplyToParent = (comments: FeedCommentUI[]): FeedCommentUI[] => {
+                    return comments.map(comment => {
+                        if (comment.id === parentId) {
+                            return {
+                                ...comment,
+                                replies: [...(comment.replies || []), newComment]
+                            };
+                        }
+                        if (comment.replies && comment.replies.length > 0) {
+                            return {
+                                ...comment,
+                                replies: addReplyToParent(comment.replies)
+                            };
+                        }
+                        return comment;
+                    });
+                };
+
+                setComments(prev => addReplyToParent(prev));
+            } else {
+                setComments((prev) => [...prev, newComment]);
+            }
+            return true;
+        } else {
+            Alert.alert('Error', response.error?.message || 'Failed to add comment');
+            return false;
+        }
+    };
+
+    const removeComment = async (commentId: string): Promise<boolean> => {
+        const response = await deleteComment(commentId);
+
+        if (response.success) {
+            const removeFromTree = (comments: FeedCommentUI[]): FeedCommentUI[] => {
+                return comments.filter(c => c.id !== commentId).map(c => ({
+                    ...c,
+                    replies: c.replies ? removeFromTree(c.replies) : []
+                }));
+            };
+
+            setComments((prev) => removeFromTree(prev));
+            return true;
+        } else {
+            Alert.alert('Error', response.error?.message || 'Failed to delete comment');
+            return false;
+        }
+    };
+
+    useEffect(() => {
+        loadComments();
+    }, [postId]);
+
+    // Filter out comments from blocked users
+    const filteredComments = useMemo(() => {
+        return comments.filter(comment => !blockedUserIds.has(comment.userId));
+    }, [comments, blockedUserIds]);
+
+    return {
+        comments: filteredComments,
+        isLoading,
+        isCreating,
+        error,
+        addComment,
+        removeComment,
+        refresh: loadComments,
+    };
+}

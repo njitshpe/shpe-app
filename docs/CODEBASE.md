@@ -36,14 +36,31 @@ AI will be added later as a **separate intelligence layer**.
 
 ```
 
-app/                    # Expo Router (navigation only)
-components/             # UI-only reusable components
-hooks/                  # Business logic (no UI)
+app/                    # Expo Router (file-based navigation)
+components/             # UI-only components (domain-organized)
+  ├── auth/             # Authentication UI
+  ├── events/           # Event components
+  ├── media/            # Media/file handling
+  ├── onboarding/       # Onboarding screens
+  ├── profile/          # Profile components
+  └── shared/           # Shared utilities
+hooks/                  # Business logic (domain-organized)
+  ├── calendar/         # Calendar hooks
+  ├── events/           # Event hooks
+  ├── media/            # Media hooks
+  └── profile/          # Profile hooks
 store/                  # Global state (Zustand)
-lib/                    # Supabase client + auth
-services/               # Device APIs (camera, notifications)
+lib/                    # Supabase client + data services
+services/               # Device APIs (camera, calendar, photo)
 types/                  # Shared TypeScript types
-utils/                  # Small helpers
+utils/                  # Pure helper functions
+  ├── events.ts         # Type mapping (EventDB ↔ EventUI)
+  ├── phoneNumber.ts    # Phone formatting
+  └── validation.ts     # Pure validation
+constants/              # App-wide constants
+  ├── colors.ts         # SHPE brand colors
+  ├── calendar-theme.ts # Calendar theming (SCREAMING_SNAKE_CASE)
+  └── index.ts          # Barrel export
 assets/                 # Images, icons
 
 ```
@@ -78,16 +95,27 @@ app/
 
 ---
 
-## 4. UI LAYER (PRESENTATION ONLY)
+## 4. UI LAYER (DOMAIN-ORGANIZED)
 
 ```
 
 components/
-├─ EventCard.tsx
-├─ FeedItem.tsx
-├─ ProfileHeader.tsx
-├─ PointsBadge.tsx
-└─ QRScanButton.tsx
+├─ auth/
+│  └─ AuthInput.tsx
+├─ events/
+│  ├─ AttendeesPreview.tsx
+│  ├─ EventActionBar.tsx
+│  └─ RegistrationSuccessModal.tsx
+├─ media/
+│  ├─ ImageSourceModal.tsx
+│  └─ ResumeUploader.tsx
+├─ profile/
+│  ├─ EditProfileScreen.tsx
+│  ├─ InterestPicker.tsx
+│  └─ ProfileForm.tsx
+└─ shared/
+   ├─ ErrorBoundary.tsx
+   └─ MapPreview.tsx
 
 ```
 
@@ -95,19 +123,27 @@ components/
 - No business logic
 - No Supabase
 - Props in → UI out
+- Organized by domain with barrel exports
 
 ---
 
-## 5. APPLICATION LOGIC (CORE MVP)
+## 5. APPLICATION LOGIC (DOMAIN-ORGANIZED)
 
 ```
 
 hooks/
-├─ useAuth.ts
-├─ useEvents.ts
-├─ useCheckIn.ts
-├─ usePoints.ts
-└─ useFeed.ts
+├─ calendar/
+│  ├─ useAdaptiveTheme.ts
+│  └─ useCalendarScroll.ts
+├─ events/
+│  ├─ useEventAttendees.ts
+│  └─ useEventRegistration.ts
+├─ media/
+│  └─ useProfilePhoto.ts
+└─ profile/
+   ├─ useEditProfile.ts
+   ├─ useProfile.ts
+   └─ useResume.ts
 
 ```
 ```
@@ -120,15 +156,16 @@ store/
 ```
 
 **Responsibilities**
-- Check-in rules
-- Points updates
+- Business logic (check-in, points, validation)
+- State management
 - Permission checks
-- Derived state
+- Data fetching
 
 **Rules**
 - No UI
 - No raw SQL
 - Calls Supabase or Edge Functions only
+- Organized by domain
 
 ---
 
@@ -137,23 +174,36 @@ store/
 ```
 
 lib/
-├─ supabase.ts      # client initialization
-└─ auth.ts          # OAuth helpers
+├─ supabase.ts        # client initialization (reads from .env)
+├─ eventsService.ts   # Event CRUD
+└─ profileService.ts  # Profile CRUD
 
-````
+```
+
+**Type System:**
+- `EventDB`: Database schema (snake_case, matches Supabase)
+- `EventUI`: Frontend schema (camelCase, optimized for React Native)
+- Mapping utilities in `utils/events.ts`
 
 Used for:
-- Reading events
+- Reading events (EventDB → EventUI mapping)
 - Reading feed
-- Reading profiles
+- Reading/updating profiles
 - Storage uploads
 
 Example:
 ```ts
-supabase.from('events').select('*')
-````
+// Database query returns EventDB
+const { data } = await supabase.from('shpe_events').select('*')
+// Map to EventUI for frontend
+const uiEvents = data.map(mapEventDBToUI)
+```
 
 **All reads are protected by RLS.**
+
+**Environment:**
+- Supabase credentials loaded from `frontend/.env`
+- No hardcoded keys in source code
 
 ---
 
@@ -166,16 +216,15 @@ supabase/
  └─ functions/
      ├─ check-in/
      │   └─ index.ts
-     ├─ award-points/
-     │   └─ index.ts
      └─ admin-event/
          └─ index.ts
 ```
 
+**Note:** Points awarding is handled by the `award_points` Postgres RPC function, not an Edge Function.
+
 ### Edge Functions Handle
 
 * QR check-in (atomic + secure)
-* Points awarding
 * Event open / close
 * Admin-only mutations
 
@@ -211,9 +260,11 @@ Policies:
 
 ```
 services/
- ├─ camera.service.ts        # QR scanning
- ├─ photos.service.ts        # image picker
- └─ notifications.service.ts # push notifications
+ ├─ camera.service.ts          # QR scanning
+ ├─ photo.service.ts            # Image picker (PhotoHelper)
+ ├─ deviceCalendar.service.ts   # Calendar integration
+ ├─ registration.service.ts     # Event registration
+ └─ share.service.ts            # Native sharing
 ```
 
 **Rules**
@@ -221,6 +272,7 @@ services/
 * No business logic
 * No Supabase calls
 * Device abstraction only
+* Returns raw data/results
 
 ---
 

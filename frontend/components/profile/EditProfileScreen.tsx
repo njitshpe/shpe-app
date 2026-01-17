@@ -1,15 +1,25 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator, Image, ActionSheetIOS, Platform } from 'react-native';
-import { SHPE_COLORS } from '../../constants/colors';
-import { ProfileForm } from '../ProfileForm';
-import { ResumeUploader } from '../ResumeUploader';
-import { InterestPicker } from '../InterestPicker';
-import { useResume } from '../../hooks/Profile/useResume';
-import type { UserProfile } from '../../types/userProfile';
-import { profileService } from '../../lib/profileService';
-import type { ServiceResponse } from '../../types/errors';
-import { validators } from '../../types/errors';
-import { PhotoHelper } from '../../lib/PhotoService';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, Image, Alert
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { SHPE_COLORS } from '@/constants';
+import { ProfileForm } from './ProfileForm';
+import { InterestPicker } from './InterestPicker';
+import { ResumeUploader } from '@/components/media';
+import { useResume, useEditProfile } from '@/hooks/profile';
+import { useProfilePhoto } from '@/hooks/media';
+import type { UserProfile } from '@/types/userProfile';
+
+// --- IMPORTS FOR UPLOAD ---
+import { storageService } from '@/services/storage.service';
+import { supabase } from '@/lib/supabase';
+// Note: We removed 'expo-file-system' and 'base64-arraybuffer' 
+// because we are using the modern fetch API now.
+
+// --- THEME IMPORT ---
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface EditProfileScreenProps {
   onClose: () => void;
@@ -17,127 +27,117 @@ interface EditProfileScreenProps {
   onSave: (data: UserProfile) => void;
 }
 
+// ...
+
 export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileScreenProps) {
-  const [formData, setFormData] = useState<UserProfile>(initialData);
-  const [loading, setLoading] = useState(false);
+  // 1. Hook into Theme
+  const { theme, isDark } = useTheme();
+
   const { pickResume } = useResume();
+  const { formData, loading: formLoading, updateField, toggleInterest, updateResume, saveProfile } = useEditProfile(initialData);
+  const { pickPhoto } = useProfilePhoto();
 
-  const validate = (): boolean => {
-    if (formData.phone_number && !validators.isValidPhoneNumber(formData.phone_number)) {
-      Alert.alert('Invalid Phone Number', 'Please enter a valid 10-digit phone number');
-      return false;
-    }
-
-    if (formData.linkedin_url && !validators.isValidUrl(formData.linkedin_url)) {
-      Alert.alert('Invalid LinkedIn URL', 'Please enter a valid LinkedIn profile URL');
-      return false;
-    }
-    return true;
-  };
+  // Local state for upload spinner
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (uploadingResume || uploadingPhoto) {
+      Alert.alert("Please Wait", "Files are still uploading...");
+      return;
+    }
 
-    setLoading(true);
-
-    // Call the service to update the profile
-    const response: ServiceResponse<UserProfile> = await profileService.updateProfile(formData.id, formData);
-
-    setLoading(false);
-
+    const response = await saveProfile();
     if (response.success && response.data) {
       onSave(response.data);
-      Alert.alert('Success', 'Profile updated successfully!');
       onClose();
-    } else {
-      Alert.alert('Error', response.error?.details || response.error?.message || 'Failed to update profile');
     }
-  };
-
-  const updateField = (field: keyof UserProfile, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleResumePick = async () => {
-    const result = await pickResume();
-    if (result) {
-      updateField('resume_name', result.name);
-      updateField('resume_url', result.uri);
-    }
-  };
+    try {
+      const result = await pickResume();
+      if (!result || !result.uri) return; // User cancelled, say nothing
 
-  const toggleInterest = (interest: any) => {
-    const current = formData.interests;
-    if (current.includes(interest)) {
-      updateField('interests', current.filter(i => i !== interest));
-    } else {
-      updateField('interests', [...current, interest]);
+      setUploadingResume(true);
+
+      // 1. Fetch file
+      const response = await fetch(result.uri);
+      const arrayBuffer = await response.arrayBuffer();
+
+      // 2. Define path
+      const storagePath = `${initialData.id}/resume.pdf`;
+
+      // 3. Upload
+      const { error: uploadError } = await supabase.storage
+        .from('resumes')
+        .upload(storagePath, arrayBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 4. Update Database
+      updateField('resume_url', storagePath);
+      updateField('resume_name', result.name);
+
+      // 5. ONLY ONE SUCCESS MESSAGE
+      Alert.alert("Success", "Resume securely uploaded.");
+
+    } catch (error: any) {
+      Alert.alert("Upload Failed", error.message);
+    } finally {
+      setUploadingResume(false);
     }
   };
 
   const handleImagePick = async () => {
-    const options = ['Take Photo', 'Choose from Library', 'Choose from Files', 'Cancel'];
-    const cancelButtonIndex = 3;
+    pickPhoto(async (uri) => {
+      try {
+        setUploadingPhoto(true);
 
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex,
-        },
-        async (buttonIndex) => {
-          if (buttonIndex === 0) {
-            const uri = await PhotoHelper.takePhoto();
-            if (uri) updateField('profile_picture_url', uri);
-          } else if (buttonIndex === 1) {
-            const uri = await PhotoHelper.pickFromLibrary();
-            if (uri) updateField('profile_picture_url', uri);
-          } else if (buttonIndex === 2) {
-            const uri = await PhotoHelper.pickFromFiles();
-            if (uri) updateField('profile_picture_url', uri);
-          }
+        // Use the photo service to upload (handles compression)
+        const result = await storageService.uploadProfilePhoto(initialData.id, { uri } as any);
+
+        if (result.success && result.data) {
+          updateField('profile_picture_url', result.data.url);
+        } else {
+          Alert.alert("Upload Failed", result.error?.message || "Could not upload photo");
         }
-      );
-    } else {
-      // Android / Web fallback
-      Alert.alert(
-        'Change Profile Picture',
-        'Choose an option',
-        [
-          {
-            text: 'Take Photo', onPress: async () => {
-              const uri = await PhotoHelper.takePhoto();
-              if (uri) updateField('profile_picture_url', uri);
-            }
-          },
-          {
-            text: 'Choose from Library', onPress: async () => {
-              const uri = await PhotoHelper.pickFromLibrary();
-              if (uri) updateField('profile_picture_url', uri);
-            }
-          },
-          {
-            text: 'Choose from Files', onPress: async () => {
-              const uri = await PhotoHelper.pickFromFiles();
-              if (uri) updateField('profile_picture_url', uri);
-            }
-          },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
-    }
+      } catch (error) {
+        Alert.alert("Error", "Failed to process photo");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    });
+  };
+
+  const isLoading = formLoading || uploadingResume || uploadingPhoto;
+
+  // Dynamic Styles
+  const dynamicStyles = {
+    container: { backgroundColor: theme.background },
+    header: { backgroundColor: theme.card, borderBottomColor: theme.border },
+    title: { color: theme.text },
+    text: { color: theme.text },
+    subText: { color: theme.subtext },
+    avatarPlaceholder: { backgroundColor: isDark ? '#333' : '#E0E0E0' },
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} disabled={loading}>
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      {/* HEADER */}
+      <View style={[styles.header, dynamicStyles.header]}>
+        <TouchableOpacity onPress={onClose} disabled={isLoading}>
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator size="small" color="#FF5F05" />
+
+        <Text style={[styles.title, dynamicStyles.title]}>Edit Profile</Text>
+
+        <TouchableOpacity onPress={handleSave} disabled={isLoading}>
+          {isLoading ? (
+            <ActivityIndicator size="small" color={SHPE_COLORS.orange} />
           ) : (
             <Text style={styles.saveText}>Save</Text>
           )}
@@ -148,11 +148,15 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 
         {/* 0. Avatar Picker */}
         <View style={styles.avatarContainer}>
-          <TouchableOpacity onPress={handleImagePick} style={styles.avatarWrapper}>
-            {formData.profile_picture_url ? (
+          <TouchableOpacity onPress={handleImagePick} style={styles.avatarWrapper} disabled={uploadingPhoto}>
+            {uploadingPhoto ? (
+              <View style={[styles.avatarPlaceholder, dynamicStyles.avatarPlaceholder]}>
+                <ActivityIndicator color={SHPE_COLORS.orange} />
+              </View>
+            ) : formData.profile_picture_url ? (
               <Image source={{ uri: formData.profile_picture_url }} style={styles.avatar} />
             ) : (
-              <View style={styles.avatarPlaceholder}>
+              <View style={[styles.avatarPlaceholder, dynamicStyles.avatarPlaceholder]}>
                 <Text style={styles.avatarInitials}>
                   {formData.first_name?.[0]}{formData.last_name?.[0]}
                 </Text>
@@ -162,8 +166,10 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
               <Text style={styles.editIconText}>📷</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleImagePick}>
-            <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+          <TouchableOpacity onPress={handleImagePick} disabled={uploadingPhoto}>
+            <Text style={styles.changePhotoText}>
+              {uploadingPhoto ? 'Uploading...' : 'Change Profile Photo'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -180,14 +186,21 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
         />
 
         {/* 3. Resume Uploader */}
-        <ResumeUploader
-          resumeName={formData.resume_name || null}
-          onUpload={handleResumePick}
-          onRemove={() => {
-            updateField('resume_name', null);
-            updateField('resume_url', null);
-          }}
-        />
+        <View style={{ marginTop: 20 }}>
+          {uploadingResume && (
+            <Text style={{ textAlign: 'center', marginBottom: 10, color: SHPE_COLORS.orange }}>
+              Uploading PDF...
+            </Text>
+          )}
+          <ResumeUploader
+            resumeName={formData.resume_name || null}
+            onUpload={handleResumePick}
+            onRemove={() => {
+              updateField('resume_url', '');
+              updateField('resume_name', '');
+            }}
+          />
+        </View>
 
       </ScrollView>
     </SafeAreaView>
@@ -195,16 +208,15 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee'
   },
-  title: { fontSize: 18, fontWeight: 'bold', color: SHPE_COLORS.darkBlue },
+  title: { fontSize: 18, fontWeight: 'bold' },
   cancelText: { color: SHPE_COLORS.darkGray, fontSize: 16 },
   saveText: { color: SHPE_COLORS.orange, fontSize: 16, fontWeight: 'bold' },
   content: { padding: 20 },
@@ -224,7 +236,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -244,7 +255,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: SHPE_COLORS.white,
+    borderColor: '#FFF',
   },
   editIconText: {
     fontSize: 16,
