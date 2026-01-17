@@ -25,16 +25,41 @@ export function useComments(postId: string) {
         setIsLoading(false);
     };
 
-    const addComment = async (content: string): Promise<boolean> => {
+    const addComment = async (content: string, parentId?: string): Promise<boolean> => {
         setIsCreating(true);
 
-        const request: CreateCommentRequest = { postId, content };
+        const request: CreateCommentRequest = { postId, content, parentId };
         const response = await createComment(request);
 
         setIsCreating(false);
 
         if (response.success && response.data) {
-            setComments((prev) => [...prev, response.data!]);
+            const newComment = response.data!;
+
+            if (parentId) {
+                // Helper to recursively find parent and add reply
+                const addReplyToParent = (comments: FeedCommentUI[]): FeedCommentUI[] => {
+                    return comments.map(comment => {
+                        if (comment.id === parentId) {
+                            return {
+                                ...comment,
+                                replies: [...(comment.replies || []), newComment]
+                            };
+                        }
+                        if (comment.replies && comment.replies.length > 0) {
+                            return {
+                                ...comment,
+                                replies: addReplyToParent(comment.replies)
+                            };
+                        }
+                        return comment;
+                    });
+                };
+
+                setComments(prev => addReplyToParent(prev));
+            } else {
+                setComments((prev) => [...prev, newComment]);
+            }
             return true;
         } else {
             Alert.alert('Error', response.error?.message || 'Failed to add comment');
