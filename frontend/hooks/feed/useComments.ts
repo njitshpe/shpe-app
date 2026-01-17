@@ -71,7 +71,14 @@ export function useComments(postId: string) {
         const response = await deleteComment(commentId);
 
         if (response.success) {
-            setComments((prev) => prev.filter((c) => c.id !== commentId));
+            const removeFromTree = (comments: FeedCommentUI[]): FeedCommentUI[] => {
+                return comments.filter(c => c.id !== commentId).map(c => ({
+                    ...c,
+                    replies: c.replies ? removeFromTree(c.replies) : []
+                }));
+            };
+
+            setComments((prev) => removeFromTree(prev));
             return true;
         } else {
             Alert.alert('Error', response.error?.message || 'Failed to delete comment');

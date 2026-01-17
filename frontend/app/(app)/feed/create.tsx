@@ -9,6 +9,7 @@ import {
     Image,
     Alert,
     ActivityIndicator,
+    DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -142,6 +143,7 @@ export default function CreatePostScreen() {
     };
 
     const handleSuccessHide = () => {
+        DeviceEventEmitter.emit('feed:refresh');
         setShowSuccess(false);
         router.back();
     };
