@@ -1,27 +1,41 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   Dimensions,
   Image,
   InteractionManager,
+  PixelRatio,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSequence,
   withDelay,
+  withSequence,
   Easing,
+  runOnJS,
   SharedValue,
 } from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
 import Constants from 'expo-constants';
+import Svg, {
+  Defs,
+  RadialGradient as SvgRadialGradient,
+  Stop,
+  Circle as SvgCircle,
+} from 'react-native-svg';
 
-// Check if running in Expo Go (Skia requires dev client)
-const isExpoGo = Constants.appOwnership === 'expo';
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+let hasShownSplashThisSession = false;
 
-// Conditionally import Skia - only available in dev client builds
+const isExpoGo =
+  Constants.executionEnvironment === 'storeClient' ||
+  Constants.appOwnership === 'expo';
+
+// Skia Import Logic (only for dev builds, not Expo Go)
 let Canvas: any = null;
 let Circle: any = null;
 let RadialGradient: any = null;
@@ -39,67 +53,96 @@ if (!isExpoGo) {
     Blur = Skia.Blur;
     Group = Skia.Group;
   } catch (e) {
-    // Skia not available, will use fallback
+    console.log("Skia load failed", e);
   }
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Asset imports
-const whiteLogo = require('@/assets/app-white-icon.png');
-const coloredLogo = require('@/assets/app-icon.png');
+// NEW COLORS (SHPE PALETTE)
+const COLOR_AMBER = '#a53d00cb';  // Warm/Copper (Horizontal - Left/Right)
+const COLOR_BLUE = '#0059cdc4';   // Cool/Blue (Vertical - Top/Bottom)
 
-// Animation timing constants (in ms)
-const FRAME1_DURATION = 200;  // White logo visible
-const FRAME2_DURATION = 350;  // White logo + glow appears
-const FRAME3_DURATION = 250;  // Colored logo (small) - glow fades out
-const FRAME4_DURATION = 400;  // Colored logo expands huge
-const FRAME5_DURATION = 500;  // App fades in, overlay fades out
+// ASSETS
+const whiteLogo = require('@/assets/app-logo-white-transparent.png');
+const coloredLogo = require('@/assets/app-logo-transparent.png');
 
-// Logo sizing
-const LOGO_SIZE_INITIAL = SCREEN_WIDTH * 0.35;
-const LOGO_SIZE_HUGE = SCREEN_WIDTH * 2.5;
+// ANIMATION CONFIG
+const EXPAND_EASING = Easing.bezier(0.25, 0.1, 0.25, 1);
 
-// Glow configuration
-const GLOW_COLOR_BLUE = 'rgba(0, 149, 255, 0.6)';
-const GLOW_COLOR_ORANGE = 'rgba(255, 95, 5, 0.5)';
+// SIZING
+const NATIVE_SPLASH_IMAGE_WIDTH = 120;
+const LOGO_SIZE_INITIAL = PixelRatio.roundToNearestPixel(NATIVE_SPLASH_IMAGE_WIDTH);
+const LOGO_ASSET_SOURCE = Image.resolveAssetSource(whiteLogo);
+const LOGO_SOURCE_SIZE =
+  Math.max(LOGO_ASSET_SOURCE?.width ?? 0, LOGO_ASSET_SOURCE?.height ?? 0) ||
+  LOGO_SIZE_INITIAL;
+const LOGO_BASE_SCALE = LOGO_SIZE_INITIAL / Math.max(1, LOGO_SOURCE_SIZE);
+
+// GLOW CONSTANTS
+const GLOW_RADIUS = SCREEN_WIDTH * 0.2;
 
 interface AnimatedSplashProps {
   children: React.ReactNode;
   onAnimationComplete?: () => void;
 }
 
-// Skia Glow Component (GPU-accelerated)
-const SkiaGlow = ({ opacity }: { opacity: SharedValue<number> }) => {
-  if (!Canvas || !Circle || !RadialGradient || !vec || !Blur || !Group) {
-    return null;
-  }
+// ============================================================================
+// GLOW COMPONENT - Skia version (for dev builds)
+// ============================================================================
+const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: SharedValue<number> }) => {
+  if (!Canvas) return null;
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
+    transform: [{ scale: scale.value }]
   }));
 
   const centerX = SCREEN_WIDTH / 2;
   const centerY = SCREEN_HEIGHT / 2;
-  const glowRadius = SCREEN_WIDTH * 0.6;
+
+  // Offset for positioning the glow orbs away from center
+  const glowOffset = GLOW_RADIUS * 0.6;
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
       <Canvas style={StyleSheet.absoluteFill}>
         <Group>
-          <Blur blur={40} />
-          <Circle cx={centerX} cy={centerY - 30} r={glowRadius}>
+          <Blur blur={60} />
+          {/* Blue Glow - Top (12 o'clock) */}
+          <Circle cx={centerX} cy={centerY - glowOffset} r={GLOW_RADIUS}>
             <RadialGradient
-              c={vec(centerX, centerY - 30)}
-              r={glowRadius}
-              colors={[GLOW_COLOR_BLUE, 'transparent']}
+              c={vec(centerX, centerY - glowOffset)}
+              r={GLOW_RADIUS}
+              colors={[`${COLOR_BLUE}80`, `${COLOR_BLUE}33`, 'transparent']}
+              positions={[0, 0.5, 1]}
             />
           </Circle>
-          <Circle cx={centerX} cy={centerY + 30} r={glowRadius * 0.8}>
+          {/* Blue Glow - Bottom (6 o'clock) */}
+          <Circle cx={centerX} cy={centerY + glowOffset} r={GLOW_RADIUS}>
             <RadialGradient
-              c={vec(centerX, centerY + 30)}
-              r={glowRadius * 0.8}
-              colors={[GLOW_COLOR_ORANGE, 'transparent']}
+              c={vec(centerX, centerY + glowOffset)}
+              r={GLOW_RADIUS}
+              colors={[`${COLOR_BLUE}80`, `${COLOR_BLUE}33`, 'transparent']}
+              positions={[0, 0.5, 1]}
+            />
+          </Circle>
+          {/* Amber Glow - Right (3 o'clock) */}
+          <Circle cx={centerX + glowOffset} cy={centerY} r={GLOW_RADIUS}>
+            <RadialGradient
+              c={vec(centerX + glowOffset, centerY)}
+              r={GLOW_RADIUS}
+              colors={[`${COLOR_AMBER}80`, `${COLOR_AMBER}33`, 'transparent']}
+              positions={[0, 0.5, 1]}
+            />
+          </Circle>
+          {/* Amber Glow - Left (9 o'clock) */}
+          <Circle cx={centerX - glowOffset} cy={centerY} r={GLOW_RADIUS}>
+            <RadialGradient
+              c={vec(centerX - glowOffset, centerY)}
+              r={GLOW_RADIUS}
+              colors={[`${COLOR_AMBER}80`, `${COLOR_AMBER}33`, 'transparent']}
+              positions={[0, 0.5, 1]}
             />
           </Circle>
         </Group>
@@ -108,213 +151,284 @@ const SkiaGlow = ({ opacity }: { opacity: SharedValue<number> }) => {
   );
 };
 
-// Fallback Glow for Expo Go (simple View-based glow)
-const FallbackGlow = ({ opacity }: { opacity: SharedValue<number> }) => {
+// ============================================================================
+// GLOW COMPONENT - SVG Fallback (for Expo Go)
+// ============================================================================
+const FallbackGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: SharedValue<number> }) => {
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
+    transform: [{ scale: scale.value }]
   }));
 
+  const centerX = SCREEN_WIDTH / 2;
+  const centerY = SCREEN_HEIGHT / 2;
+  const glowOffset = GLOW_RADIUS * 0.6;
+
   return (
-    <Animated.View style={[styles.fallbackGlowContainer, animatedStyle]}>
-      <View style={[styles.fallbackGlow, styles.fallbackGlowBlue]} />
-      <View style={[styles.fallbackGlow, styles.fallbackGlowOrange]} />
+    <Animated.View style={[StyleSheet.absoluteFill, styles.glowContainer, animatedStyle]}>
+      <Svg height={SCREEN_HEIGHT} width={SCREEN_WIDTH} style={StyleSheet.absoluteFill}>
+        <Defs>
+          {/* Blue gradient for vertical glows (Top/Bottom) */}
+          <SvgRadialGradient
+            id="blueGlowGradient"
+            cx="50%"
+            cy="50%"
+            rx="50%"
+            ry="50%"
+            fx="50%"
+            fy="50%"
+          >
+            <Stop offset="0%" stopColor={COLOR_BLUE} stopOpacity="0.5" />
+            <Stop offset="50%" stopColor={COLOR_BLUE} stopOpacity="0.2" />
+            <Stop offset="100%" stopColor={COLOR_BLUE} stopOpacity="0" />
+          </SvgRadialGradient>
+          {/* Amber gradient for horizontal glows (Left/Right) */}
+          <SvgRadialGradient
+            id="amberGlowGradient"
+            cx="50%"
+            cy="50%"
+            rx="50%"
+            ry="50%"
+            fx="50%"
+            fy="50%"
+          >
+            <Stop offset="0%" stopColor={COLOR_AMBER} stopOpacity="0.5" />
+            <Stop offset="50%" stopColor={COLOR_AMBER} stopOpacity="0.2" />
+            <Stop offset="100%" stopColor={COLOR_AMBER} stopOpacity="0" />
+          </SvgRadialGradient>
+        </Defs>
+        {/* Blue Glow - Top (12 o'clock) */}
+        <SvgCircle
+          cx={centerX}
+          cy={centerY - glowOffset}
+          r={GLOW_RADIUS}
+          fill="url(#blueGlowGradient)"
+        />
+        {/* Blue Glow - Bottom (6 o'clock) */}
+        <SvgCircle
+          cx={centerX}
+          cy={centerY + glowOffset}
+          r={GLOW_RADIUS}
+          fill="url(#blueGlowGradient)"
+        />
+        {/* Amber Glow - Right (3 o'clock) */}
+        <SvgCircle
+          cx={centerX + glowOffset}
+          cy={centerY}
+          r={GLOW_RADIUS}
+          fill="url(#amberGlowGradient)"
+        />
+        {/* Amber Glow - Left (9 o'clock) */}
+        <SvgCircle
+          cx={centerX - glowOffset}
+          cy={centerY}
+          r={GLOW_RADIUS}
+          fill="url(#amberGlowGradient)"
+        />
+      </Svg>
     </Animated.View>
   );
 };
 
-// Prevent auto-hide at module level for fastest execution
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplashProps) {
-  // Phase states - driven entirely by JS timers
-  const [phase, setPhase] = useState<'waiting' | 'animating' | 'complete'>('waiting');
-  const [showColoredLogo, setShowColoredLogo] = useState(false);
+  const shouldSkip = hasShownSplashThisSession;
+  const [phase, setPhase] = useState<'waiting' | 'animating' | 'complete'>(
+    shouldSkip ? 'complete' : 'waiting'
+  );
 
-  // Track if component is mounted to prevent state updates after unmount
-  const isMounted = useRef(true);
-  const animationStarted = useRef(false);
-
-  // Animation shared values
+  // Shared values - all start at 0/hidden
+  const logoScale = useSharedValue(0);
+  const glowScale = useSharedValue(0);
   const glowOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(1);
-  const overlayOpacity = useSharedValue(1);
+  const whiteLogoOpacity = useSharedValue(0);
+  const coloredLogoOpacity = useSharedValue(0);
+  const splashContainerOpacity = useSharedValue(1);
   const appContentOpacity = useSharedValue(0);
 
-  // Animated styles - all opacity/transform driven by shared values
-  const logoContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
+  // Animated styles
+  const containerTransform = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value * LOGO_BASE_SCALE }],
   }));
 
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: overlayOpacity.value,
-  }));
+  const whiteLogoStyle = useAnimatedStyle(() => ({ opacity: whiteLogoOpacity.value }));
+  const coloredLogoStyle = useAnimatedStyle(() => ({ opacity: coloredLogoOpacity.value }));
 
-  const appContentStyle = useAnimatedStyle(() => ({
-    opacity: appContentOpacity.value,
-  }));
+  const runAnimation = useCallback(() => {
+    hasShownSplashThisSession = true;
 
-  // Start the full animation sequence using JS timers for state + Reanimated for animations
-  const startAnimationSequence = useCallback(() => {
-    if (animationStarted.current) return;
-    animationStarted.current = true;
+    // ============================================================
+    // TIMELINE
+    // ============================================================
+    // 0ms:        Screen is black, Scale = 0
+    // 200ms:      Logo birth starts (0 -> 1)
+    // 550ms:      Glow birth starts (0 -> 1)
+    // 1150ms:     Coil/Dip starts (both shrink 1 -> 0.8)
+    //             - White logo fades out, Colored logo fades in (crossfade)
+    // 1400ms:     Ignition (glow shrinks to 0, logo explodes + fades)
+    // ~1900ms:    Complete
+    // ============================================================
 
-    // Calculate frame start times
-    const frame2Start = FRAME1_DURATION;
-    const frame3Start = frame2Start + FRAME2_DURATION;
-    const frame4Start = frame3Start + FRAME3_DURATION;
-    const frame5Start = frame4Start + FRAME4_DURATION * 0.6;
-    const totalDuration = frame5Start + FRAME5_DURATION + 50;
+    // TIMING CONSTANTS
+    const T_LOGO_START = 200;
+    const T_LOGO_GROW = 350;      // 200 -> 550
 
-    // FRAME 1: White logo already visible (native splash just hidden)
-    // Just wait for FRAME1_DURATION
+    const T_GLOW_START = 550;
+    const T_GLOW_GROW = 600;      // 550 -> 1150
 
-    // FRAME 2: Glow fades in
-    glowOpacity.value = withDelay(
-      frame2Start,
-      withTiming(1, {
-        duration: FRAME2_DURATION * 0.6,
-        easing: Easing.out(Easing.cubic)
-      })
-    );
+    const T_DIP_START = 1150;
+    const T_DIP_DURATION = 250;   // 1150 -> 1400 (The Coil)
 
-    // FRAME 3: Switch to colored logo, glow fades out
-    setTimeout(() => {
-      if (isMounted.current) {
-        setShowColoredLogo(true);
-      }
-    }, frame3Start);
+    const T_IGNITION = 1400;
+    const T_EXPLODE = 600;        // Explosion duration
+    const T_GLOW_SHRINK = 50;    // Glow shrinks to 0
 
-    // Glow fades out during Frame 3
-    glowOpacity.value = withDelay(
-      frame3Start,
-      withTiming(0, {
-        duration: FRAME3_DURATION,
-        easing: Easing.in(Easing.cubic)
-      })
-    );
-
-    // FRAME 4: Logo expands huge
-    logoScale.value = withDelay(
-      frame4Start,
-      withTiming(LOGO_SIZE_HUGE / LOGO_SIZE_INITIAL, {
-        duration: FRAME4_DURATION,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      })
-    );
-
-    // FRAME 5: App content fades in, overlay fades out smoothly
-    appContentOpacity.value = withDelay(
-      frame5Start,
-      withTiming(1, {
-        duration: FRAME5_DURATION * 0.6,
-        easing: Easing.out(Easing.cubic)
-      })
-    );
-
-    // Overlay fades: first to semi-transparent, then fully out
-    overlayOpacity.value = withDelay(
-      frame5Start,
+    // ============================================================
+    // LOGO SCALE: 0 -> 1 -> 0.8 -> 60
+    // ============================================================
+    logoScale.value = withDelay(T_LOGO_START,
       withSequence(
-        withTiming(0.3, {
-          duration: FRAME5_DURATION * 0.3,
-          easing: Easing.out(Easing.cubic)
-        }),
-        withTiming(0, {
-          duration: FRAME5_DURATION * 0.5,
-          easing: Easing.out(Easing.cubic)
-        })
+        // Phase 1: Birth (0 -> 1) with slight overshoot
+        withTiming(1, { duration: T_LOGO_GROW, easing: Easing.out(Easing.back(1.5)) }),
+        // Wait until Dip starts
+        withDelay(T_DIP_START - T_LOGO_START - T_LOGO_GROW,
+          withSequence(
+            // Phase 2: Dip/Coil (1 -> 0.8)
+            withTiming(0.8, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.cubic) }),
+            // Phase 3: Explode (0.8 -> 60)
+            withTiming(60, { duration: T_EXPLODE, easing: EXPAND_EASING })
+          )
+        )
       )
     );
 
-    // Animation complete - unmount splash overlay
-    setTimeout(() => {
-      if (isMounted.current) {
-        setPhase('complete');
-        onAnimationComplete?.();
-      }
-    }, totalDuration);
-  }, [glowOpacity, logoScale, overlayOpacity, appContentOpacity, onAnimationComplete]);
+    // ============================================================
+    // GLOW SCALE: 0 -> 1 -> 0.8 -> 0 (shrinks to nothing at ignition)
+    // ============================================================
+    glowScale.value = withDelay(T_GLOW_START,
+      withSequence(
+        // Phase 1: Birth (0 -> 1)
+        withTiming(1, { duration: T_GLOW_GROW, easing: Easing.out(Easing.back(1.2)) }),
+        // Phase 2: Dip/Coil (1 -> 0.8) - shrinks with logo
+        withTiming(0.8, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.cubic) }),
+        // Phase 3: Shrink to 0 at ignition (instead of instant opacity cut)
+        withTiming(0, { duration: T_GLOW_SHRINK, easing: Easing.in(Easing.cubic) })
+      )
+    );
 
-  // Initialize: wait for first paint, then hide native splash and start animation
+    // ============================================================
+    // GLOW OPACITY: 0 -> 1 (stays visible, scale handles disappearance)
+    // ============================================================
+    glowOpacity.value = withDelay(T_GLOW_START,
+      withTiming(1, { duration: 200 })
+    );
+
+    // ============================================================
+    // WHITE LOGO OPACITY: 0 -> 1 -> 0 (crossfade during Dip)
+    // Both logos visible during crossfade for smooth transition
+    // ============================================================
+    whiteLogoOpacity.value = withDelay(T_LOGO_START,
+      withSequence(
+        // Fade in with logo birth
+        withTiming(1, { duration: 150 }),
+        // Hold until Dip starts
+        withDelay(T_DIP_START - T_LOGO_START - 150,
+          // Crossfade out during the Dip
+          withTiming(0, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.quad) })
+        )
+      )
+    );
+
+    // ============================================================
+    // COLORED LOGO OPACITY: 0 -> 1 (during Dip) -> 0 (during explode)
+    // Crossfades in as white fades out, then fades during explosion
+    // ============================================================
+    coloredLogoOpacity.value = withDelay(T_DIP_START,
+      withSequence(
+        // Crossfade in during the Dip (synced with white fading out)
+        withTiming(1, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.quad) }),
+        // Fade out as it explodes
+        withDelay(50,
+          withTiming(0, { duration: T_EXPLODE - 100, easing: Easing.out(Easing.quad) })
+        )
+      )
+    );
+
+    // ============================================================
+    // APP CONTENT: Fade in during explosion
+    // ============================================================
+    appContentOpacity.value = withDelay(T_IGNITION + 150,
+      withTiming(1, { duration: 350 })
+    );
+
+    // ============================================================
+    // SPLASH CONTAINER: Fade out at end
+    // ============================================================
+    splashContainerOpacity.value = withDelay(T_IGNITION + T_EXPLODE,
+      withTiming(0, { duration: 200 }, (finished) => {
+        if (finished) {
+          runOnJS(setPhase)('complete');
+          if (onAnimationComplete) runOnJS(onAnimationComplete)();
+        }
+      })
+    );
+
+  }, [onAnimationComplete]);
+
   useEffect(() => {
-    isMounted.current = true;
+    if (shouldSkip) {
+      SplashScreen.hideAsync();
+      return;
+    }
 
-    // Use InteractionManager to ensure we're after the first paint
     const handle = InteractionManager.runAfterInteractions(() => {
-      // Additional requestAnimationFrame to ensure the React view is painted
-      requestAnimationFrame(() => {
-        requestAnimationFrame(async () => {
-          if (!isMounted.current) return;
-
-          // Now it's safe to hide native splash - our black view is visible
-          try {
-            await SplashScreen.hideAsync();
-          } catch (e) {
-            // Already hidden or other error, continue anyway
-          }
-
-          if (isMounted.current) {
-            setPhase('animating');
-            startAnimationSequence();
-          }
-        });
-      });
+      setTimeout(async () => {
+        await SplashScreen.hideAsync();
+        setPhase('animating');
+        runAnimation();
+      }, 50);
     });
 
-    return () => {
-      isMounted.current = false;
-      handle.cancel();
-    };
-  }, [startAnimationSequence]);
+    return () => handle.cancel();
+  }, [runAnimation]);
 
-  // While waiting for first paint, render black background that matches native splash
-  if (phase === 'waiting') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.background} />
-        {/* Render white logo in same position as native splash for seamless transition */}
-        <View style={styles.initialLogoContainer}>
-          <Image
-            source={whiteLogo}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-      </View>
-    );
-  }
-
-  // After animation complete, just render children (splash unmounted)
   if (phase === 'complete') {
-    return <>{children}</>;
+    return <View style={styles.childrenContainer}>{children}</View>;
   }
 
-  // Animation phase - render both app content (fading in) and splash overlay (fading out)
-  const GlowComponent = isExpoGo || !Canvas ? FallbackGlow : SkiaGlow;
+  const GlowComponent = !isExpoGo && Canvas ? SkiaGlow : FallbackGlow;
 
   return (
     <View style={styles.container}>
-      {/* App content underneath (fades in during Frame 5) */}
-      <Animated.View style={[styles.appContent, appContentStyle]}>
+      {/* APP CONTENT (fades in at end) */}
+      <Animated.View style={[styles.appContent, { opacity: appContentOpacity }]}>
         {children}
       </Animated.View>
 
-      {/* Splash overlay - entirely controlled by animated opacity */}
+      {/* SPLASH OVERLAY */}
       <Animated.View
-        style={[styles.splashOverlay, overlayStyle]}
+        style={[styles.overlay, { opacity: splashContainerOpacity }]}
         pointerEvents="none"
       >
-        {/* Black background */}
-        <View style={styles.background} />
+        <View style={styles.blackBg} />
 
-        {/* Glow layer (Frame 2, fades out in Frame 3) */}
-        <GlowComponent opacity={glowOpacity} />
+        {/* GLOW LAYER */}
+        <GlowComponent opacity={glowOpacity} scale={glowScale} />
 
-        {/* Logo layer - scale controlled by Reanimated */}
-        <Animated.View style={[styles.logoContainer, logoContainerStyle]}>
-          <Image
-            source={showColoredLogo ? coloredLogo : whiteLogo}
-            style={styles.logo}
+        {/* LOGO LAYER */}
+        <Animated.View style={[styles.logoContainer, containerTransform]}>
+          <Animated.Image
+            source={whiteLogo}
+            style={[styles.logoImage, whiteLogoStyle]}
+            resizeMode="contain"
+          />
+          <Animated.Image
+            source={coloredLogo}
+            style={[styles.logoImage, coloredLogoStyle]}
             resizeMode="contain"
           />
         </Animated.View>
@@ -326,62 +440,37 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000',
   },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000000',
+  childrenContainer: {
+    flex: 1,
   },
-  splashOverlay: {
+  overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+  },
+  blackBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
   },
   appContent: {
     flex: 1,
   },
+  glowContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   logoContainer: {
+    width: LOGO_SOURCE_SIZE,
+    height: LOGO_SOURCE_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  initialLogoContainer: {
+  logoImage: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logo: {
-    width: LOGO_SIZE_INITIAL,
-    height: LOGO_SIZE_INITIAL,
-  },
-  fallbackGlowContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fallbackGlow: {
-    position: 'absolute',
-    width: SCREEN_WIDTH * 0.8,
-    height: SCREEN_WIDTH * 0.8,
-    borderRadius: SCREEN_WIDTH * 0.4,
-  },
-  fallbackGlowBlue: {
-    backgroundColor: 'rgba(0, 149, 255, 0.25)',
-    top: SCREEN_HEIGHT / 2 - SCREEN_WIDTH * 0.5,
-    shadowColor: '#0095FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 60,
-    elevation: 10,
-  },
-  fallbackGlowOrange: {
-    backgroundColor: 'rgba(255, 95, 5, 0.2)',
-    top: SCREEN_HEIGHT / 2 - SCREEN_WIDTH * 0.3,
-    shadowColor: '#FF5F05',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 50,
-    elevation: 8,
+    width: undefined,
+    height: undefined,
   },
 });
 
