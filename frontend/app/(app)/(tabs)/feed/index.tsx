@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     FlatList,
@@ -8,6 +8,7 @@ import {
     Text,
     Modal,
     Alert,
+    DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,8 +25,18 @@ export default function FeedScreen() {
     const { theme } = useTheme();
     const router = useRouter();
     const { user } = useAuth();
-    const { posts, isLoading, isRefreshing, error, hasMore, loadMore, refresh } = useFeed();
+    const { posts, isLoading, isRefreshing, error, hasMore, loadMore, refresh, removePost } = useFeed();
     const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+
+    // Listen for refresh events (e.g. from creating a post)
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('feed:refresh', () => {
+            refresh();
+        });
+        return () => {
+            subscription.remove();
+        };
+    }, [refresh]);
 
     const handleCommentPress = (postId: string) => {
         setSelectedPostId(postId);
@@ -43,7 +54,7 @@ export default function FeedScreen() {
             onDelete={async (postId) => {
                 const result = await deletePost(postId);
                 if (result.success) {
-                    refresh();
+                    removePost(postId);
                 } else {
                     Alert.alert('Error', result.error?.message || 'Failed to delete post');
                 }

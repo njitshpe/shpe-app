@@ -65,6 +65,10 @@ export function useFeed() {
         return posts.filter(post => !blockedUserIds.has(post.userId));
     }, [posts, blockedUserIds]);
 
+    const removePost = useCallback((postId: string) => {
+        setPosts((currentPosts) => currentPosts.filter((p) => p.id !== postId));
+    }, []);
+
     return {
         posts: filteredPosts,
         isLoading,
@@ -73,5 +77,6 @@ export function useFeed() {
         hasMore,
         loadMore,
         refresh,
+        removePost,
     };
 }

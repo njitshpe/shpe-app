@@ -774,7 +774,7 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
 
         console.log('Attempting to delete comment:', { commentId, userId: user.id });
 
-        // Try hard delete first since we added a DELETE policy
+        // Try hard delete first for now
         const { error, data } = await supabase
             .from('feed_comments')
             .delete()
