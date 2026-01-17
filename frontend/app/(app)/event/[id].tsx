@@ -1,28 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  TouchableOpacity,
   Image,
   Dimensions,
   Alert,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatTime, formatDateHeader } from '../../../utils/date';
-import { useEvents } from '../../../contexts/EventsContext';
+import { formatTime, formatDateHeader } from '@/utils';
+import { useEvents } from '@/contexts/EventsContext';
+import { Event } from '@/types/events';
 import { Ionicons } from '@expo/vector-icons';
-import MapPreview from '../../../components/MapPreview';
-import AttendeesPreview from '../../../components/events/AttendeesPreview';
-import EventActionBar, { ACTION_BAR_BASE_HEIGHT } from '../../../components/events/EventActionBar';
-import RegistrationSuccessModal from '../../../components/events/RegistrationSuccessModal';
-import EventMoreMenu from '../../../components/events/EventMoreMenu';
-import { useEventRegistration } from '../../../hooks/useEventRegistration';
-import { calendarService } from '../../../services/calendarService';
-import { shareService } from '../../../services/shareService';
+import { MapPreview } from '@/components/shared';
+import {
+  AttendeesPreview,
+  EventActionBar,
+  ACTION_BAR_BASE_HEIGHT,
+  RegistrationSuccessModal,
+  EventMoreMenu,
+} from '@/components/events';
+import { CheckInQRModal } from '@/components/admin/CheckInQRModal';
+import { useEventRegistration } from '@/hooks/events';
+import { deviceCalendarService, shareService } from '@/services';
 import * as Haptics from 'expo-haptics';
+import { useTheme } from '@/contexts/ThemeContext';
+import { AdminEventForm } from '@/components/admin/AdminEventForm';
+import { CreateEventData } from '@/services/adminEvents.service';
+import { FeedList } from '@/components/feed/FeedList';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,7 +40,8 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { events } = useEvents();
+  const { events, isCurrentUserAdmin, updateEventAdmin, deleteEventAdmin } = useEvents();
+  const { theme, isDark } = useTheme();
 
   // Find the event from context
   const event = events.find((evt) => evt.id === id);
@@ -41,15 +52,89 @@ export default function EventDetailScreen() {
   // UI state
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [showHighlights, setShowHighlights] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Force re-render for time updates
 
-  // Defensive: handle null/undefined hostName
-  const hostName = (event?.hostName ?? '').trim();
-  const hostInitial = (hostName[0] ?? '?').toUpperCase();
+  // Auto-refresh button state every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshTrigger((prev) => prev + 1);
+    }, 60000); // Update every 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Check if event has passed (based on end time)
+  const hasEventPassed = event ? new Date(event.endTimeISO) < new Date() : false;
+
+  // Check-in window times default to event times since specific columns were removed
+  const checkInOpens = event?.startTimeISO || '';
+  const checkInCloses = event?.endTimeISO || '';
+
+  // Calculate check-in state for admin button
+  // useMemo with refreshTrigger dependency causes re-calculation every 60 seconds
+  const checkInState = useMemo((): 'not_open' | 'active' | 'closed' => {
+    if (!checkInOpens || !checkInCloses) return 'not_open';
+    const now = new Date();
+    const opens = new Date(checkInOpens);
+    const closes = new Date(checkInCloses);
+    if (now < opens) return 'not_open';
+    if (now > closes) return 'closed';
+    return 'active';
+  }, [checkInOpens, checkInCloses, refreshTrigger]);
+
+  // Get button label based on state
+  const checkInButtonLabel = useMemo((): string => {
+    if (checkInState === 'not_open') {
+      const now = new Date();
+      const opens = new Date(checkInOpens);
+      const diff = opens.getTime() - now.getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(minutes / 60);
+      if (hours > 0) {
+        return `Check-In Opens in ${hours}h ${minutes % 60}m`;
+      }
+      return `Check-In Opens in ${minutes}m`;
+    }
+    if (checkInState === 'closed') return 'Check-In Closed';
+    return 'Show Check-In QR Code';
+  }, [checkInState, checkInOpens, refreshTrigger]);
+
+  const dynamicStyles = {
+    container: { backgroundColor: theme.background },
+    text: { color: theme.text },
+    subtext: { color: theme.subtext },
+    heroBackground: { backgroundColor: theme.card },
+    buttonBackground: { backgroundColor: theme.card },
+    iconColor: theme.text,
+    tagBackground: { backgroundColor: theme.card, borderColor: theme.border },
+    tagText: { color: theme.subtext },
+    infoLabel: { color: theme.subtext },
+    divider: { borderBottomColor: theme.border },
+    capacityWarning: {
+      backgroundColor: isDark ? 'rgba(217, 119, 6, 0.1)' : '#FFF4E6',
+      borderColor: isDark ? 'rgba(217, 119, 6, 0.3)' : '#FFE4B8'
+    },
+    errorContainer: { backgroundColor: theme.background },
+    hostAvatar: { backgroundColor: theme.text },
+    hostAvatarText: { color: theme.background },
+  };
 
   /**
    * Handle Register button press
    */
   const handleRegister = async () => {
+    if (hasEventPassed) {
+      Alert.alert(
+        'Event Has Ended',
+        'This event has already ended. Registration is no longer available.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (isRegistered) {
       // Already registered - could show ticket or just do nothing
       Alert.alert(
@@ -77,6 +162,15 @@ export default function EventDetailScreen() {
    * Handle Check-In button press
    */
   const handleCheckIn = () => {
+    if (hasEventPassed) {
+      Alert.alert(
+        'Event Has Ended',
+        'This event has already ended. Check-in is no longer available.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: '/check-in',
@@ -116,7 +210,7 @@ export default function EventDetailScreen() {
   const handleAddToCalendar = async () => {
     if (!event) return;
 
-    await calendarService.addToCalendar({
+    await deviceCalendarService.addToCalendar({
       title: event.title,
       startDate: event.startTimeISO,
       endDate: event.endTimeISO,
@@ -146,11 +240,65 @@ export default function EventDetailScreen() {
     }
   };
 
+  /**
+   * Handle Edit Event (Admin only)
+   */
+  const handleEditEvent = () => {
+    if (!isCurrentUserAdmin) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowEditModal(true);
+  };
+
+  /**
+   * Handle Delete Event (Admin only)
+   */
+  const handleDeleteEvent = () => {
+    if (!isCurrentUserAdmin || !event) return;
+
+    Alert.alert(
+      'Delete Event',
+      `Are you sure you want to delete "${event.title}"? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            const success = await deleteEventAdmin(event.id);
+            if (success) {
+              // Navigate back immediately to prevent rendering issues
+              router.back();
+              // Show success message after navigation
+              setTimeout(() => {
+                Alert.alert('Event Deleted', 'The event has been deleted successfully.');
+              }, 300);
+            } else {
+              Alert.alert('Error', 'Failed to delete event. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /**
+   * Handle Edit Form Submit
+   */
+  const handleEditSubmit = async (data: CreateEventData): Promise<boolean> => {
+    if (!event) return false;
+    const success = await updateEventAdmin(event.id, data);
+    if (success) {
+      setShowEditModal(false);
+    }
+    return success;
+  };
+
   if (!event) {
     return (
-      <View style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Event not found</Text>
+      <View style={[styles.container, dynamicStyles.container]}>
+        <View style={[styles.errorContainer, dynamicStyles.errorContainer]}>
+          <Text style={[styles.errorText, dynamicStyles.text]}>Event not found</Text>
           <Pressable style={styles.errorBackButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
@@ -160,7 +308,7 @@ export default function EventDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -170,20 +318,32 @@ export default function EventDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Cover Image - Square 1:1 with rounded bottom corners */}
-        <View style={styles.heroContainer}>
+        <View style={[styles.heroContainer, dynamicStyles.heroBackground]}>
           {event.coverImageUrl && (
-            <Image source={{ uri: event.coverImageUrl }} style={styles.coverImage} />
+            <Image source={{ uri: event.coverImageUrl }} style={[styles.coverImage, dynamicStyles.heroBackground]} />
           )}
 
           {/* Floating Top Controls */}
           <View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={24} color="#1C1C1E" />
+            <Pressable style={[styles.backButton, dynamicStyles.buttonBackground]} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} color={theme.text} />
             </Pressable>
 
-            <Pressable style={styles.shareButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={22} color="#1C1C1E" />
-            </Pressable>
+            <View style={styles.rightControls}>
+              {isCurrentUserAdmin && (
+                <>
+                  <Pressable style={[styles.adminButton, dynamicStyles.buttonBackground]} onPress={handleEditEvent}>
+                    <Ionicons name="create-outline" size={22} color={theme.primary} />
+                  </Pressable>
+                  <Pressable style={[styles.adminButton, dynamicStyles.buttonBackground]} onPress={handleDeleteEvent}>
+                    <Ionicons name="trash-outline" size={22} color="#EF4444" />
+                  </Pressable>
+                </>
+              )}
+              <Pressable style={[styles.shareButton, dynamicStyles.buttonBackground]} onPress={handleShare}>
+                <Ionicons name="share-outline" size={22} color={theme.text} />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -191,13 +351,13 @@ export default function EventDetailScreen() {
         <View style={styles.content}>
 
           {/* Title - High-end Typography */}
-          <Text style={styles.title}>{event.title}</Text>
+          <Text style={[styles.title, dynamicStyles.text]}>{event.title}</Text>
 
           {/* Date & Time */}
-          <View style={styles.infoBlock}>
-            <Text style={styles.infoLabel}>DATE & TIME</Text>
-            <Text style={styles.infoValue}>{formatDateHeader(event.startTimeISO)}</Text>
-            <Text style={styles.infoValue}>
+          <View style={[styles.infoBlock, dynamicStyles.divider]}>
+            <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>DATE & TIME</Text>
+            <Text style={[styles.infoValue, dynamicStyles.text]}>{formatDateHeader(event.startTimeISO)}</Text>
+            <Text style={[styles.infoValue, dynamicStyles.text]}>
               {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
             </Text>
           </View>
@@ -205,19 +365,19 @@ export default function EventDetailScreen() {
           {/* About Event Section */}
           {event.description && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>About Event</Text>
-              <Text style={styles.description}>{event.description}</Text>
+              <Text style={[styles.sectionTitle, dynamicStyles.text]}>About Event</Text>
+              <Text style={[styles.description, dynamicStyles.text]}>{event.description}</Text>
             </View>
           )}
 
           {/* Location Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Location</Text>
+            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Location</Text>
             <View style={styles.locationRow}>
-              <Ionicons name="location" size={20} color="#1C1C1E" style={styles.locationIcon} />
+              <Ionicons name="location" size={20} color={theme.text} style={styles.locationIcon} />
               <View style={styles.locationInfo}>
-                <Text style={styles.locationName}>{event.locationName}</Text>
-                {event.address && <Text style={styles.locationAddress}>{event.address}</Text>}
+                <Text style={[styles.locationName, dynamicStyles.text]}>{event.locationName}</Text>
+                {event.address && <Text style={[styles.locationAddress, dynamicStyles.subtext]}>{event.address}</Text>}
               </View>
             </View>
 
@@ -230,34 +390,45 @@ export default function EventDetailScreen() {
             />
           </View>
 
-          {/* Hosts Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hosts</Text>
-            <View style={styles.hostRow}>
-              <View style={styles.hostAvatarLarge}>
-                <Text style={styles.hostAvatarLargeText}>{hostInitial}</Text>
-              </View>
-              <View style={styles.hostInfo}>
-                <Text style={styles.hostNameLarge}>{hostName || 'Unknown host'}</Text>
-                <Text style={styles.hostMeta}>Event organizer</Text>
-              </View>
-              <Pressable onPress={() => console.log('Contact host')}>
-                <Ionicons name="mail-outline" size={22} color="#1C1C1E" />
-              </Pressable>
-            </View>
-          </View>
-
           {/* Attendees Preview Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Who's Going</Text>
+            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Who's Going</Text>
             <AttendeesPreview eventId={event.id} />
           </View>
 
-          {/* Capacity Warning */}
-          {event.capacityLabel && (
-            <View style={styles.capacityWarning}>
-              <Ionicons name="alert-circle-outline" size={18} color="#F59E0B" style={styles.warningIcon} />
-              <Text style={styles.capacityText}>{event.capacityLabel}</Text>
+          {/* Admin QR Code Section */}
+          {isCurrentUserAdmin && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, dynamicStyles.text]}>Admin Tools</Text>
+              <TouchableOpacity
+                style={[
+                  styles.adminCheckInButton,
+                  checkInState === 'not_open' && styles.adminButtonDisabled,
+                  checkInState === 'active' && { backgroundColor: '#28a745' },
+                  checkInState === 'closed' && styles.adminButtonExpired,
+                ]}
+                onPress={() => checkInState === 'active' && setShowQRModal(true)}
+                disabled={checkInState !== 'active'}
+              >
+                <Ionicons
+                  name="qr-code-outline"
+                  size={24}
+                  color={checkInState === 'active' ? '#fff' : '#adb5bd'}
+                />
+                <Text
+                  style={[
+                    styles.adminButtonText,
+                    checkInState !== 'active' && { color: '#adb5bd' },
+                  ]}
+                >
+                  {checkInButtonLabel}
+                </Text>
+              </TouchableOpacity>
+              <Text style={[styles.adminHint, dynamicStyles.subtext]}>
+                {checkInState === 'not_open' && 'Check-in window has not opened yet'}
+                {checkInState === 'active' && 'Display a QR code for students to check in'}
+                {checkInState === 'closed' && 'Check-in window has closed'}
+              </Text>
             </View>
           )}
 
@@ -265,12 +436,37 @@ export default function EventDetailScreen() {
           {event.tags.length > 0 && (
             <View style={styles.tagsRow}>
               {event.tags.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                <View key={tag} style={[styles.tag, dynamicStyles.tagBackground]}>
+                  <Text style={[styles.tagText, dynamicStyles.tagText]}>{tag}</Text>
                 </View>
               ))}
             </View>
           )}
+
+          {/* Highlights Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Highlights</Text>
+            {!showHighlights ? (
+              <TouchableOpacity
+                style={[styles.highlightsButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+                onPress={() => setShowHighlights(true)}
+              >
+                <Ionicons name="images-outline" size={24} color={theme.primary} />
+                <Text style={[styles.highlightsButtonText, { color: theme.text }]}>View Event Highlights</Text>
+                <Ionicons name="chevron-down" size={20} color={theme.subtext} />
+              </TouchableOpacity>
+            ) : (
+              <View>
+                <FeedList eventId={event.uuid} scrollEnabled={false} />
+                <TouchableOpacity
+                  style={styles.hideHighlightsButton}
+                  onPress={() => setShowHighlights(false)}
+                >
+                  <Text style={{ color: theme.subtext }}>Hide Highlights</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
 
 
         </View>
@@ -283,8 +479,9 @@ export default function EventDetailScreen() {
         onCheckInPress={handleCheckIn}
         onMorePress={handleMorePress}
         isRegistered={isRegistered}
-        isCheckInAvailable={true}
+        isCheckInAvailable={!hasEventPassed}
         isLoading={loading}
+        isRegisterAvailable={!hasEventPassed}
       />
 
       {/* Registration Success Modal */}
@@ -301,7 +498,44 @@ export default function EventDetailScreen() {
         onAddToCalendar={handleAddToCalendar}
         onCancelRegistration={handleCancelRegistration}
       />
-    </View>
+
+      {/* Admin Check-In QR Code Modal */}
+      {isCurrentUserAdmin && event && (
+        <CheckInQRModal
+          visible={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          eventId={event.id}
+          eventName={event.title}
+          checkInOpens={checkInOpens}
+          checkInCloses={checkInCloses}
+        />
+      )}
+
+      {/* Edit Event Modal (Admin only) */}
+      {isCurrentUserAdmin && (
+        <Modal
+          visible={showEditModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowEditModal(false)}
+        >
+          <AdminEventForm
+            mode="edit"
+            initialData={{
+              name: event.title,
+              description: event.description,
+              location_name: event.locationName,
+              location_address: event.address,
+              start_time: event.startTimeISO,
+              end_time: event.endTimeISO,
+              cover_image_url: event.coverImageUrl,
+            }}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setShowEditModal(false)}
+          />
+        </Modal>
+      )}
+    </View >
 
   );
 }
@@ -310,7 +544,6 @@ const styles = StyleSheet.create({
   // GALLERY THEME - Warm Paper Background
   container: {
     flex: 1,
-    backgroundColor: '#FDFBF7',
   },
   scrollView: {
     flex: 1,
@@ -324,14 +557,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: SCREEN_WIDTH,
     height: SCREEN_WIDTH, // Square 1:1 aspect ratio
-    backgroundColor: '#E8E5E0',
   },
   coverImage: {
     width: '100%',
     height: '100%',
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
-    backgroundColor: '#E8E5E0',
   },
 
   // FLOATING CONTROLS - Light mode with shadows
@@ -348,7 +579,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(253, 251, 247, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  rightControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  adminButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -361,7 +607,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(253, 251, 247, 0.95)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -406,7 +651,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#1C1C1E',
     marginBottom: 20,
     lineHeight: 38,
     letterSpacing: -0.5,
@@ -423,12 +667,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 16,
-    backgroundColor: '#F5F3F0',
     borderWidth: 1,
-    borderColor: '#E8E5E0',
   },
   tagText: {
-    color: '#6e6e73',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -438,11 +679,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E5E0',
   },
   infoLabel: {
     fontSize: 11,
-    color: '#6e6e73',
     fontWeight: '700',
     marginBottom: 10,
     letterSpacing: 1.2,
@@ -450,7 +689,6 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 16,
-    color: '#1C1C1E',
     fontWeight: '500',
     marginBottom: 4,
   },
@@ -467,7 +705,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
     marginBottom: 18,
     letterSpacing: -0.4,
   },
@@ -486,13 +723,11 @@ const styles = StyleSheet.create({
   },
   locationName: {
     fontSize: 16,
-    color: '#1C1C1E',
     fontWeight: '600',
     marginBottom: 6,
   },
   locationAddress: {
     fontSize: 15,
-    color: '#6e6e73',
     lineHeight: 22,
   },
   // HOST SECTION
@@ -505,12 +740,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1C1C1E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   hostAvatarLargeText: {
-    color: '#FDFBF7',
     fontSize: 22,
     fontWeight: '700',
   },
@@ -519,20 +752,17 @@ const styles = StyleSheet.create({
   },
   hostNameLarge: {
     fontSize: 17,
-    color: '#1C1C1E',
     fontWeight: '600',
     marginBottom: 4,
   },
   hostMeta: {
     fontSize: 14,
-    color: '#6e6e73',
     fontWeight: '500',
   },
 
   // DESCRIPTION
   description: {
     fontSize: 16,
-    color: '#1C1C1E',
     lineHeight: 26,
     fontWeight: '400',
   },
@@ -540,12 +770,10 @@ const styles = StyleSheet.create({
   capacityWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF4E6',
     padding: 16,
     borderRadius: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#FFE4B8',
   },
   warningIcon: {
     marginRight: 10,
@@ -558,17 +786,64 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  // ADMIN BUTTONS
+  adminCheckInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF', // Default blue, overridden by dynamic check-in state
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  adminButtonDisabled: {
+    backgroundColor: '#F2F2F7', // Light gray
+  },
+  adminButtonExpired: {
+    backgroundColor: '#E5E5EA', // Darker gray
+  },
+  adminButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  adminHint: {
+    textAlign: 'center',
+    fontSize: 13,
+    marginBottom: 24,
+  },
+
+  // HIGHLIGHTS
+  highlightsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  highlightsButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  hideHighlightsButton: {
+    alignItems: 'center',
+    padding: 16,
+    marginTop: 8,
+  },
+
   // ERROR STATE
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#FDFBF7',
   },
   errorText: {
     fontSize: 18,
-    color: '#1C1C1E',
     marginBottom: 24,
     fontWeight: '600',
   },
@@ -583,4 +858,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+
+
 });

@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Pressable, ImageBackground, Dimensions } from '
 import { LinearGradient } from 'expo-linear-gradient';
 import { format, startOfDay } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/types/events';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface WeeklyEventGridProps {
   events: Event[]; // All events for the week
@@ -18,23 +19,30 @@ const CARD_SPACING = 20;
 
 export const WeeklyEventGrid: React.FC<WeeklyEventGridProps> = ({ events }) => {
   const router = useRouter();
+  const { theme } = useTheme();
 
   const handleEventPress = (eventId: string) => {
     router.push(`/event/${eventId}`);
   };
 
+  const dynamicStyles = {
+    container: { backgroundColor: theme.background },
+    emptyText: { color: theme.text },
+    emptySubtext: { color: theme.subtext },
+  };
+
   if (events.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
+      <View style={[styles.emptyContainer, dynamicStyles.container]}>
         <Text style={styles.emptyIcon}>📅</Text>
-        <Text style={styles.emptyText}>No events this week</Text>
-        <Text style={styles.emptySubtext}>Check back later or explore other weeks</Text>
+        <Text style={[styles.emptyText, dynamicStyles.emptyText]}>No events this week</Text>
+        <Text style={[styles.emptySubtext, dynamicStyles.emptySubtext]}>Check back later or explore other weeks</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       {events.map((event, index) => {
         const eventDate = new Date(event.startTimeISO);
         const dayOfWeek = format(eventDate, 'EEE').toUpperCase(); // "FRI", "SAT", etc.
@@ -97,7 +105,7 @@ export const WeeklyEventGrid: React.FC<WeeklyEventGridProps> = ({ events }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    // backgroundColor removed
     alignItems: 'center',
     paddingVertical: CARD_SPACING,
   },
@@ -188,13 +196,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
+    // color removed
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    // color removed
     textAlign: 'center',
     lineHeight: 20,
   },

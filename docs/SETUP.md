@@ -100,11 +100,19 @@ feed_items          # Feed posts
 ```
 
 ### 4. Environment Variables
+
+**IMPORTANT**: Supabase credentials are now loaded from `.env` (not hardcoded in `app.json`).
+
 Create `frontend/.env`:
+```bash
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
 ```
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-```
+
+**Security Notes**:
+- Never commit `.env` to version control (already in `.gitignore`)
+- Get these values from your Supabase project dashboard
+- `EXPO_PUBLIC_` prefix makes them available at build time
 
 ---
 
@@ -131,7 +139,6 @@ npx expo start --tunnel
 ```bash
 cd supabase
 supabase functions deploy check-in
-supabase functions deploy award-points
 ```
 
 ---

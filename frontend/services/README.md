@@ -8,13 +8,14 @@
 - ✅ Device abstraction only
 - ✅ Returns raw data/results
 
-**Planned Services**:
+**Services**:
 ```
 services/
 ├── camera.service.ts          # QR code scanning
-├── photos.service.ts          # Image picker & compression
-├── notifications.service.ts   # Push notifications
-└── location.service.ts        # GPS/directions (post-MVP)
+├── photo.service.ts           # Image picker & compression (PhotoHelper)
+├── deviceCalendar.service.ts  # Calendar integration
+├── registration.service.ts    # Event registration
+└── share.service.ts           # Native sharing
 ```
 
 **Service Pattern**:
@@ -43,23 +44,24 @@ export async function scanQRCode(): Promise<string> {
 - Return scanned QR code string
 - Handle camera errors
 
-## photos.service.ts
+## photo.service.ts (PhotoHelper)
 - Request photo library permissions
 - Open image picker
 - Compress/resize images
 - Return image URI/blob
 
-## notifications.service.ts
-- Request notification permissions
-- Register push token
-- Schedule local notifications
-- Handle notification tap events
+## deviceCalendar.service.ts
+- Request calendar permissions
+- Add events to device calendar
+- Handle calendar operations
 
-## location.service.ts (post-MVP)
-- Request location permissions
-- Get current GPS coordinates
-- Calculate directions to event
-- Return location data
+## registration.service.ts
+- Event registration logic
+- RSVP management
+
+## share.service.ts
+- Native share functionality
+- Share events, links, etc.
 
 **Key Principle**:
 Services return raw data. Business logic (like "what to do with the QR code") lives in hooks.

@@ -1,67 +1,64 @@
-# /utils/ - Small Helper Functions
+# /utils/ - Pure Helper Functions
 
 **Purpose**: Pure utility functions (no side effects)
 
-**Planned Utils**:
+**Current Utils**:
 ```
 utils/
-├── date.utils.ts              # Date formatting, timezone
-├── points.utils.ts            # Points calculation helpers
-├── validation.utils.ts        # Form validation
-└── format.utils.ts            # String formatting
+├── date.ts              # Date formatting, manipulation
+├── events.ts            # Event type mapping (EventDB ↔ EventUI)
+├── phoneNumber.ts       # Phone number formatting
+├── validation.ts        # Pure validation functions
+└── index.ts             # Barrel export
 ```
 
 **Utility Pattern**:
 ```typescript
-// Example: date.utils.ts
-export function formatEventDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  }).format(date)
-}
-
-export function isEventActive(startTime: string, endTime: string): boolean {
-  const now = new Date()
-  const start = new Date(startTime)
-  const end = new Date(endTime)
-  return now >= start && now <= end
+// Example: phoneNumber.ts
+export function formatPhoneNumber(value: string): string {
+  const cleaned = ('' + value).replace(/\D/g, '');
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+  if (match) {
+    return '(' + match[1] + ') ' + match[2] + '-' + match[3];
+  }
+  return value;
 }
 ```
 
 **Responsibilities by File**:
 
-## date.utils.ts
+## date.ts
 - Format dates for display
 - Parse ISO strings
-- Calculate time remaining
-- Check if event is active/upcoming/past
-- Timezone conversions
+- Date calculations
 
-## points.utils.ts
-- Calculate point multipliers
-- Format points display
-- Determine ranking tier
-- Calculate points for actions
+## events.ts
+- Type mapping: `mapEventDBToUI(event: EventDB): EventUI`
+- Type mapping: `mapEventUIToDB(event: EventUI): EventDB`
+- Converts between database (snake_case) and UI (camelCase) schemas
 
-## validation.utils.ts
-- Email validation
-- URL validation
-- Required field checks
-- Form error messages
+## phoneNumber.ts
+- Format phone numbers as (XXX) XXX-XXXX
+- Partial formatting as user types
+- Pure function, no validation
 
-## format.utils.ts
-- Name capitalization
-- Phone number formatting
-- Truncate long text
-- Pluralization helpers
+## validation.ts
+- Pure validation functions (no side effects)
+- Returns `ValidationError[]` instead of calling Alert
+- Email validation, URL validation, etc.
 
 **Best Practices**:
 - Keep functions pure (same input = same output)
-- No side effects (no API calls, no state mutations)
+- No side effects (no API calls, no Alert, no state mutations)
 - Write unit testable code
 - Export named functions (not default)
-- Document complex logic with comments
+- Use barrel exports via index.ts
+
+**Import Pattern**:
+```typescript
+// Use barrel export
+import { formatPhoneNumber, validateProfile, mapEventDBToUI } from '@/utils';
+
+// Or direct import
+import { formatPhoneNumber } from '@/utils/phoneNumber';
+```

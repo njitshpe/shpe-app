@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { supabase } from '../lib/supabase';
 import type { AppError } from '../types/errors';
 import { mapSupabaseError, validators, createError } from '../types/errors';
 import type { UserProfile } from '../types/userProfile';
-import { profileService } from '../lib/profileService';
+import { profileService } from '../services/profile.service';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,10 +26,13 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
   signInWithGoogle: () => Promise<{ error: AppError | null }>;
+  signInWithApple: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: AppError | null }>;
   profile: UserProfile | null;
   loadProfile: (userId: string) => Promise<void>;
   updateUserMetadata: (metadata: Record<string, any>) => Promise<void>;
@@ -35,23 +40,131 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to add timeout to profile loading
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 5000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Profile fetch timeout')), timeoutMs)
+    ),
+  ]);
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Track if we're currently loading a profile to avoid concurrent requests
+  const loadingProfileRef = React.useRef(false);
+  // Track the current user ID to detect user changes
+  const currentUserIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    // Load initial session and profile
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        const onboardingCompleted = session?.user?.user_metadata?.onboarding_completed === true;
+        // Load profile only after onboarding is complete
+        if (session?.user?.id && onboardingCompleted) {
+          currentUserIdRef.current = session.user.id;
+          setProfileLoading(true);
+          try {
+            if (__DEV__) {
+              console.log('[AuthContext] Loading profile for user:', session.user.id);
+            }
+            const result = await withTimeout(
+              profileService.getProfile(session.user.id)
+            );
+            if (result.success && result.data) {
+              setProfile(result.data);
+              if (__DEV__) {
+                console.log('[AuthContext] Profile loaded successfully');
+              }
+            } else {
+              setProfile(null);
+              if (__DEV__) {
+                console.warn('[AuthContext] Profile fetch returned no data:', result.error);
+              }
+            }
+          } catch (error) {
+            if (__DEV__) {
+              console.warn('[AuthContext] Failed to load profile on startup (may be normal during onboarding):', error);
+            }
+            setProfile(null);
+          } finally {
+            setProfileLoading(false);
+          }
+        } else {
+          // No session, ensure profileLoading is false
+          setProfileLoading(false);
+          currentUserIdRef.current = null;
+        }
+
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('Failed to get session:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setIsLoading(false);
+        setProfileLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+
+        const onboardingCompleted = session?.user?.user_metadata?.onboarding_completed === true;
+        // Load profile when auth state changes (only after onboarding is complete)
+        if (session?.user?.id && onboardingCompleted) {
+          // Skip if we're already loading a profile for the same user
+          if (loadingProfileRef.current && currentUserIdRef.current === session.user.id) {
+            if (__DEV__) {
+              console.log('[AuthContext] Skipping profile load - already in progress for this user');
+            }
+            setIsLoading(false);
+            return;
+          }
+
+          // If user changed, allow new load even if one is in progress
+          currentUserIdRef.current = session.user.id;
+          loadingProfileRef.current = true;
+          setProfileLoading(true);
+          try {
+            const result = await withTimeout(
+              profileService.getProfile(session.user.id)
+            );
+            if (result.success && result.data) {
+              setProfile(result.data);
+            } else {
+              setProfile(null);
+            }
+          } catch (error) {
+            // Only log if it's not a timeout during onboarding
+            if (__DEV__) {
+              console.warn('[AuthContext] Profile load failed (may be normal during onboarding):', error);
+            }
+            setProfile(null);
+          } finally {
+            setProfileLoading(false);
+            loadingProfileRef.current = false;
+          }
+        } else {
+          // Clear profile when logged out or onboarding incomplete
+          setProfile(null);
+          setProfileLoading(false);
+          loadingProfileRef.current = false;
+          currentUserIdRef.current = session?.user?.id ?? null;
+        }
+
         setIsLoading(false);
       }
     );
@@ -221,18 +334,142 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+
+
+  const signInWithApple = async () => {
+    try {
+      // 1. Generate a random nonce
+      const rawNonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+      // 2. Hash the nonce (SHA-256)
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
+      // 3. Request credential from Apple with the HASHED nonce
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      // Sign in via Supabase.
+      if (credential.identityToken) {
+        const { error, data } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+          nonce: rawNonce, // Send the RAW nonce to Supabase for verification
+        });
+
+        if (error) {
+          return { error: mapSupabaseError(error) };
+        }
+
+        if (data.user) {
+          // If we have full name from Apple (only on first sign in), update Supabase user metadata
+          if (credential.fullName) {
+            const nameData: Record<string, any> = {};
+            if (credential.fullName.givenName) nameData.full_name = credential.fullName.givenName;
+            if (credential.fullName.familyName) nameData.full_name += ` ${credential.fullName.familyName}`;
+
+            // We can also store the raw name parts
+            if (credential.fullName.givenName) nameData.first_name = credential.fullName.givenName;
+            if (credential.fullName.familyName) nameData.last_name = credential.fullName.familyName;
+
+            if (Object.keys(nameData).length > 0) {
+              await supabase.auth.updateUser({
+                data: nameData
+              });
+            }
+          }
+          return { error: null };
+        }
+      }
+
+      return { error: createError('No identity token received from Apple', 'AUTH_ERROR') };
+    } catch (e: any) {
+      if (e.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled - not an error we need to show
+        return { error: null };
+      }
+      return { error: createError(e.message || 'Apple Sign In Failed', 'AUTH_ERROR') };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
-  const loadProfile = async (userId: string) => {
-    const result = await profileService.getProfile(userId);
-    if (result.success && result.data) {
-      setProfile(result.data);
-    } else {
-      setProfile(null);
+  // Reset password - sends a password reset email
+  const resetPassword = async (email: string) => {
+    try {
+      // Validate email format
+      if (!validators.isValidEmail(email)) {
+        return {
+          error: createError(
+            'Please enter a valid email address.',
+            'INVALID_EMAIL',
+            'email'
+          ),
+        };
+      }
+
+      // Send password reset email
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${AUTH_CONFIG.REDIRECT_URI}reset-password`,
+      });
+
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return {
+        error: createError(
+          'Unable to send reset email. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
     }
-    setIsLoading(false);
+  };
+
+  const loadProfile = async (userId: string) => {
+    // Skip if we're already loading a profile for the same user
+    if (loadingProfileRef.current && currentUserIdRef.current === userId) {
+      if (__DEV__) {
+        console.log('[AuthContext] Skipping loadProfile - already in progress for this user');
+      }
+      return;
+    }
+
+    currentUserIdRef.current = userId;
+    loadingProfileRef.current = true;
+    setProfileLoading(true);
+    try {
+      const result = await withTimeout(
+        profileService.getProfile(userId)
+      );
+      if (result.success && result.data) {
+        setProfile(result.data);
+      } else {
+        setProfile(null);
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('[AuthContext] Failed to load profile:', error);
+      }
+      setProfile(null);
+    } finally {
+      setProfileLoading(false);
+      loadingProfileRef.current = false;
+    }
   };
 
   const updateUserMetadata = async (metadata: Record<string, any>) => {
@@ -254,10 +491,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     isLoading,
+    profileLoading,
     signIn,
     signUp,
     signInWithGoogle,
+    signInWithApple,
     signOut,
+    resetPassword,
     profile,
     loadProfile,
     updateUserMetadata,

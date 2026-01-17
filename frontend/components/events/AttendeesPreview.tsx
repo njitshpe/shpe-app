@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useEventAttendeesPreview } from '../../hooks/useEventAttendees';
+import { useEventAttendeesPreview } from '@/hooks/events';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AttendeesPreviewProps {
   eventId: string;
@@ -16,6 +17,7 @@ export default function AttendeesPreview({
   namesCount = 4,
 }: AttendeesPreviewProps) {
   const router = useRouter();
+  const { theme, isDark } = useTheme();
   const { totalCount, attendees, isLoading, error } = useEventAttendeesPreview(eventId, previewCount);
 
   // Generate initials from name
@@ -44,13 +46,25 @@ export default function AttendeesPreview({
     router.push(`/event/${eventId}/attendees`);
   };
 
+  const dynamicStyles = {
+    container: { backgroundColor: theme.card, borderColor: theme.border },
+    text: { color: theme.text },
+    subtext: { color: theme.subtext },
+    avatarWrapper: { borderColor: theme.card, backgroundColor: theme.border },
+    avatarFallback: { backgroundColor: theme.text },
+    avatarInitials: { color: theme.background },
+    remainingCircle: { backgroundColor: theme.text },
+    remainingText: { color: theme.background },
+    iconColor: theme.subtext,
+  };
+
   // Error state
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, dynamicStyles.container]}>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
-          <Text style={styles.errorText}>Failed to load attendees</Text>
+          <Ionicons name="alert-circle-outline" size={20} color={theme.error} />
+          <Text style={[styles.errorText, { color: theme.error }]}>Failed to load attendees</Text>
         </View>
       </View>
     );
@@ -59,8 +73,8 @@ export default function AttendeesPreview({
   // Loading state
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="small" color="#1C1C1E" />
+      <View style={[styles.container, dynamicStyles.container]}>
+        <ActivityIndicator size="small" color={theme.text} />
       </View>
     );
   }
@@ -69,15 +83,15 @@ export default function AttendeesPreview({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
+      style={({ pressed }) => [styles.container, dynamicStyles.container, pressed && styles.containerPressed]}
       onPress={handlePress}
     >
       {/* Header: "X Going" */}
       <View style={styles.header}>
-        <Text style={styles.goingCount}>
+        <Text style={[styles.goingCount, dynamicStyles.text]}>
           {totalCount} Going
         </Text>
-        <Ionicons name="chevron-forward" size={20} color="#6e6e73" />
+        <Ionicons name="chevron-forward" size={20} color={dynamicStyles.iconColor} />
       </View>
 
       {/* Avatars Row with +X */}
@@ -88,6 +102,7 @@ export default function AttendeesPreview({
               key={attendee.id}
               style={[
                 styles.avatarWrapper,
+                dynamicStyles.avatarWrapper,
                 index > 0 && styles.avatarOverlap,
                 { zIndex: previewCount - index },
               ]}
@@ -95,8 +110,8 @@ export default function AttendeesPreview({
               {attendee.avatarUrl ? (
                 <Image source={{ uri: attendee.avatarUrl }} style={styles.avatar} />
               ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitials}>{getInitials(attendee.name)}</Text>
+                <View style={[styles.avatarFallback, dynamicStyles.avatarFallback]}>
+                  <Text style={[styles.avatarInitials, dynamicStyles.avatarInitials]}>{getInitials(attendee.name)}</Text>
                 </View>
               )}
             </View>
@@ -104,15 +119,15 @@ export default function AttendeesPreview({
 
           {/* +X Circle */}
           {remainingCount > 0 && (
-            <View style={[styles.avatarWrapper, styles.avatarOverlap, styles.remainingCircle]}>
-              <Text style={styles.remainingText}>+{remainingCount}</Text>
+            <View style={[styles.avatarWrapper, dynamicStyles.avatarWrapper, styles.avatarOverlap, styles.remainingCircle, dynamicStyles.remainingCircle]}>
+              <Text style={[styles.remainingText, dynamicStyles.remainingText]}>+{remainingCount}</Text>
             </View>
           )}
         </View>
       )}
 
       {/* Names Preview Line */}
-      <Text style={styles.namesText} numberOfLines={2}>
+      <Text style={[styles.namesText, dynamicStyles.subtext]} numberOfLines={2}>
         {namesString}
       </Text>
     </Pressable>
@@ -124,11 +139,11 @@ const AVATAR_OVERLAP = -12;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    // backgroundColor removed
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E8E5E0',
+    // borderColor removed
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -148,7 +163,7 @@ const styles = StyleSheet.create({
   goingCount: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C1C1E',
+    // color removed
     letterSpacing: -0.3,
   },
   avatarsRow: {
@@ -161,8 +176,8 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    backgroundColor: '#E8E5E0',
+    // borderColor removed
+    // backgroundColor removed
     overflow: 'hidden',
   },
   avatarOverlap: {
@@ -175,28 +190,28 @@ const styles = StyleSheet.create({
   avatarFallback: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#1C1C1E',
+    // backgroundColor removed
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitials: {
-    color: '#FDFBF7',
+    // color removed
     fontSize: 14,
     fontWeight: '700',
   },
   remainingCircle: {
-    backgroundColor: '#1C1C1E',
+    // backgroundColor removed
     alignItems: 'center',
     justifyContent: 'center',
   },
   remainingText: {
-    color: '#FDFBF7',
+    // color removed
     fontSize: 13,
     fontWeight: '700',
   },
   namesText: {
     fontSize: 14,
-    color: '#6e6e73',
+    // color removed
     lineHeight: 20,
   },
   errorContainer: {
@@ -206,7 +221,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: '#EF4444',
+    // color removed
     fontWeight: '500',
   },
 });

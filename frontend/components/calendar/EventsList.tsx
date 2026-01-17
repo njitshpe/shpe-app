@@ -10,8 +10,9 @@ import {
   isWithinInterval,
 } from 'date-fns';
 import { useRouter } from 'expo-router';
-import { Event } from '../../data/mockEvents';
+import { Event } from '@/types/events';
 import { TactileEventCard } from './TactileEventCard';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface EventsListProps {
   events: Event[];
@@ -19,13 +20,14 @@ interface EventsListProps {
 }
 
 interface EventSection {
-  key: 'selected' | 'upcoming' | 'past';
+  key: 'selected' | 'upcoming';
   title: string;
   data: Event[];
 }
 
 export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) => {
   const router = useRouter();
+  const { theme, isDark } = useTheme();
   const today = startOfDay(new Date());
 
   // Split events into sections: Today's Events + Upcoming Events
@@ -55,15 +57,6 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
         return new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime();
       });
 
-    const pastEvents = weekEvents
-      .filter((event) => {
-        const eventDay = startOfDay(new Date(event.startTimeISO));
-        return isBefore(eventDay, today) && !isSameDay(eventDay, selectedDay);
-      })
-      .sort((a, b) => {
-        return new Date(b.startTimeISO).getTime() - new Date(a.startTimeISO).getTime();
-      });
-
     return [
       {
         key: 'selected',
@@ -75,19 +68,21 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
         title: 'Upcoming Events',
         data: upcomingEvents,
       },
-      {
-        key: 'past',
-        title: 'Past Events',
-        data: pastEvents,
-      },
     ];
   }, [events, selectedDate, today]);
 
+  const dynamicStyles = {
+    sectionTitle: { color: theme.text },
+    sectionCount: { color: theme.subtext, backgroundColor: isDark ? '#333' : '#F3F4F6' },
+    emptyText: { color: theme.text },
+    emptySubtext: { color: theme.subtext },
+  };
+
   const renderSectionHeader = ({ section }: { section: EventSection }) => (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{section.title}</Text>
       {section.data.length > 0 && (
-        <Text style={styles.sectionCount}>{section.data.length}</Text>
+        <Text style={[styles.sectionCount, dynamicStyles.sectionCount]}>{section.data.length}</Text>
       )}
     </View>
   );
@@ -111,8 +106,8 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
 
   const renderEmptyComponent = (message: string, subtext: string) => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyText}>{message}</Text>
-      <Text style={styles.emptySubtext}>{subtext}</Text>
+      <Text style={[styles.emptyText, dynamicStyles.emptyText]}>{message}</Text>
+      <Text style={[styles.emptySubtext, dynamicStyles.emptySubtext]}>{subtext}</Text>
     </View>
   );
 
@@ -128,12 +123,6 @@ export const EventsList: React.FC<EventsListProps> = ({ events, selectedDate }) 
       return renderEmptyComponent(
         'No upcoming events this week',
         'Check back later or explore another day'
-      );
-    }
-    if (section.key === 'past' && section.data.length === 0) {
-      return renderEmptyComponent(
-        'No past events this week',
-        'Try another week to see past events'
       );
     }
     return null;
@@ -169,14 +158,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
     letterSpacing: -0.3,
   },
   sectionCount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#9CA3AF',
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -195,13 +181,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#374151',
     marginBottom: 8,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 20,
   },
