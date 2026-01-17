@@ -5,7 +5,7 @@
     "scheme": "shpe-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -35,8 +35,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -51,13 +51,13 @@
       ]
     },
     "notification": {
-      "icon": "./assets/icon.png",
-      "color": "#FF5F05",
+      "icon": "./assets/app-icon.png",
+      "color": "#A9A9A9",
       "androidMode": "default",
       "androidCollapsedTitle": "SHPE Events"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/app-icon.png"
     },
     "plugins": [
       "expo-router",
