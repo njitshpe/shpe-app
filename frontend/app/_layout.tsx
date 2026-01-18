@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { AnimatedSplash, useSplashReady } from '@/components/AnimatedSplash';
+import { UpdatePasswordSheet } from '@/components/UpdatePasswordSheet';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
@@ -40,7 +41,7 @@ function formatActionLabel(actionType: string): string {
  * Handles redirects based on authentication state
  */
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, isLoading, isBootstrapping, user, profile } = useAuth();
+  const { session, isLoading, isBootstrapping, user, profile, showPasswordRecovery, setShowPasswordRecovery, updatePassword } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
@@ -48,6 +49,31 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Toast State for Points
   const [toast, setToast] = React.useState({ visible: false, message: '' });
+
+  // Password update state
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordUpdateError, setPasswordUpdateError] = useState<string | null>(null);
+
+  const handleUpdatePassword = async (newPassword: string) => {
+    setIsUpdatingPassword(true);
+    setPasswordUpdateError(null);
+
+    const { error } = await updatePassword(newPassword);
+
+    setIsUpdatingPassword(false);
+
+    if (error) {
+      setPasswordUpdateError(error.message);
+      return { error };
+    }
+
+    return { error: null };
+  };
+
+  const handleClosePasswordSheet = () => {
+    setShowPasswordRecovery(false);
+    setPasswordUpdateError(null);
+  };
 
   // Signal to AnimatedSplash that the app is ready once bootstrapping is complete
   useEffect(() => {
@@ -195,6 +221,13 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         visible={toast.visible}
         message={toast.message}
         onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+      />
+      <UpdatePasswordSheet
+        visible={showPasswordRecovery}
+        onClose={handleClosePasswordSheet}
+        onSubmit={handleUpdatePassword}
+        isLoading={isUpdatingPassword}
+        error={passwordUpdateError}
       />
     </>
   );
