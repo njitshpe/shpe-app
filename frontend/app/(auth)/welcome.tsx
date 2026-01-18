@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { EmailSignInSheet } from '@/components/EmailSignInSheet';
-import { Toast } from '@/components/Toast';
+import { EmailSignInSheet } from '@/components/auth/EmailSignInSheet';
+import { Toast } from '@/components/auth/Toast';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { WelcomeCurtain } from '@/components/auth/WelcomeCurtain';
 import { AuthBottomSheet } from '@/components/auth/AuthBottomSheet';

@@ -160,7 +160,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
   );
   const [isReady, setIsReady] = useState(false);
   const safetyTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Accessibility & Audio Refs
   const shouldReduceMotion = useReducedMotion();
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -195,7 +195,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
   const whiteLogoStyle = useAnimatedStyle(() => ({ opacity: whiteLogoOpacity.value }));
   const coloredLogoStyle = useAnimatedStyle(() => ({ opacity: coloredLogoOpacity.value }));
   const blackBgStyle = useAnimatedStyle(() => ({ opacity: blackBgOpacity.value }));
-  
+
   // App Content Style - Stable Opacity Logic
   const appContentStyle = useAnimatedStyle(() => ({
     opacity: phase === 'complete' ? 1 : appContentOpacity.value
@@ -261,7 +261,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
            const { sound } = await Audio.Sound.createAsync(IGNITION_SOUND);
            soundRef.current = sound;
         }
-      } catch (e) { console.warn("Splash asset error", e); } 
+      } catch (e) { console.warn("Splash asset error", e); }
       finally { await SplashScreen.hideAsync(); setPhase('animating'); runAnimation(); }
     };
     const handle = InteractionManager.runAfterInteractions(() => { prepareResources(); });
