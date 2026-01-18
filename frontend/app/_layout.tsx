@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
 
 // Providers
@@ -60,7 +61,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     // NOTE: Prefer pathname checks over segments for robustness across expo-router versions.
-    const inAuthGroup = segments[0] === '(auth)' || pathname === '/login' || pathname === '/signup';
+    const inAuthGroup = segments[0] === '(auth)' || pathname === '/welcome';
     const inOnboarding = segments[0] === 'onboarding' || pathname === '/onboarding';
     const inAlumniOnboarding = segments[0] === 'alumni-onboarding' || pathname === '/alumni-onboarding';
     const inGuestOnboarding = segments[0] === 'guest-onboarding' || pathname === '/guest-onboarding';
@@ -94,9 +95,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // Rule 1: No session → redirect to login
+    // Rule 1: No session → redirect to welcome
     if (!session && !inAuthGroup) {
-      replaceIfNeeded('/login');
+      replaceIfNeeded('/(auth)/welcome');
       return;
     }
 
@@ -207,23 +208,25 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
  */
 export default function RootLayout() {
   return (
-    <AnimatedSplash>
-      <ThemeProvider>
-        <ErrorBoundary>
-          <AuthProvider>
-            <BlockProvider>
-              <NotificationProvider>
-                <EventsProvider>
-                  <AuthGuard>
-                    <OfflineNotice />
-                    <Slot />
-                  </AuthGuard>
-                </EventsProvider>
-              </NotificationProvider>
-            </BlockProvider>
-          </AuthProvider>
-        </ErrorBoundary>
-      </ThemeProvider>
-    </AnimatedSplash>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AnimatedSplash>
+        <ThemeProvider>
+          <ErrorBoundary>
+            <AuthProvider>
+              <BlockProvider>
+                <NotificationProvider>
+                  <EventsProvider>
+                    <AuthGuard>
+                      <OfflineNotice />
+                      <Slot />
+                    </AuthGuard>
+                  </EventsProvider>
+                </NotificationProvider>
+              </BlockProvider>
+            </AuthProvider>
+          </ErrorBoundary>
+        </ThemeProvider>
+      </AnimatedSplash>
+    </GestureHandlerRootView>
   );
 }
