@@ -18,6 +18,7 @@ import { useEvents } from '@/contexts/EventsContext';
 import { Event } from '@/types/events';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '@/components/shared';
+import RegistrationFormModal from '@/components/events/RegistrationFormModal';
 import {
   AttendeesPreview,
   EventActionBar,
@@ -50,6 +51,7 @@ export default function EventDetailScreen() {
   const { isRegistered, loading, register, cancel } = useEventRegistration(id || '');
 
   // UI state
+  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -125,38 +127,62 @@ export default function EventDetailScreen() {
   /**
    * Handle Register button press
    */
-  const handleRegister = async () => {
+    const handleRegister = async () => {
+
+    console.log('Current Questions:', event?.registration_questions);
     if (hasEventPassed) {
-      Alert.alert(
-        'Event Has Ended',
-        'This event has already ended. Registration is no longer available.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Event Has Ended', 'Registration is no longer available.');
       return;
     }
 
     if (isRegistered) {
-      // Already registered - could show ticket or just do nothing
-      Alert.alert(
-        'Already Registered',
-        'You are already registered for this event.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Already Registered', 'You are already registered for this event.');
       return;
     }
 
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await register();
-      setShowSuccessModal(true);
-    } catch (error) {
-      Alert.alert(
-        'Registration Failed',
-        'Unable to register for this event. Please try again.',
-        [{ text: 'OK' }]
-      );
+    // INTERCEPT: Check if event has questions
+    if (event.registration_questions && event.registration_questions.length > 0) {
+      setShowRegistrationForm(true);
+    } else {
+      // If no questions, proceed as normal
+      await executeRegistration({});
     }
   };
+
+  const executeRegistration = async (answers: Record<string, string>) => {
+  try {
+    // 1. Trigger Haptics for physical feedback
+    console.log('Final Answers being sent to DB:', answers); // <--- ADD THIS
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    await register(answers);
+    // 2. Perform the actual registration
+    // We pass the answers object we collected from the Modal
+    const result = await register(answers); 
+
+    // 3. Success Flow
+    setShowRegistrationForm(false); // Close the question box
+    setShowSuccessModal(true);      // Show the "Thank You" screen
+    
+  } catch (error: any) {
+    // 4. Error Flow - Handle based on type if possible
+    console.error('Registration error:', error);
+
+    let errorMessage = 'Unable to register for this event. Please check your internet connection and try again.';
+    
+    // If your hook returns specific error messages (like "Event Full"), 
+    // we can show those specifically.
+    if (error?.message?.includes('full')) {
+      errorMessage = 'Sorry, this event has reached its capacity.';
+    }
+
+    Alert.alert(
+      'Registration Issue',
+      errorMessage,
+      [{ text: 'Try Again' }]
+    );
+  }
+};
 
   /**
    * Handle Check-In button press
@@ -482,6 +508,14 @@ export default function EventDetailScreen() {
         isCheckInAvailable={!hasEventPassed}
         isLoading={loading}
         isRegisterAvailable={!hasEventPassed}
+      />
+
+      {/* Registration Questionnaire Modal */}
+      <RegistrationFormModal
+        isVisible={showRegistrationForm}
+        questions={event.registration_questions || []}
+        onClose={() => setShowRegistrationForm(false)}
+        onSubmit={executeRegistration}
       />
 
       {/* Registration Success Modal */}
