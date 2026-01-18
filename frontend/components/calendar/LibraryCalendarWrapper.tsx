@@ -58,10 +58,23 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
         // 2. Mark selected date
         if (selectedDate) {
             const selectedStr = format(selectedDate, 'yyyy-MM-dd');
+
+            // Find if there's an event on this day to use its color
+            const eventOnDay = events.find(e => {
+                const eDate = format(new Date(e.startTimeISO), 'yyyy-MM-dd');
+                return eDate === selectedStr;
+            });
+
+            let selectionColor = theme.primary;
+            if (eventOnDay) {
+                const gradient = getEventGradient(eventOnDay);
+                selectionColor = gradient[2] || theme.primary;
+            }
+
             marks[selectedStr] = {
                 ...(marks[selectedStr] || {}), // Keep existing dots
                 selected: true,
-                selectedColor: theme.primary,
+                selectedColor: selectionColor,
                 selectedTextColor: '#ffffff',
             };
         }
@@ -81,8 +94,8 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
             style={[styles.container, { borderBottomColor: theme.border }]}
         >
             <Calendar
-                // forces re-render if theme changes
-                key={`${isDark ? 'dark' : 'light'}`}
+                // forces re-render if theme OR month changes (fixes sync issue)
+                key={`${isDark ? 'dark' : 'light'}-${currentStr}`}
 
                 current={currentStr}
                 onDayPress={(day: DateData) => {

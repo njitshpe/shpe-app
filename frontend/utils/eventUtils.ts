@@ -7,7 +7,9 @@ export const EVENT_GRADIENTS = {
     workshop: ['transparent', 'rgba(0, 163, 224, 0.4)', 'rgba(0, 163, 224, 0.95)'], // SHPE Light Blue
     general: ['transparent', 'rgba(0, 122, 255, 0.4)', 'rgba(0, 122, 255, 0.95)'], // System Blue (Brighter for Dark Mode)
     corporate: ['transparent', 'rgba(103, 58, 183, 0.4)', 'rgba(103, 58, 183, 0.95)'], // Purple
-    default: ['transparent', 'rgba(255, 162, 0, 0.5)', 'rgba(246, 168, 0, 0.9)'], // Standard Dark
+    volunteering: ['transparent', 'rgba(34, 197, 94, 0.4)', 'rgba(34, 197, 94, 0.95)'], // Green
+    shpetinas: ['transparent', 'rgba(236, 72, 153, 0.4)', 'rgba(236, 72, 153, 0.95)'], // Pink
+    default: ['transparent', 'rgba(228, 0, 236, 0.81)', 'rgba(246, 168, 0, 0.9)'], // Standard Dark
 };
 
 export const getEventGradient = (event: Event): string[] => {
@@ -25,6 +27,12 @@ export const getEventGradient = (event: Event): string[] => {
     }
     if (text.match(/corporate|company|resume|interview|career|fair/)) {
         return EVENT_GRADIENTS.corporate;
+    }
+    if (text.match(/volunteer|service|community|outreach/)) {
+        return EVENT_GRADIENTS.volunteering;
+    }
+    if (text.match(/shpetinas|valentine|love|date/)) {
+        return EVENT_GRADIENTS.shpetinas;
     }
 
     return EVENT_GRADIENTS.default;
