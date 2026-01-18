@@ -128,6 +128,26 @@ export default function AdminDashboard() {
                     <Text style={[styles.sectionTitle, dynamicStyles.text]}>Quick Actions</Text>
 
                     <TouchableOpacity
+                            style={[
+                                styles.actionButton,
+                                dynamicStyles.card,
+                                { borderLeftWidth: 4, borderLeftColor: theme.primary } // distinctive styling
+                            ]}
+                            onPress={() => router.push('/admin/pending-rsvps')}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                                <Ionicons name="people-circle-outline" size={24} color={theme.primary} />
+                                <View>
+                                    <Text style={[styles.actionButtonText, dynamicStyles.text]}>Review Pending RSVPs</Text>
+                                    <Text style={{ fontSize: 12, color: theme.subtext }}>Swipe to approve attendees</Text>
+                                </View>
+                            </View>
+                            
+                            {/* Add a red dot or badge to indicate pending items */}
+                            <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                        </TouchableOpacity>
+
+                    <TouchableOpacity
                         style={[styles.actionButton, dynamicStyles.button]}
                         onPress={() => setShowCreateModal(true)}
                     >
