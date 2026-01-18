@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     StyleSheet,
@@ -21,10 +21,24 @@ export default function EventsScreen() {
     const router = useRouter();
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+
+
 
     const handleQRScanPress = () => {
         router.push('/check-in');
+    };
+
+    // Initial fetch
+    useEffect(() => {
+        refetchEvents();
+    }, []);
+
+    // Handlers
+    const handleMonthChange = (date: Date) => {
+        setCurrentMonth(date);
+        setSelectedDate(null); // Reset day selection when month changes
     };
 
     const handleDateSelect = useCallback((date: Date) => {
@@ -37,12 +51,23 @@ export default function EventsScreen() {
         });
     }, []);
 
-    const handleMonthChange = useCallback((date: Date) => {
-        setCurrentMonth(date);
-        // Optional: clear selected date when swiping away? 
-        // User behavior: usually expects to see the new month's feed.
-        setSelectedDate(null);
-    }, []);
+    const nextMonth = () => {
+        const next = new Date(currentMonth);
+        next.setMonth(next.getMonth() + 1);
+        handleMonthChange(next);
+    };
+
+    const prevMonth = () => {
+        const prev = new Date(currentMonth);
+        prev.setMonth(prev.getMonth() - 1);
+        handleMonthChange(prev);
+    };
+
+    const toggleCalendar = () => {
+        setIsCalendarExpanded(!isCalendarExpanded);
+    };
+
+    const monthTitle = `${currentMonth.toLocaleDateString('en-US', { month: 'long' })} Events`;
 
     // Clean up loading/error states
     if (isLoading && !events.length) {
@@ -70,22 +95,67 @@ export default function EventsScreen() {
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-            <EventsFeed
-                events={events}
-                isRefreshing={isLoading}
-                onRefresh={refetchEvents}
-                selectedDate={selectedDate}
-                currentMonth={currentMonth}
-                ListHeaderComponent={
-                    <LibraryCalendarWrapper
-                        events={events}
-                        selectedDate={selectedDate}
-                        currentDate={currentMonth}
-                        onDateSelect={handleDateSelect}
-                        onMonthChange={handleMonthChange}
+            {/* Header / Month Navigation Bar */}
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
+
+                {/* Left: Previous Arrow */}
+                <Pressable onPress={prevMonth} hitSlop={20} style={styles.navButton}>
+                    <Ionicons name="chevron-back" size={24} color={theme.text} />
+                </Pressable>
+
+                {/* Center: Title */}
+                <Pressable onPress={toggleCalendar} style={styles.titleContainer}>
+                    <Text style={[styles.headerTitle, { color: theme.text }]}>
+                        {monthTitle}
+                    </Text>
+                    <Ionicons
+                        name={isCalendarExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={16}
+                        color={theme.subtext}
+                        style={{ marginLeft: 4, marginTop: 1 }}
                     />
-                }
-            />
+                </Pressable>
+
+                {/* Right: Next Arrow */}
+                <Pressable onPress={nextMonth} hitSlop={20} style={styles.navButton}>
+                    <Ionicons name="chevron-forward" size={24} color={theme.text} />
+                </Pressable>
+
+                {/* Absolute: Calendar Toggle (Optional, or integrated into title) */}
+                {/* Removed separate toggle button in favor of clicking title or just arrows, 
+                    OR we can keep it if user really wants a specific icon. 
+                    User asked for "Jan Events" centered. 
+                    I'll keep the arrows for month nav, and maybe make title clickable?
+                    Actually, let's just stick to the requested layout: Title centered.
+                */}
+            </View>
+
+            <View style={{ flex: 1 }}>
+                {/* Collapsible Calendar */}
+                {isCalendarExpanded && (
+                    <View style={{ borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                        <LibraryCalendarWrapper
+                            events={events}
+                            selectedDate={selectedDate}
+                            onDateSelect={handleDateSelect}
+                            currentMonth={currentMonth}
+                            onMonthChange={handleMonthChange}
+                        />
+                    </View>
+                )}
+
+                {/* Events Feed */}
+                <EventsFeed
+                    events={events}
+                    isRefreshing={isLoading}
+                    onRefresh={refetchEvents}
+                    selectedDate={selectedDate}
+                    currentMonth={currentMonth} // Pass month context
+                    onSelectEvent={(event) => {
+                        router.push(`/event/${event.id}`);
+                    }}
+                />
+            </View>
 
             {/* QR Scanner FAB */}
             <Pressable
@@ -94,6 +164,8 @@ export default function EventsScreen() {
             >
                 <Ionicons name="qr-code-outline" size={28} color={theme.fabIcon} />
             </Pressable>
+
+
         </SafeAreaView>
     );
 }
@@ -101,6 +173,30 @@ export default function EventsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between', // Distribute arrows
+        paddingHorizontal: 20,
+        paddingTop: 36, // Increased to sit lower
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+    },
+    titleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    navButton: {
+        padding: 8,
+    },
+    headerTitle: {
+        fontSize: 24, // Larger
+        fontWeight: '800', // Bolder
+        letterSpacing: -0.5,
+    },
+    calendarButton: {
+        padding: 4,
     },
     loadingContainer: {
         flex: 1,
@@ -133,6 +229,11 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
     },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     fab: {
         position: 'absolute',
         bottom: 24,
@@ -142,10 +243,11 @@ const styles = StyleSheet.create({
         borderRadius: 32,
         justifyContent: 'center',
         alignItems: 'center',
+        elevation: 6,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
-        elevation: 8,
     },
+
 });

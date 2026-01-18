@@ -6,7 +6,9 @@ import {
     SectionList,
     RefreshControl,
     Pressable,
+    SectionListData,
 } from 'react-native';
+import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Event } from '@/types/events';
 import { useOngoingEvents } from '@/hooks/events';
@@ -20,11 +22,14 @@ interface EventsFeedProps {
     ListHeaderComponent?: React.ReactElement;
     selectedDate?: Date | null;
     currentMonth?: Date; // New prop to scope the default view
+    onSelectEvent?: (event: Event) => void;
 }
 
 interface EventSection {
-    key: 'ongoing' | 'upcoming' | 'past' | 'selected';
+    key: string; // 'ongoing' or date string 'yyyy-MM-dd'
     title: string;
+    mainTitle?: string;
+    subTitle?: string;
     data: Event[];
 }
 
@@ -35,6 +40,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     ListHeaderComponent,
     selectedDate,
     currentMonth,
+    onSelectEvent,
 }) => {
     const router = useRouter();
     const { theme, isDark } = useTheme();
@@ -45,11 +51,10 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     // Filtered logic for specific date selection OR current month scope
     const filteredSections = useMemo(() => {
         if (!selectedDate) {
-            // No specific day selected -> Show Monthly View (Scoped)
+            // No specific day selected -> Show Monthly View (Scoped) using DATE HEADERS
 
             // 1. Filter events to the current month (if provided)
             let scopedEvents = events;
-            let displayTitle = "Upcoming Events";
 
             if (currentMonth) {
                 const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
@@ -59,12 +64,9 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                     const eDate = new Date(e.startTimeISO);
                     return eDate >= startOfMonth && eDate <= endOfMonth;
                 });
-
-                displayTitle = `Events in ${startOfMonth.toLocaleDateString(undefined, { month: 'long' })}`;
             }
 
-            // Simple time sorting for the Month View
-
+            // 2. Separate "Happening Now"
             const now = new Date();
             const ongoing = scopedEvents.filter(e => {
                 const start = new Date(e.startTimeISO);
@@ -72,37 +74,64 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                 return start <= now && end >= now;
             });
 
-            const future = scopedEvents.filter(e => {
-                const start = new Date(e.startTimeISO);
-                return start > now;
-            }).sort((a, b) => new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime());
+            // 3. Group Remaining (Upcoming & Past in this month) by DATE
+            const remaining = scopedEvents.filter(e => !ongoing.includes(e));
 
-            const past = scopedEvents.filter(e => {
-                const end = new Date(e.endTimeISO);
-                return end < now;
-            }).sort((a, b) => new Date(b.startTimeISO).getTime() - new Date(a.startTimeISO).getTime()); // Descending for past
+            // Sort by time
+            remaining.sort((a, b) => new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime());
 
+            // Grouping Map
+            const grouped: { [key: string]: Event[] } = {};
 
-            return [
-                {
-                    key: 'ongoing' as const,
+            remaining.forEach(event => {
+                const dateKey = format(new Date(event.startTimeISO), 'yyyy-MM-dd');
+                if (!grouped[dateKey]) {
+                    grouped[dateKey] = [];
+                }
+                grouped[dateKey].push(event);
+            });
+
+            // Convert to Sections
+            const dateSections: EventSection[] = Object.keys(grouped).map(dateKey => {
+                const dateObj = parseISO(dateKey);
+                let mainTitle = '';
+                let subTitle = '';
+
+                if (isToday(dateObj)) {
+                    mainTitle = 'Today';
+                    subTitle = format(dateObj, 'EEEE');
+                } else if (isTomorrow(dateObj)) {
+                    mainTitle = 'Tomorrow';
+                    subTitle = format(dateObj, 'EEEE');
+                } else {
+                    mainTitle = format(dateObj, 'MMMM d');
+                    subTitle = format(dateObj, 'EEEE');
+                }
+
+                return {
+                    key: dateKey,
+                    title: mainTitle, // Keeping title for compat if needed, but we'll use parts
+                    mainTitle,
+                    subTitle,
+                    data: grouped[dateKey],
+                };
+            });
+
+            // Construct Final List
+            const finalSections: EventSection[] = [];
+
+            if (ongoing.length > 0) {
+                finalSections.push({
+                    key: 'ongoing',
                     title: 'Happening Now',
                     data: ongoing,
-                },
-                {
-                    key: 'upcoming' as const,
-                    title: displayTitle, // "Events in January"
-                    data: future,
-                },
-                {
-                    key: 'past' as const,
-                    title: 'Past Events', // In this month
-                    data: past,
-                },
-            ].filter((section) => section.data.length > 0);
+                });
+            }
+
+            return [...finalSections, ...dateSections];
 
         } else {
-            // Specific Date View
+            // Specific Date View (Unchanged)
             const startOfSelected = new Date(selectedDate);
             startOfSelected.setHours(0, 0, 0, 0);
 
@@ -116,7 +145,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
             if (eventsOnDate.length === 0) return [];
 
             return [{
-                key: 'selected' as const,
+                key: 'selected',
                 title: `Events on ${startOfSelected.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`,
                 data: eventsOnDate
             }];
@@ -124,30 +153,39 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     }, [events, selectedDate, currentMonth]);
 
     const handleEventPress = useCallback(
-        (eventId: string) => {
-            router.push(`/event/${eventId}`);
+        (event: Event) => {
+            if (onSelectEvent) {
+                onSelectEvent(event);
+            } else {
+                router.push(`/event/${event.id}`);
+            }
         },
-        [router]
+        [onSelectEvent, router]
     );
 
     const renderSectionHeader = ({ section }: { section: EventSection }) => (
         <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-                {section.key === 'ongoing' && (
-                    <View style={[styles.ongoingBadge, { backgroundColor: theme.ongoingBadge }]}>
-                        <View style={styles.pulseDot} />
-                    </View>
+                {section.key === 'ongoing' ? (
+                    <>
+                        <View style={[styles.ongoingBadge, { backgroundColor: theme.ongoingBadge }]}>
+                            <View style={styles.pulseDot} />
+                        </View>
+                        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                            {section.title}
+                        </Text>
+                    </>
+                ) : (
+                    <Text style={[styles.dateHeaderTitle, { color: theme.text }]}>
+                        {section.mainTitle || section.title}
+                        {section.subTitle && (
+                            <Text style={{ color: theme.subtext, fontWeight: '400' }}>
+                                {` / ${section.subTitle}`}
+                            </Text>
+                        )}
+                    </Text>
                 )}
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                    {section.title}
-                </Text>
             </View>
-            <Text style={[styles.sectionCount, {
-                color: theme.subtext,
-                backgroundColor: isDark ? '#333' : '#F3F4F6'
-            }]}>
-                {section.data.length}
-            </Text>
         </View>
     );
 
@@ -156,7 +194,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
         return (
             <CompactEventCard
                 event={item}
-                onPress={() => handleEventPress(item.id)}
+                onPress={() => handleEventPress(item)}
                 isPast={isPast}
             />
         );
@@ -248,9 +286,15 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
     },
     sectionTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '700',
-        letterSpacing: -0.3,
+        letterSpacing: -0.5,
+    },
+    dateHeaderTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginTop: 8,
+        letterSpacing: 0, // Reduced letterSpacing
     },
     sectionCount: {
         fontSize: 14,

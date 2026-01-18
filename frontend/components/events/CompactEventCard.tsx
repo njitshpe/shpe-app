@@ -13,8 +13,8 @@ interface CompactEventCardProps {
     isPast?: boolean;
 }
 
-const CARD_HEIGHT = 180;
-const IMAGE_WIDTH = 130;
+const CARD_HEIGHT = 150;
+const IMAGE_WIDTH = 110;
 
 export const CompactEventCard: React.FC<CompactEventCardProps> = ({
     event,
@@ -27,30 +27,18 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
     const endTime = new Date(event.endTimeISO);
     const now = new Date();
 
-    // Determine event status
     const isLive = isAfter(now, startTime) && isBefore(now, endTime);
     const isPastByTime = isAfter(now, endTime);
     const showPastOverlay = isPast ?? isPastByTime;
 
-    // Get event color based on type (extract from gradient or define mapping)
-    // We use the middle color of the gradient as the primary accent color
+    // Use gradient for accent but keep it subtle
     const gradientColors = getEventGradient(event);
-    // Extract the solid color (2nd element in the array usually has the color)
-    // Format is ['transparent', 'rgba(r,g,b,0.4)', 'rgba(r,g,b,0.95)']
-    // We'll parse the RGB from the last element for the solid color
     const primaryColor = gradientColors[2].replace('0.95)', '1)').replace('0.9)', '1)');
 
-    // Create a tint color (low opacity) for tags and background
-    const tintColor = primaryColor.replace('1)', '0.1)');
-    const tagTintColor = primaryColor.replace('1)', '0.15)');
+    // Time String
+    const timeString = `${format(startTime, 'h:mm a')}`;
 
-    // Format date badge - show month and day number (e.g., "JAN 24")
-    const monthDay = format(startTime, 'MMM d').toUpperCase();
-
-    // Format time prominently (Start - End)
-    const timeString = `${format(startTime, 'h:mm a')} - ${format(endTime, 'h:mm a')}`;
-
-    // Determine event type label for tag
+    // Event Type / Tag
     const getEventTypeLabel = () => {
         const text = `${event.title} ${event.tags?.join(' ') || ''}`.toLowerCase();
         if (text.match(/social|mixer|fun|party/)) return 'Social';
@@ -78,137 +66,103 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
         }).start();
     };
 
-    // Default fallback image if no cover image provided
     const imageSource = event.coverImageUrl
         ? { uri: event.coverImageUrl }
         : { uri: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop' };
 
-    const dynamicStyles = {
-        card: {
-            backgroundColor: theme.card,
-            borderColor: isDark ? theme.border : '#E5E7EB',
-            shadowColor: primaryColor, // Colored shadow
-        },
-        contentContainer: {
-            // Tinted background in dark mode, white in light mode
-            backgroundColor: isDark ? tintColor : theme.card,
-        },
-        text: {
-            color: theme.text,
-        },
-        subtext: {
-            color: theme.subtext,
-        },
-        tag: {
-            backgroundColor: tagTintColor,
-        },
-        tagText: {
-            color: primaryColor,
-        },
-        accentBar: {
-            backgroundColor: primaryColor,
-        }
-    };
-
     return (
         <Animated.View style={[styles.cardWrapper, { transform: [{ scale: scaleAnim }] }]}>
             <Pressable
-                style={[styles.card, dynamicStyles.card]}
+                style={[
+                    styles.card,
+                    { backgroundColor: theme.card, borderColor: theme.border }
+                ]}
                 onPress={onPress}
                 onPressIn={handlePressIn}
                 onPressOut={handlePressOut}
             >
-                <View style={styles.rowContainer}>
-                    {/* Left Side: Poster Image */}
-                    <View style={styles.imageContainer}>
-                        <Image
-                            source={imageSource}
-                            style={styles.image}
-                        />
-                        {showPastOverlay && <View style={styles.pastOverlay} pointerEvents="none" />}
+                {/* Image Section */}
+                <View style={styles.imageContainer}>
+                    <Image source={imageSource} style={styles.image} />
+                    {showPastOverlay && <View style={styles.pastOverlay} />}
+                </View>
+
+                {/* Content Section */}
+                <View style={styles.contentContainer}>
+
+                    {/* Top row: Live/Type indicator only */}
+                    <View style={styles.headerRow}>
+                        {/* Live indicator OR Type Tag */}
+                        {isLive ? (
+                            <View style={[styles.liveIndicator, { backgroundColor: '#22C55E' }]}>
+                                <View style={styles.pulseDot} />
+                                <Text style={styles.liveText}>LIVE</Text>
+                            </View>
+                        ) : (
+                            <View style={[styles.typePill, { backgroundColor: isDark ? `rgba(${primaryColor.replace('rgba(', '').replace('rgb(', '').replace(')', '').split(',').slice(0, 3).join(',')}, 0.15)` : `rgba(${primaryColor.replace('rgba(', '').replace('rgb(', '').replace(')', '').split(',').slice(0, 3).join(',')}, 0.1)` }]}>
+                                <Text style={[styles.typeText, { color: primaryColor }]}>{eventTypeLabel}</Text>
+                            </View>
+                        )}
                     </View>
 
-                    {/* Vertical Accent Bar */}
-                    <View style={[styles.accentBar, dynamicStyles.accentBar]} />
+                    {/* Main: Title */}
+                    <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+                        {event.title}
+                    </Text>
 
-                    {/* Right Side: Content */}
-                    <View style={[styles.contentContainer, dynamicStyles.contentContainer]}>
-                        <View style={styles.innerContent}>
-                            {/* Top row: Date badge and Live/Type indicator */}
-                            <View style={styles.topRow}>
-                                <View style={[styles.dateBadge, { backgroundColor: primaryColor }]}>
-                                    <Text style={styles.dateText}>{monthDay}</Text>
-                                </View>
+                    {/* Description */}
+                    {event.description && (
+                        <Text style={[styles.description, { color: theme.subtext }]} numberOfLines={2}>
+                            {event.description}
+                        </Text>
+                    )}
 
-                                {/* Live indicator OR Type Tag */}
-                                {isLive ? (
-                                    <View style={[styles.liveIndicator, { backgroundColor: '#22C55E' }]}>
-                                        <View style={styles.pulseDot} />
-                                        <Text style={styles.liveText}>LIVE</Text>
-                                    </View>
-                                ) : (
-                                    <View style={[styles.typeTag, dynamicStyles.tag]}>
-                                        <Text style={[styles.typeText, dynamicStyles.tagText]}>{eventTypeLabel}</Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Middle: Title & Description */}
-                            <View style={styles.middleContainer}>
-                                <Text style={[styles.titleText, dynamicStyles.text]} numberOfLines={2}>
-                                    {event.title}
-                                </Text>
-                                {event.description && (
-                                    <Text style={[styles.descriptionText, dynamicStyles.subtext]} numberOfLines={2}>
-                                        {event.description}
-                                    </Text>
-                                )}
-                            </View>
-
-                            {/* Bottom: Details */}
-                            <View style={styles.detailsContainer}>
-                                {/* Time */}
-                                <View style={styles.detailRow}>
-                                    <Ionicons name="time-outline" size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
-                                    <Text style={[styles.detailText, dynamicStyles.subtext]}>{timeString}</Text>
-                                </View>
-
-                                {/* Location */}
-                                {event.locationName && (
-                                    <View style={styles.detailRow}>
-                                        <Ionicons name="location-outline" size={14} color={isDark ? "#9CA3AF" : "#6B7280"} />
-                                        <Text style={[styles.detailText, dynamicStyles.subtext]} numberOfLines={1}>
-                                            {event.locationName}
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
+                    {/* Footer: Details */}
+                    <View style={styles.detailsContainer}>
+                        {/* Time Row */}
+                        <View style={styles.detailRow}>
+                            <Ionicons name="time-outline" size={16} color={theme.subtext} style={styles.icon} />
+                            <Text style={[styles.detailText, { color: theme.subtext }]}>
+                                {format(startTime, 'h:mm a')} - {format(endTime, 'h:mm a')}
+                            </Text>
                         </View>
+
+                        {/* Location Row */}
+                        {event.locationName && (
+                            <View style={[styles.detailRow, { marginTop: 4 }]}>
+                                <Ionicons name="location-outline" size={16} color={theme.subtext} style={styles.icon} />
+                                <Text style={[styles.detailText, { color: theme.subtext }]} numberOfLines={1}>
+                                    {event.locationName}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
-            </Pressable>
-        </Animated.View>
+
+                {/* Right Accent Stripe (Optional, minimal personality) */}
+                <View style={[styles.accentStripe, { backgroundColor: primaryColor }]} />
+            </Pressable >
+        </Animated.View >
     );
 };
 
 const styles = StyleSheet.create({
     cardWrapper: {
-        marginBottom: 16,
+        marginBottom: 12,
+        paddingHorizontal: 0, // Should be handled by list container
     },
     card: {
-        width: '100%',
+        flexDirection: 'row',
         height: CARD_HEIGHT,
         borderRadius: 16,
         overflow: 'hidden',
         borderWidth: 1,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15, // Increased slightly for colored shadow visibility
-        shadowRadius: 12,
-        elevation: 5,
-    },
-    rowContainer: {
-        flexDirection: 'row',
-        height: '100%',
+        // Minimal shadow
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
     imageContainer: {
         width: IMAGE_WIDTH,
@@ -220,97 +174,80 @@ const styles = StyleSheet.create({
         height: '100%',
         resizeMode: 'cover',
     },
-    accentBar: {
-        width: 4,
-        height: '100%',
-    },
     contentContainer: {
         flex: 1,
-        height: '100%',
-    },
-    innerContent: {
-        flex: 1,
-        padding: 12, // Reduced slightly to fit description
+        padding: 12,
         justifyContent: 'space-between',
     },
-    topRow: {
+    headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 4,
     },
-    dateBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
+    typePill: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
     },
-    dateText: {
+    typeText: {
         fontSize: 10,
-        fontWeight: '800',
-        color: '#FFFFFF',
+        fontWeight: '600',
+        textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
     liveIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
         gap: 4,
     },
     pulseDot: {
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#22C55E',
     },
     liveText: {
         fontSize: 10,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: '#22C55E',
     },
-    typeTag: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-    },
-    typeText: {
-        fontSize: 10,
+    title: {
+        fontSize: 17,
         fontWeight: '700',
-        letterSpacing: 0.3,
+        lineHeight: 22,
+        marginBottom: 2,
+        letterSpacing: -0.4,
     },
-    middleContainer: {
-        flex: 1,
-        justifyContent: 'flex-start',
-        gap: 4,
-    },
-    titleText: {
-        fontSize: 16,
-        fontWeight: '700',
-        lineHeight: 20,
-        letterSpacing: -0.3,
-    },
-    descriptionText: {
-        fontSize: 12,
-        lineHeight: 16,
+    description: {
+        fontSize: 13,
+        lineHeight: 18,
+        flex: 1, // Allow it to fill available space
+        marginBottom: 4,
         opacity: 0.8,
     },
     detailsContainer: {
-        gap: 4,
-        marginTop: 6,
+        marginTop: 'auto', // Push to bottom
     },
     detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+    },
+    icon: {
+        marginRight: 4,
+        marginTop: 1,
     },
     detailText: {
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: '500',
-        flex: 1,
+    },
+    accentStripe: {
+        width: 4,
+        height: '100%',
     },
     pastOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
     },
 });
+
