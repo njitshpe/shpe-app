@@ -23,6 +23,31 @@ class RegistrationService {
   // Cache for slug -> uuid resolution to reduce DB calls
   private idCache: Record<string, string> = {};
 
+  async register(eventSlug: string, answers: Record<string, string> = {}): Promise<void> {
+    const userId = await this.getUserId();
+    const eventUUID = await this.getEventUUID(eventSlug);
+
+    if (!eventUUID) throw new Error('Invalid event ID');
+
+    // Use upsert to handle re-registration
+    const { error } = await supabase
+    .from('event_attendance')
+    .upsert({
+      event_id: eventUUID,
+      user_id: userId,
+      rsvp_at: new Date().toISOString(),
+      status: 'going',
+      answers: answers
+    }, {
+      onConflict: 'event_id, user_id'
+    });
+
+  if (error) {
+    console.error('Supabase RSVP failed:', error);
+    throw new Error(error.message);
+  }
+}
+
   private flattenProfileData(profile: any): UserProfile {
     if (!profile) return profile;
     const { profile_data, ...rest } = profile;
@@ -100,33 +125,6 @@ class RegistrationService {
     } catch (error) {
       console.error('Failed to check registration:', error);
       return false;
-    }
-  }
-
-  /**
-   * Register (RSVP) for an event
-   */
-  async register(eventSlug: string): Promise<void> {
-    const userId = await this.getUserId();
-    const eventUUID = await this.getEventUUID(eventSlug);
-
-    if (!eventUUID) throw new Error('Invalid event ID');
-
-    // Use upsert to handle re-registration
-    const { error } = await supabase
-      .from('event_attendance')
-      .upsert({
-        event_id: eventUUID,
-        user_id: userId,
-        rsvp_at: new Date().toISOString(),
-        status: 'going'
-      }, {
-        onConflict: 'event_id, user_id'
-      });
-
-    if (error) {
-      console.error('Supabase RSVP failed:', error);
-      throw new Error(error.message);
     }
   }
 
