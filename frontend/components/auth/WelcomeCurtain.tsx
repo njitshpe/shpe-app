@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -21,7 +21,7 @@ const SLIDE_DISTANCE = SCREEN_HEIGHT * 0.40;
 const CONTENT_OFFSET = SCREEN_HEIGHT * 0.18;
 
 // SHPE NJIT brand colors
-const BRAND_COLORS = ['#003366', '#D25627'] as const;
+const BRAND_COLORS = ['#094c8f', '#D25627'] as const;
 
 export function WelcomeCurtain() {
   const insets = useSafeAreaInsets();
@@ -77,7 +77,11 @@ export function WelcomeCurtain() {
         {/* Bottom Content */}
         <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 16 }]}>
           <Animated.View style={[styles.textContainer, animatedContentStyle]}>
-            <Text style={styles.brandLabel}>SHPE NJIT</Text>
+            <Image
+              source={require('../../assets/shpe-horizontal.webp')}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.mainText}>Una Familia</Text>
             <MaskedView
               maskElement={
@@ -110,7 +114,7 @@ export function WelcomeCurtain() {
                 end={{ x: 1, y: 0 }}
                 style={styles.arrowButton}
               >
-                <Ionicons name="arrow-down" size={22} color="#FFFFFF" />
+                <Ionicons name="arrow-down" size={30} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
@@ -144,11 +148,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 0,
   },
-  brandLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#888888',
-    marginBottom: 16,
+  brandLogo: {
+    width: 300,
+    height: 100,
+    marginBottom: -10,
   },
   mainText: {
     fontSize: 40,

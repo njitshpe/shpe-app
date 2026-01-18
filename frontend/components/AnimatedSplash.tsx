@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
+import React, { useEffect, useState, useCallback, createContext, useContext, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,9 +16,14 @@ import Animated, {
   Easing,
   runOnJS,
   SharedValue,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { Audio } from 'expo-av';
 import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
+import { Asset } from 'expo-asset';
 import Svg, {
   Defs,
   RadialGradient as SvgRadialGradient,
@@ -26,9 +31,16 @@ import Svg, {
   Circle as SvgCircle,
 } from 'react-native-svg';
 
+// Audio asset - wrapped in try/catch during loading in case file is missing
+let IGNITION_SOUND: any = null;
+try {
+  IGNITION_SOUND = require('@/assets/ignition.mp3');
+} catch (e) {
+  console.log('Ignition sound asset not found - audio branding disabled');
+}
+
 // ============================================================================
 // SPLASH READY CONTEXT
-// Allows child components to signal when the app is ready
 // ============================================================================
 interface SplashReadyContextType {
   setReady: () => void;
@@ -36,14 +48,9 @@ interface SplashReadyContextType {
 
 const SplashReadyContext = createContext<SplashReadyContextType | null>(null);
 
-/**
- * Hook for child components to signal that the app is ready.
- * Call setReady() when your critical initialization is complete.
- */
 export function useSplashReady() {
   const context = useContext(SplashReadyContext);
   if (!context) {
-    // If not wrapped in AnimatedSplash, provide a no-op
     return { setReady: () => {} };
   }
   return context;
@@ -58,7 +65,7 @@ const isExpoGo =
   Constants.executionEnvironment === 'storeClient' ||
   Constants.appOwnership === 'expo';
 
-// Skia Import Logic (only for dev builds, not Expo Go)
+// Skia Import Logic
 let Canvas: any = null;
 let Circle: any = null;
 let RadialGradient: any = null;
@@ -82,9 +89,9 @@ if (!isExpoGo) {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// NEW COLORS (SHPE PALETTE)
-const COLOR_AMBER = '#a53d00cb';  // Warm/Copper (Horizontal - Left/Right)
-const COLOR_BLUE = '#0059cdc4';   // Cool/Blue (Vertical - Top/Bottom)
+// PALETTE
+const COLOR_AMBER = '#a53d00cb';
+const COLOR_BLUE = '#0059cdc4';
 
 // ASSETS
 const whiteLogo = require('@/assets/app-logo-white-transparent.png');
@@ -102,7 +109,6 @@ const LOGO_SOURCE_SIZE =
   LOGO_SIZE_INITIAL;
 const LOGO_BASE_SCALE = LOGO_SIZE_INITIAL / Math.max(1, LOGO_SOURCE_SIZE);
 
-// GLOW CONSTANTS
 const GLOW_RADIUS = SCREEN_WIDTH * 0.2;
 
 interface AnimatedSplashProps {
@@ -111,7 +117,7 @@ interface AnimatedSplashProps {
 }
 
 // ============================================================================
-// GLOW COMPONENT - Skia version (for dev builds)
+// GLOW COMPONENT (Skia)
 // ============================================================================
 const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: SharedValue<number> }) => {
   if (!Canvas) return null;
@@ -123,8 +129,6 @@ const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: Sha
 
   const centerX = SCREEN_WIDTH / 2;
   const centerY = SCREEN_HEIGHT / 2;
-
-  // Offset for positioning the glow orbs away from center
   const glowOffset = GLOW_RADIUS * 0.6;
 
   return (
@@ -132,7 +136,7 @@ const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: Sha
       <Canvas style={StyleSheet.absoluteFill}>
         <Group>
           <Blur blur={60} />
-          {/* Blue Glow - Top (12 o'clock) */}
+          {/* Blue Glow - Top */}
           <Circle cx={centerX} cy={centerY - glowOffset} r={GLOW_RADIUS}>
             <RadialGradient
               c={vec(centerX, centerY - glowOffset)}
@@ -141,7 +145,7 @@ const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: Sha
               positions={[0, 0.5, 1]}
             />
           </Circle>
-          {/* Blue Glow - Bottom (6 o'clock) */}
+          {/* Blue Glow - Bottom */}
           <Circle cx={centerX} cy={centerY + glowOffset} r={GLOW_RADIUS}>
             <RadialGradient
               c={vec(centerX, centerY + glowOffset)}
@@ -150,7 +154,7 @@ const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: Sha
               positions={[0, 0.5, 1]}
             />
           </Circle>
-          {/* Amber Glow - Right (3 o'clock) */}
+          {/* Amber Glow - Right */}
           <Circle cx={centerX + glowOffset} cy={centerY} r={GLOW_RADIUS}>
             <RadialGradient
               c={vec(centerX + glowOffset, centerY)}
@@ -159,7 +163,7 @@ const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: Sha
               positions={[0, 0.5, 1]}
             />
           </Circle>
-          {/* Amber Glow - Left (9 o'clock) */}
+          {/* Amber Glow - Left */}
           <Circle cx={centerX - glowOffset} cy={centerY} r={GLOW_RADIUS}>
             <RadialGradient
               c={vec(centerX - glowOffset, centerY)}
@@ -175,7 +179,7 @@ const SkiaGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: Sha
 };
 
 // ============================================================================
-// GLOW COMPONENT - SVG Fallback (for Expo Go)
+// GLOW COMPONENT (SVG Fallback)
 // ============================================================================
 const FallbackGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale: SharedValue<number> }) => {
   const animatedStyle = useAnimatedStyle(() => ({
@@ -191,63 +195,27 @@ const FallbackGlow = ({ opacity, scale }: { opacity: SharedValue<number>; scale:
     <Animated.View style={[StyleSheet.absoluteFill, styles.glowContainer, animatedStyle]}>
       <Svg height={SCREEN_HEIGHT} width={SCREEN_WIDTH} style={StyleSheet.absoluteFill}>
         <Defs>
-          {/* Blue gradient for vertical glows (Top/Bottom) */}
           <SvgRadialGradient
             id="blueGlowGradient"
-            cx="50%"
-            cy="50%"
-            rx="50%"
-            ry="50%"
-            fx="50%"
-            fy="50%"
+            cx="50%" cy="50%" rx="50%" ry="50%" fx="50%" fy="50%"
           >
             <Stop offset="0%" stopColor={COLOR_BLUE} stopOpacity="0.5" />
             <Stop offset="50%" stopColor={COLOR_BLUE} stopOpacity="0.2" />
             <Stop offset="100%" stopColor={COLOR_BLUE} stopOpacity="0" />
           </SvgRadialGradient>
-          {/* Amber gradient for horizontal glows (Left/Right) */}
           <SvgRadialGradient
             id="amberGlowGradient"
-            cx="50%"
-            cy="50%"
-            rx="50%"
-            ry="50%"
-            fx="50%"
-            fy="50%"
+            cx="50%" cy="50%" rx="50%" ry="50%" fx="50%" fy="50%"
           >
             <Stop offset="0%" stopColor={COLOR_AMBER} stopOpacity="0.5" />
             <Stop offset="50%" stopColor={COLOR_AMBER} stopOpacity="0.2" />
             <Stop offset="100%" stopColor={COLOR_AMBER} stopOpacity="0" />
           </SvgRadialGradient>
         </Defs>
-        {/* Blue Glow - Top (12 o'clock) */}
-        <SvgCircle
-          cx={centerX}
-          cy={centerY - glowOffset}
-          r={GLOW_RADIUS}
-          fill="url(#blueGlowGradient)"
-        />
-        {/* Blue Glow - Bottom (6 o'clock) */}
-        <SvgCircle
-          cx={centerX}
-          cy={centerY + glowOffset}
-          r={GLOW_RADIUS}
-          fill="url(#blueGlowGradient)"
-        />
-        {/* Amber Glow - Right (3 o'clock) */}
-        <SvgCircle
-          cx={centerX + glowOffset}
-          cy={centerY}
-          r={GLOW_RADIUS}
-          fill="url(#amberGlowGradient)"
-        />
-        {/* Amber Glow - Left (9 o'clock) */}
-        <SvgCircle
-          cx={centerX - glowOffset}
-          cy={centerY}
-          r={GLOW_RADIUS}
-          fill="url(#amberGlowGradient)"
-        />
+        <SvgCircle cx={centerX} cy={centerY - glowOffset} r={GLOW_RADIUS} fill="url(#blueGlowGradient)" />
+        <SvgCircle cx={centerX} cy={centerY + glowOffset} r={GLOW_RADIUS} fill="url(#blueGlowGradient)" />
+        <SvgCircle cx={centerX + glowOffset} cy={centerY} r={GLOW_RADIUS} fill="url(#amberGlowGradient)" />
+        <SvgCircle cx={centerX - glowOffset} cy={centerY} r={GLOW_RADIUS} fill="url(#amberGlowGradient)" />
       </Svg>
     </Animated.View>
   );
@@ -264,19 +232,47 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
     shouldSkip ? 'complete' : 'waiting'
   );
   const [isReady, setIsReady] = useState(false);
+  const safetyTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Memoized callback for context - stable reference
+  // Accessibility: Check if user prefers reduced motion
+  const shouldReduceMotion = useReducedMotion();
+
+  // Audio ref for ignition sound
+  const soundRef = useRef<Audio.Sound | null>(null);
+
   const setReady = useCallback(() => {
     setIsReady(true);
   }, []);
 
-  // Shared values - all start at 0/hidden
+  // Sound playback helper
+  const playSound = useCallback(async () => {
+    try {
+      if (soundRef.current) {
+        // Set volume to 10% for subtle audio branding
+        await soundRef.current.setVolumeAsync(0.01);
+        await soundRef.current.playFromPositionAsync(0);
+      }
+    } catch (e) {
+      // Silently fail if sound playback fails
+    }
+  }, []);
+
+  // Cleanup sound on unmount
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Shared values
   const logoScale = useSharedValue(0);
   const glowScale = useSharedValue(0);
   const glowOpacity = useSharedValue(0);
   const whiteLogoOpacity = useSharedValue(0);
   const coloredLogoOpacity = useSharedValue(0);
-  const blackBgOpacity = useSharedValue(1); // Black background opacity
+  const blackBgOpacity = useSharedValue(1);
   const splashContainerOpacity = useSharedValue(1);
   const appContentOpacity = useSharedValue(0);
 
@@ -289,122 +285,123 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
   const coloredLogoStyle = useAnimatedStyle(() => ({ opacity: coloredLogoOpacity.value }));
   const blackBgStyle = useAnimatedStyle(() => ({ opacity: blackBgOpacity.value }));
 
+  // Haptic Trigger Helper
+  const triggerHaptics = () => {
+    // Check if device supports heavy impact, fallback to light
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+  };
+
   const runAnimation = useCallback(() => {
     hasShownSplashThisSession = true;
 
-    // ============================================================
-    // TIMELINE
-    // ============================================================
-    // 0ms:        Screen is black, Scale = 0
-    // 200ms:      Logo birth starts (0 -> 1)
-    // 550ms:      Glow birth starts (0 -> 1)
-    // 1150ms:     Coil/Dip starts (both shrink 1 -> 0.8)
-    //             - White logo fades out, Colored logo fades in (crossfade)
-    // 1400ms:     Ignition (glow shrinks to 0, logo explodes + fades)
-    // ~1900ms:    Complete
-    // ============================================================
+    // Play sound immediately when animation starts
+    playSound();
 
-    // TIMING CONSTANTS
+    // REDUCED MOTION: Simple crossfade animation for accessibility
+    if (shouldReduceMotion) {
+      // Set logo to full scale immediately (no complex physics)
+      logoScale.value = LOGO_BASE_SCALE > 0 ? 1 / LOGO_BASE_SCALE : 1;
+
+      // Simple crossfade: fade in white logo, then crossfade to colored
+      whiteLogoOpacity.value = withTiming(1, { duration: 300 });
+
+      coloredLogoOpacity.value = withDelay(500,
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) })
+      );
+
+      whiteLogoOpacity.value = withDelay(500,
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.quad) })
+      );
+
+      // Gentle fade out of splash
+      blackBgOpacity.value = withDelay(2200,
+        withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) })
+      );
+
+      appContentOpacity.value = withDelay(2200,
+        withTiming(1, { duration: 500 })
+      );
+
+      splashContainerOpacity.value = withDelay(2700,
+        withTiming(1, { duration: 1 }, (finished) => {
+          if (finished) {
+            runOnJS(setPhase)('finishing');
+          }
+        })
+      );
+
+      return;
+    }
+
+    // FULL ANIMATION: Complex physics-based animation
     const T_LOGO_START = 200;
-    const T_LOGO_GROW = 350;      // 200 -> 550
-
+    const T_LOGO_GROW = 350;
     const T_GLOW_START = 550;
-    const T_GLOW_GROW = 600;      // 550 -> 1150
-
+    const T_GLOW_GROW = 600;
     const T_DIP_START = 1150;
-    const T_DIP_DURATION = 250;   // 1150 -> 1400 (The Coil)
-
+    const T_DIP_DURATION = 250;
     const T_IGNITION = 1400;
-    const T_EXPLODE = 600;        // Explosion duration
-    const T_GLOW_SHRINK = 50;    // Glow shrinks to 0
+    const T_EXPLODE = 600;
+    const T_GLOW_SHRINK = 50;
 
-    // ============================================================
-    // LOGO SCALE: 0 -> 1 -> 0.8 -> 60
-    // ============================================================
+    // LOGO SCALE
     logoScale.value = withDelay(T_LOGO_START,
       withSequence(
-        // Phase 1: Birth (0 -> 1) with slight overshoot
         withTiming(1, { duration: T_LOGO_GROW, easing: Easing.out(Easing.back(1.5)) }),
-        // Wait until Dip starts
         withDelay(T_DIP_START - T_LOGO_START - T_LOGO_GROW,
           withSequence(
-            // Phase 2: Dip/Coil (1 -> 0.8)
             withTiming(0.8, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.cubic) }),
-            // Phase 3: Explode (0.8 -> 60)
             withTiming(60, { duration: T_EXPLODE, easing: EXPAND_EASING })
           )
         )
       )
     );
 
-    // ============================================================
-    // GLOW SCALE: 0 -> 1 -> 0.8 -> 0 (shrinks to nothing at ignition)
-    // ============================================================
+    // GLOW SCALE
     glowScale.value = withDelay(T_GLOW_START,
       withSequence(
-        // Phase 1: Birth (0 -> 1)
         withTiming(1, { duration: T_GLOW_GROW, easing: Easing.out(Easing.back(1.2)) }),
-        // Phase 2: Dip/Coil (1 -> 0.8) - shrinks with logo
         withTiming(0.8, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.cubic) }),
-        // Phase 3: Shrink to 0 at ignition (instead of instant opacity cut)
         withTiming(0, { duration: T_GLOW_SHRINK, easing: Easing.in(Easing.cubic) })
       )
     );
 
-    // ============================================================
-    // GLOW OPACITY: 0 -> 1 (stays visible, scale handles disappearance)
-    // ============================================================
-    glowOpacity.value = withDelay(T_GLOW_START,
-      withTiming(1, { duration: 200 })
-    );
+    // GLOW OPACITY
+    glowOpacity.value = withDelay(T_GLOW_START, withTiming(1, { duration: 200 }));
 
-    // ============================================================
-    // WHITE LOGO OPACITY: 0 -> 1 -> 0 (crossfade during Dip)
-    // Both logos visible during crossfade for smooth transition
-    // ============================================================
+    // WHITE LOGO OPACITY
     whiteLogoOpacity.value = withDelay(T_LOGO_START,
       withSequence(
-        // Fade in with logo birth
         withTiming(1, { duration: 150 }),
-        // Hold until Dip starts
         withDelay(T_DIP_START - T_LOGO_START - 150,
-          // Crossfade out during the Dip
           withTiming(0, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.quad) })
         )
       )
     );
 
-    // ============================================================
-    // COLORED LOGO OPACITY: 0 -> 1 (during Dip) -> 0 (fast fade during explode)
-    // Crossfades in as white fades out, then fades quickly during explosion
-    // ============================================================
+    // COLORED LOGO OPACITY - TRIGGER HAPTICS AT IGNITION
     coloredLogoOpacity.value = withDelay(T_DIP_START,
       withSequence(
-        // Crossfade in during the Dip (synced with white fading out)
         withTiming(1, { duration: T_DIP_DURATION, easing: Easing.inOut(Easing.quad) }),
-        // Fade out quickly as it explodes (200ms instead of 500ms)
-        withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) })
+        withDelay(0, withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) }, (finished) => {
+          if (finished) {
+            runOnJS(triggerHaptics)();
+          }
+        }))
       )
     );
 
-    // ============================================================
-    // BLACK BACKGROUND: Fade out simultaneously with colored logo
-    // ============================================================
+    // BLACK BACKGROUND
     blackBgOpacity.value = withDelay(T_IGNITION,
       withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) })
     );
 
-    // ============================================================
-    // APP CONTENT: Fade in during explosion
-    // ============================================================
+    // APP CONTENT
     appContentOpacity.value = withDelay(T_IGNITION,
       withTiming(1, { duration: 350 })
     );
 
-    // ============================================================
-    // SPLASH CONTAINER: Mark animation as done (but don't fade yet)
-    // The actual fade happens when isReady is true
-    // ============================================================
+    // MARK FINISHED
     splashContainerOpacity.value = withDelay(T_IGNITION + T_EXPLODE,
       withTiming(1, { duration: 1 }, (finished) => {
         if (finished) {
@@ -413,30 +410,64 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
       })
     );
 
-  }, []);
+  }, [shouldReduceMotion, playSound]);
 
-  // Start the animation on mount
+  // SAFETY TIMEOUT: Ensure we never get stuck on splash
+  useEffect(() => {
+    if (phase !== 'complete') {
+        // If app isn't ready after 8 seconds, force entry
+        safetyTimerRef.current = setTimeout(() => {
+            console.warn("Splash screen timed out - Forcing entry");
+            setIsReady(true);
+        }, 8000);
+    }
+    return () => {
+        if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+    };
+  }, [phase]);
+
+
+  // PRELOAD ASSETS & START
   useEffect(() => {
     if (shouldSkip) {
       SplashScreen.hideAsync();
       return;
     }
 
-    const handle = InteractionManager.runAfterInteractions(() => {
-      setTimeout(async () => {
+    const prepareResources = async () => {
+      try {
+        // Preload local images so they don't blink on render
+        await Asset.loadAsync([whiteLogo, coloredLogo]);
+
+        // Preload ignition sound for audio branding
+        if (IGNITION_SOUND) {
+          try {
+            const { sound } = await Audio.Sound.createAsync(IGNITION_SOUND);
+            soundRef.current = sound;
+          } catch (e) {
+            console.log('Audio asset missing or failed to load');
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to preload splash assets", e);
+      } finally {
         await SplashScreen.hideAsync();
         setPhase('animating');
         runAnimation();
-      }, 50);
+      }
+    };
+
+    const handle = InteractionManager.runAfterInteractions(() => {
+        prepareResources();
     });
 
     return () => handle.cancel();
-  }, [runAnimation]);
+  }, [runAnimation, shouldSkip]);
 
-  // Complete the transition when both animation is done AND app is ready
+
+  // TRANSITION OUT
   useEffect(() => {
     if (phase === 'finishing' && isReady) {
-      // Fade out the splash overlay
       splashContainerOpacity.value = withTiming(0, { duration: 200 }, (finished) => {
         if (finished) {
           runOnJS(setPhase)('complete');
@@ -446,7 +477,6 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
     }
   }, [phase, isReady, onAnimationComplete]);
 
-  // Context value - memoized to prevent unnecessary re-renders
   const contextValue = React.useMemo(() => ({ setReady }), [setReady]);
 
   if (phase === 'complete') {
@@ -462,22 +492,18 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
   return (
     <SplashReadyContext.Provider value={contextValue}>
       <View style={styles.container}>
-        {/* APP CONTENT (fades in at end) */}
         <Animated.View style={[styles.appContent, { opacity: appContentOpacity }]}>
           {children}
         </Animated.View>
 
-        {/* SPLASH OVERLAY */}
         <Animated.View
           style={[styles.overlay, { opacity: splashContainerOpacity }]}
           pointerEvents="none"
         >
+          {/* Immersive Mode: Hide status bar during splash for cinematic feel */}
+          <StatusBar style="light" hidden={true} animated={true} />
           <Animated.View style={[styles.blackBg, blackBgStyle]} />
-
-          {/* GLOW LAYER */}
           <GlowComponent opacity={glowOpacity} scale={glowScale} />
-
-          {/* LOGO LAYER */}
           <Animated.View style={[styles.logoContainer, containerTransform]}>
             <Animated.Image
               source={whiteLogo}
@@ -508,6 +534,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 9999, // Ensure splash stays on top
   },
   blackBg: {
     ...StyleSheet.absoluteFillObject,
