@@ -124,6 +124,9 @@ function mapEventRowToEvent(row: EventRow): Event {
     tags: (row.tags as EventTag[]) ?? [],
     status: isPast ? 'past' : 'upcoming',
     registration_questions: row.registration_questions ?? [],
+    points: row.points ?? 50,
+    requiresRsvp: row.requires_rsvp ?? false,
+    eventLimit: row.event_limit ?? undefined,
   };
 }
 
@@ -215,6 +218,35 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       const mappedEvents = (data ?? []).map(mapEventRowToEvent);
       console.log('[EventsContext] 🗺️  Mapped events:', mappedEvents.length);
+
+      // Fetch attendance status for the current user
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      if (currentSession?.user?.id) {
+        console.log('[EventsContext] 🎫 Fetching attendance for user:', currentSession.user.id);
+        const { data: attendanceData, error: attendanceError } = await supabase
+          .from('event_attendance')
+          .select('event_id, status')
+          .eq('user_id', currentSession.user.id);
+
+        if (!attendanceError && attendanceData) {
+          console.log('[EventsContext] ✅ Attendance found:', attendanceData.length);
+          console.log('[EventsContext] 🔍 Attendance Data Sample:', attendanceData[0]);
+
+          const attendanceMap = new Map(attendanceData.map(a => [a.event_id, a.status]));
+
+          // Merge status into events
+          mappedEvents.forEach(event => {
+            if (attendanceMap.has(event.uuid)) {
+              console.log(`[EventsContext] 🔗 Merging status for ${event.title}: ${attendanceMap.get(event.uuid)}`);
+              event.userRegistrationStatus = attendanceMap.get(event.uuid);
+            }
+          });
+        } else if (attendanceError) {
+          console.warn('[EventsContext] ⚠️ Failed to fetch attendance:', attendanceError.message);
+        }
+      }
+
       console.log('[EventsContext] 📌 First mapped event:', mappedEvents[0] ? JSON.stringify(mappedEvents[0], null, 2) : 'No events');
 
       dispatch({ type: 'SET_EVENTS', payload: mappedEvents });

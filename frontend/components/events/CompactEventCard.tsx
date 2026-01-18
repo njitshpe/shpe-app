@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Image } from 'react-native';
 import { format, isAfter, isBefore } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Event } from '@/types/events';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -22,18 +23,41 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
     isPast,
 }) => {
     const [scaleAnim] = useState(new Animated.Value(1));
+    const [pulseAnim] = useState(new Animated.Value(1)); // Start fully visible
     const { theme, isDark } = useTheme();
     const startTime = new Date(event.startTimeISO);
     const endTime = new Date(event.endTimeISO);
     const now = new Date();
 
     const isLive = isAfter(now, startTime) && isBefore(now, endTime);
+
+    useEffect(() => {
+        if (isLive) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, {
+                        toValue: 0, // Fade out completely
+                        duration: 900,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(pulseAnim, {
+                        toValue: 1, // Fade in
+                        duration: 900,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        }
+    }, [isLive]);
     const isPastByTime = isAfter(now, endTime);
     const showPastOverlay = isPast ?? isPastByTime;
 
-    // Use gradient for accent but keep it subtle
+    // Use gradient for accent extract the solid color for glow
     const gradientColors = getEventGradient(event);
-    const primaryColor = gradientColors[2].replace('0.95)', '1)').replace('0.9)', '1)');
+    const accentColor = gradientColors[2]; // e.g., 'rgba(255, 95, 5, 0.95)'
+    // Extract RGB values for shadow color
+    const rgbMatch = accentColor.match(/\d+/g);
+    const shadowColor = rgbMatch ? `rgb(${rgbMatch[0]}, ${rgbMatch[1]}, ${rgbMatch[2]})` : '#FF5F05';
 
     // Time String
     const timeString = `${format(startTime, 'h:mm a')}`;
@@ -48,6 +72,24 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
         return 'Event';
     };
     const eventTypeLabel = getEventTypeLabel();
+
+    // Helper for Status Pill
+    const getStatusConfig = () => {
+        const status = event.userRegistrationStatus;
+        if (!status) return null;
+
+        switch (status) {
+            case 'going':
+                return { label: 'GOING', color: '#22C55E', icon: 'checkmark-circle' };
+            case 'waitlist':
+                return { label: 'WAITLIST', color: '#EAB308', icon: 'time' };
+            case 'confirmed':
+                return { label: 'CONFIRMED', color: '#3B82F6', icon: 'scan-circle' };
+            default:
+                return null;
+        }
+    };
+    const statusConfig = getStatusConfig();
 
     const handlePressIn = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -75,7 +117,11 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
             <Pressable
                 style={[
                     styles.card,
-                    { backgroundColor: theme.card, borderColor: theme.border }
+                    {
+                        backgroundColor: isDark ? 'rgba(18, 18, 20, 1)' : theme.card, // Darker in dark mode
+                        borderColor: isDark ? `rgba(${rgbMatch?.[0] || 255}, ${rgbMatch?.[1] || 95}, ${rgbMatch?.[2] || 5}, 0.4)` : theme.border,
+                        shadowColor: shadowColor,
+                    }
                 ]}
                 onPress={onPress}
                 onPressIn={handlePressIn}
@@ -85,22 +131,39 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
                 <View style={styles.imageContainer}>
                     <Image source={imageSource} style={styles.image} />
                     {showPastOverlay && <View style={styles.pastOverlay} />}
+
+                    {/* Status Pill Overlay */}
+                    {statusConfig && (
+                        <View style={styles.statusPillContainer}>
+                            <BlurView
+                                intensity={40}
+                                tint="dark"
+                                style={[styles.statusPill, { borderColor: statusConfig.color }]}
+                            >
+                                <Ionicons name={statusConfig.icon as any} size={12} color={statusConfig.color} />
+                                <Text style={[styles.statusPillText, { color: statusConfig.color }]}>
+                                    {statusConfig.label}
+                                </Text>
+                            </BlurView>
+                        </View>
+                    )}
                 </View>
 
                 {/* Content Section */}
                 <View style={styles.contentContainer}>
 
-                    {/* Top row: Live/Type indicator only */}
+                    {/* Top row: Type Tag + Live indicator */}
                     <View style={styles.headerRow}>
-                        {/* Live indicator OR Type Tag */}
-                        {isLive ? (
-                            <View style={[styles.liveIndicator, { backgroundColor: '#22C55E' }]}>
-                                <View style={styles.pulseDot} />
+                        {/* Type Tag (always visible) */}
+                        <View style={[styles.typePill, { backgroundColor: isDark ? `rgba(${rgbMatch?.[0] || 255}, ${rgbMatch?.[1] || 95}, ${rgbMatch?.[2] || 5}, 0.15)` : `rgba(${rgbMatch?.[0] || 255}, ${rgbMatch?.[1] || 95}, ${rgbMatch?.[2] || 5}, 0.1)` }]}>
+                            <Text style={[styles.typeText, { color: shadowColor }]}>{eventTypeLabel}</Text>
+                        </View>
+
+                        {/* Live indicator (right side, only when live) */}
+                        {isLive && (
+                            <View style={[styles.liveIndicator]}>
+                                <Animated.View style={[styles.pulseDot, { opacity: pulseAnim }]} />
                                 <Text style={styles.liveText}>LIVE</Text>
-                            </View>
-                        ) : (
-                            <View style={[styles.typePill, { backgroundColor: isDark ? `rgba(${primaryColor.replace('rgba(', '').replace('rgb(', '').replace(')', '').split(',').slice(0, 3).join(',')}, 0.15)` : `rgba(${primaryColor.replace('rgba(', '').replace('rgb(', '').replace(')', '').split(',').slice(0, 3).join(',')}, 0.1)` }]}>
-                                <Text style={[styles.typeText, { color: primaryColor }]}>{eventTypeLabel}</Text>
                             </View>
                         )}
                     </View>
@@ -138,10 +201,7 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
                         )}
                     </View>
                 </View>
-
-                {/* Right Accent Stripe (Optional, minimal personality) */}
-                <View style={[styles.accentStripe, { backgroundColor: primaryColor }]} />
-            </Pressable >
+            </Pressable>
         </Animated.View >
     );
 };
@@ -157,16 +217,18 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
         borderWidth: 1,
-        // Minimal shadow
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        // Colored glow shadow
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.6,
+        shadowRadius: 12,
+        elevation: 4,
     },
     imageContainer: {
         width: IMAGE_WIDTH,
-        height: '100%',
+        height: CARD_HEIGHT - 16, // Account for margin
+        margin: 8,
+        borderRadius: 12,
+        overflow: 'hidden',
         backgroundColor: '#E5E7EB',
     },
     image: {
@@ -241,13 +303,32 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '500',
     },
-    accentStripe: {
-        width: 4,
-        height: '100%',
-    },
     pastOverlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    statusPillContainer: {
+        position: 'absolute',
+        bottom: 8,
+        left: 0,
+        right: 0,
+        alignItems: 'center', // Center text horizontally
+    },
+    statusPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1, // Subtle colored border
+        overflow: 'hidden', // Needed for BlurView
+    },
+    statusPillText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
 });
 
