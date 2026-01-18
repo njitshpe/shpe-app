@@ -1,0 +1,126 @@
+import React, { useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Event } from '@/types/events';
+import { format, isSameDay } from 'date-fns';
+
+// Configure Locale for custom options
+/*
+LocaleConfig.locales['en'] = {
+  monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  monthNamesShort: ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'],
+  dayNames: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  dayNamesShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  today: 'Today'
+};
+LocaleConfig.defaultLocale = 'en';
+*/
+
+interface LibraryCalendarWrapperProps {
+    currentDate: Date; // The visible month, shared state
+    selectedDate: Date | null;
+    events: Event[];
+    onDateSelect: (date: Date) => void;
+    onMonthChange: (date: Date) => void;
+}
+
+export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
+    currentDate,
+    selectedDate,
+    events,
+    onDateSelect,
+    onMonthChange,
+}) => {
+    const { theme, isDark } = useTheme();
+
+    // Transform events into markedDates for react-native-calendars lib
+    const markedDates = useMemo(() => {
+        const marks: { [key: string]: any } = {};
+
+        // Mark event days with dots (will add colors later?)
+        events.forEach(event => {
+            const dateStr = format(new Date(event.startTimeISO), 'yyyy-MM-dd');
+            if (!marks[dateStr]) {
+                marks[dateStr] = { marked: true, dotColor: theme.primary };
+            } else {
+                marks[dateStr].marked = true;
+            }
+        });
+
+        // 2. Mark selected date
+        if (selectedDate) {
+            const selectedStr = format(selectedDate, 'yyyy-MM-dd');
+            marks[selectedStr] = {
+                ...(marks[selectedStr] || {}), // Keep existing dots
+                selected: true,
+                selectedColor: theme.primary,
+                selectedTextColor: '#ffffff',
+            };
+        }
+
+        // 3. Mark today? Calendar handles today specially visually usually, 
+        // but we can override if needed. 
+
+        return marks;
+    }, [events, selectedDate, theme]);
+
+    const currentStr = format(currentDate, 'yyyy-MM-dd');
+
+    return (
+        <View style={[styles.container, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+            <Calendar
+                // forces re-render if theme changes (keeping for now, might not be needed)
+                key={`${isDark ? 'dark' : 'light'}`}
+
+                current={currentStr}
+                onDayPress={(day: DateData) => {
+                    // day.timestamp is UTC midnight
+                    // Create date from dateString to avoid timezone shifts if using timestamp
+                    const [y, m, d] = day.dateString.split('-').map(Number);
+                    const date = new Date(y, m - 1, d);
+                    onDateSelect(date);
+                }}
+                onMonthChange={(month: DateData) => {
+                    const [y, m, d] = month.dateString.split('-').map(Number);
+                    const date = new Date(y, m - 1, d);
+                    onMonthChange(date);
+                }}
+
+                // Behavior
+                enableSwipeMonths={true}
+                hideExtraDays={true}
+
+                // Styling
+                theme={{
+                    calendarBackground: theme.card,
+                    textSectionTitleColor: theme.subtext, // Mon, Tue...
+                    selectedDayBackgroundColor: theme.primary,
+                    selectedDayTextColor: '#ffffff',
+                    todayTextColor: theme.primary,
+                    dayTextColor: theme.text,
+                    textDisabledColor: theme.subtext, // Faded days
+                    dotColor: theme.primary,
+                    selectedDotColor: '#ffffff',
+                    arrowColor: theme.primary,
+                    monthTextColor: theme.text,
+                    textDayFontWeight: '500',
+                    textMonthFontWeight: '700',
+                    textDayHeaderFontWeight: '500',
+                    textDayFontSize: 16,
+                    textMonthFontSize: 18,
+                    textDayHeaderFontSize: 12,
+                }}
+
+                markedDates={markedDates}
+            />
+        </View>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: {
+        borderBottomWidth: 1,
+        paddingBottom: 5,
+    },
+});

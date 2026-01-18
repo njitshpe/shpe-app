@@ -17,10 +17,13 @@ interface EventsFeedProps {
     events: Event[];
     isRefreshing?: boolean;
     onRefresh?: () => void;
+    ListHeaderComponent?: React.ReactElement;
+    selectedDate?: Date | null;
+    currentMonth?: Date; // New prop to scope the default view
 }
 
 interface EventSection {
-    key: 'ongoing' | 'upcoming' | 'past';
+    key: 'ongoing' | 'upcoming' | 'past' | 'selected';
     title: string;
     data: Event[];
 }
@@ -29,28 +32,96 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     events,
     isRefreshing = false,
     onRefresh,
+    ListHeaderComponent,
+    selectedDate,
+    currentMonth,
 }) => {
     const router = useRouter();
     const { theme, isDark } = useTheme();
+
+    // Default grouping logic
     const { ongoingEvents, upcomingEvents, pastEvents } = useOngoingEvents(events);
 
-    const sections: EventSection[] = useMemo(() => [
-            {
-                key: 'ongoing' as const,
-                title: 'Happening Now',
-                data: ongoingEvents,
-            },
-            {
-                key: 'upcoming' as const,
-                title: 'Upcoming Events',
-                data: upcomingEvents,
-            },
-            {
-                key: 'past' as const,
-                title: 'Past Events',
-                data: pastEvents,
-            },
-    ].filter((section) => section.data.length > 0), [ongoingEvents, upcomingEvents, pastEvents]);
+    // Filtered logic for specific date selection OR current month scope
+    const filteredSections = useMemo(() => {
+        if (!selectedDate) {
+            // No specific day selected -> Show Monthly View (Scoped)
+
+            // 1. Filter events to the current month (if provided)
+            let scopedEvents = events;
+            let displayTitle = "Upcoming Events";
+
+            if (currentMonth) {
+                const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+                const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59);
+
+                scopedEvents = events.filter(e => {
+                    const eDate = new Date(e.startTimeISO);
+                    return eDate >= startOfMonth && eDate <= endOfMonth;
+                });
+
+                displayTitle = `Events in ${startOfMonth.toLocaleDateString(undefined, { month: 'long' })}`;
+            }
+
+            // Simple time sorting for the Month View
+
+            const now = new Date();
+            const ongoing = scopedEvents.filter(e => {
+                const start = new Date(e.startTimeISO);
+                const end = new Date(e.endTimeISO);
+                return start <= now && end >= now;
+            });
+
+            const future = scopedEvents.filter(e => {
+                const start = new Date(e.startTimeISO);
+                return start > now;
+            }).sort((a, b) => new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime());
+
+            const past = scopedEvents.filter(e => {
+                const end = new Date(e.endTimeISO);
+                return end < now;
+            }).sort((a, b) => new Date(b.startTimeISO).getTime() - new Date(a.startTimeISO).getTime()); // Descending for past
+
+
+            return [
+                {
+                    key: 'ongoing' as const,
+                    title: 'Happening Now',
+                    data: ongoing,
+                },
+                {
+                    key: 'upcoming' as const,
+                    title: displayTitle, // "Events in January"
+                    data: future,
+                },
+                {
+                    key: 'past' as const,
+                    title: 'Past Events', // In this month
+                    data: past,
+                },
+            ].filter((section) => section.data.length > 0);
+
+        } else {
+            // Specific Date View
+            const startOfSelected = new Date(selectedDate);
+            startOfSelected.setHours(0, 0, 0, 0);
+
+            const eventsOnDate = events.filter(e => {
+                const eDate = new Date(e.startTimeISO);
+                return eDate.getDate() === startOfSelected.getDate() &&
+                    eDate.getMonth() === startOfSelected.getMonth() &&
+                    eDate.getFullYear() === startOfSelected.getFullYear();
+            });
+
+            if (eventsOnDate.length === 0) return [];
+
+            return [{
+                key: 'selected' as const,
+                title: `Events on ${startOfSelected.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}`,
+                data: eventsOnDate
+            }];
+        }
+    }, [events, selectedDate, currentMonth]);
 
     const handleEventPress = useCallback(
         (eventId: string) => {
@@ -91,27 +162,46 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
         );
     };
 
-    const renderEmptyComponent = () => (
-        <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📅</Text>
-            <Text style={[styles.emptyText, { color: theme.text }]}>
-                No events scheduled
-            </Text>
-            <Text style={[styles.emptySubtext, { color: theme.subtext }]}>
-                Check back later for upcoming events
-            </Text>
-        </View>
-    );
+    const renderEmptyComponent = () => {
+        if (selectedDate) {
+            return (
+                <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyIcon}>zzZ</Text>
+                    <Text style={[styles.emptyText, { color: theme.text }]}>
+                        No events on this day
+                    </Text>
+                    <Text style={[styles.emptySubtext, { color: theme.subtext }]}>
+                        Select another date or check the upcoming feed
+                    </Text>
+                </View>
+            );
+        }
+        return (
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>📅</Text>
+                <Text style={[styles.emptyText, { color: theme.text }]}>
+                    No events scheduled
+                </Text>
+                <Text style={[styles.emptySubtext, { color: theme.subtext }]}>
+                    No events scheduled for this month
+                </Text>
+                <Text style={[styles.emptySubtext, { color: theme.subtext }]}>
+                    Swipe to other months to see more
+                </Text>
+            </View>
+        );
+    };
 
     return (
         <SectionList
-            sections={sections}
+            sections={filteredSections}
             renderItem={renderEvent}
             renderSectionHeader={renderSectionHeader}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             stickySectionHeadersEnabled={false}
+            ListHeaderComponent={ListHeaderComponent}
             ListEmptyComponent={renderEmptyComponent}
             refreshControl={
                 onRefresh ? (
