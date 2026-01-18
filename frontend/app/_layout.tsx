@@ -12,8 +12,8 @@ import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 import { SuccessToast } from '@/components/ui/SuccessToast';
-import { AnimatedSplash, useSplashReady } from '@/components/AnimatedSplash';
-import { UpdatePasswordSheet } from '@/components/UpdatePasswordSheet';
+import { AnimatedSplash, useSplashReady } from '@/components/auth/AnimatedSplash';
+import { UpdatePasswordSheet } from '@/components/auth/UpdatePasswordSheet';
 
 // Services
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
