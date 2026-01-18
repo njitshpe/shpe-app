@@ -4,6 +4,8 @@ import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Event } from '@/types/events';
 import { format, isSameDay } from 'date-fns';
+import { BlurView } from 'expo-blur';
+import { getEventGradient } from '@/utils/eventUtils';
 
 // Configure Locale for custom options
 /*
@@ -34,15 +36,20 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
 }) => {
     const { theme, isDark } = useTheme();
 
+
+
     // Transform events into markedDates for react-native-calendars lib
     const markedDates = useMemo(() => {
         const marks: { [key: string]: any } = {};
 
-        // Mark event days with dots (will add colors later?)
         events.forEach(event => {
             const dateStr = format(new Date(event.startTimeISO), 'yyyy-MM-dd');
+            // Get color based on event type
+            const gradient = getEventGradient(event);
+            const color = gradient[2] || theme.primary;
+
             if (!marks[dateStr]) {
-                marks[dateStr] = { marked: true, dotColor: theme.primary };
+                marks[dateStr] = { marked: true, dotColor: color };
             } else {
                 marks[dateStr].marked = true;
             }
@@ -68,9 +75,13 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
     const currentStr = format(currentMonth, 'yyyy-MM-dd');
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+        <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={[styles.container, { borderBottomColor: theme.border }]}
+        >
             <Calendar
-                // forces re-render if theme changes (keeping for now, might not be needed)
+                // forces re-render if theme changes
                 key={`${isDark ? 'dark' : 'light'}`}
 
                 current={currentStr}
@@ -82,6 +93,7 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
                     onDateSelect(date);
                 }}
                 onMonthChange={(month: DateData) => {
+                    // Prevent auto-internal navigation if we are controlling it externally
                     const [y, m, d] = month.dateString.split('-').map(Number);
                     const date = new Date(y, m - 1, d);
                     onMonthChange(date);
@@ -93,7 +105,7 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
 
                 // Styling
                 theme={{
-                    calendarBackground: theme.card,
+                    calendarBackground: 'transparent', // Important for Glass
                     textSectionTitleColor: theme.subtext, // Mon, Tue...
                     selectedDayBackgroundColor: theme.primary,
                     selectedDayTextColor: '#ffffff',
@@ -114,13 +126,14 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
 
                 markedDates={markedDates}
             />
-        </View>
+        </BlurView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        borderBottomWidth: 1,
-        paddingBottom: 5,
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 10,
     },
 });

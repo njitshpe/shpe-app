@@ -23,6 +23,7 @@ interface EventsFeedProps {
     selectedDate?: Date | null;
     currentMonth?: Date; // New prop to scope the default view
     onSelectEvent?: (event: Event) => void;
+    contentContainerStyle?: any;
 }
 
 interface EventSection {
@@ -41,6 +42,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     selectedDate,
     currentMonth,
     onSelectEvent,
+    contentContainerStyle,
 }) => {
     const router = useRouter();
     const { theme, isDark } = useTheme();
@@ -236,9 +238,9 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
             renderItem={renderEvent}
             renderSectionHeader={renderSectionHeader}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, contentContainerStyle]}
             showsVerticalScrollIndicator={false}
-            stickySectionHeadersEnabled={false}
+            stickySectionHeadersEnabled={false} // Disabled due to layout issues with absolute header
             ListHeaderComponent={ListHeaderComponent}
             ListEmptyComponent={renderEmptyComponent}
             refreshControl={
@@ -247,6 +249,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                         refreshing={isRefreshing}
                         onRefresh={onRefresh}
                         tintColor={theme.primary}
+                        progressViewOffset={100} // Push spinner down a bit
                     />
                 ) : undefined
             }
@@ -291,10 +294,10 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
     },
     dateHeaderTitle: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 20,
+        fontWeight: '700',
         marginTop: 8,
-        letterSpacing: 0, // Reduced letterSpacing
+        letterSpacing: -0.5,
     },
     sectionCount: {
         fontSize: 14,
