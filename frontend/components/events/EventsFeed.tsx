@@ -14,6 +14,7 @@ import { Event } from '@/types/events';
 import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from './CompactEventCard';
 import { useTheme } from '@/contexts/ThemeContext';
+import { MotiView } from 'moti';
 
 interface EventsFeedProps {
     events: Event[];
@@ -68,24 +69,16 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                 });
             }
 
-            // 2. Separate "Happening Now"
-            const now = new Date();
-            const ongoing = scopedEvents.filter(e => {
-                const start = new Date(e.startTimeISO);
-                const end = new Date(e.endTimeISO);
-                return start <= now && end >= now;
-            });
-
-            // 3. Group Remaining (Upcoming & Past in this month) by DATE
-            const remaining = scopedEvents.filter(e => !ongoing.includes(e));
+            // 2. Group All Events by DATE (Happening Now + Upcoming + Past)
+            // No need to separate ongoing events anymore, just sort by time and group by date.
 
             // Sort by time
-            remaining.sort((a, b) => new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime());
+            scopedEvents.sort((a, b) => new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime());
 
             // Grouping Map
             const grouped: { [key: string]: Event[] } = {};
 
-            remaining.forEach(event => {
+            scopedEvents.forEach(event => {
                 const dateKey = format(new Date(event.startTimeISO), 'yyyy-MM-dd');
                 if (!grouped[dateKey]) {
                     grouped[dateKey] = [];
@@ -94,7 +87,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
             });
 
             // Convert to Sections
-            const dateSections: EventSection[] = Object.keys(grouped).map(dateKey => {
+            const finalSections: EventSection[] = Object.keys(grouped).map(dateKey => {
                 const dateObj = parseISO(dateKey);
                 let mainTitle = '';
                 let subTitle = '';
@@ -112,25 +105,14 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
 
                 return {
                     key: dateKey,
-                    title: mainTitle, // Keeping title for compat if needed, but we'll use parts
+                    title: mainTitle,
                     mainTitle,
                     subTitle,
                     data: grouped[dateKey],
                 };
             });
 
-            // Construct Final List
-            const finalSections: EventSection[] = [];
-
-            if (ongoing.length > 0) {
-                finalSections.push({
-                    key: 'ongoing',
-                    title: 'Happening Now',
-                    data: ongoing,
-                });
-            }
-
-            return [...finalSections, ...dateSections];
+            return finalSections;
 
         } else {
             // Specific Date View (Unchanged)
@@ -168,37 +150,36 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     const renderSectionHeader = ({ section }: { section: EventSection }) => (
         <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
-                {section.key === 'ongoing' ? (
-                    <>
-                        <View style={[styles.ongoingBadge, { backgroundColor: theme.ongoingBadge }]}>
-                            <View style={styles.pulseDot} />
-                        </View>
-                        <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                            {section.title}
+                <Text style={[styles.dateHeaderTitle, { color: theme.text }]}>
+                    {section.mainTitle || section.title}
+                    {section.subTitle && (
+                        <Text style={{ color: theme.subtext, fontWeight: '400' }}>
+                            {` / ${section.subTitle}`}
                         </Text>
-                    </>
-                ) : (
-                    <Text style={[styles.dateHeaderTitle, { color: theme.text }]}>
-                        {section.mainTitle || section.title}
-                        {section.subTitle && (
-                            <Text style={{ color: theme.subtext, fontWeight: '400' }}>
-                                {` / ${section.subTitle}`}
-                            </Text>
-                        )}
-                    </Text>
-                )}
+                    )}
+                </Text>
             </View>
         </View>
     );
 
-    const renderEvent = ({ item }: { item: Event }) => {
+    const renderEvent = ({ item, index }: { item: Event; index: number }) => {
         const isPast = pastEvents.includes(item);
         return (
-            <CompactEventCard
-                event={item}
-                onPress={() => handleEventPress(item)}
-                isPast={isPast}
-            />
+            <MotiView
+                from={{ opacity: 0, translateY: 10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                transition={{
+                    type: 'timing',
+                    duration: 350,
+                    delay: index * 50, // Slight stagger for a cascading effect
+                }}
+            >
+                <CompactEventCard
+                    event={item}
+                    onPress={() => handleEventPress(item)}
+                    isPast={isPast}
+                />
+            </MotiView>
         );
     };
 
@@ -249,7 +230,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                         refreshing={isRefreshing}
                         onRefresh={onRefresh}
                         tintColor={theme.primary}
-                        progressViewOffset={100} // Push spinner down a bit
+                        progressViewOffset={150} // Push spinner down further to be visible below header
                     />
                 ) : undefined
             }
@@ -267,7 +248,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 20,
+        paddingTop: 15,
         paddingBottom: 12,
     },
     sectionTitleContainer: {
