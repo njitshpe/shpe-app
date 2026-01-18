@@ -7,7 +7,7 @@ export const EVENT_GRADIENTS = {
     workshop: ['transparent', 'rgba(0, 163, 224, 0.4)', 'rgba(0, 163, 224, 0.95)'], // SHPE Light Blue
     general: ['transparent', 'rgba(0, 122, 255, 0.4)', 'rgba(0, 122, 255, 0.95)'], // System Blue (Brighter for Dark Mode)
     corporate: ['transparent', 'rgba(103, 58, 183, 0.4)', 'rgba(103, 58, 183, 0.95)'], // Purple
-    default: ['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.9)'], // Standard Dark
+    default: ['transparent', 'rgba(255, 162, 0, 0.5)', 'rgba(246, 168, 0, 0.9)'], // Standard Dark
 };
 
 export const getEventGradient = (event: Event): string[] => {

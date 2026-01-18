@@ -18,7 +18,7 @@ LocaleConfig.defaultLocale = 'en';
 */
 
 interface LibraryCalendarWrapperProps {
-    currentDate: Date; // The visible month, shared state
+    currentMonth: Date; // The visible month, shared state
     selectedDate: Date | null;
     events: Event[];
     onDateSelect: (date: Date) => void;
@@ -26,7 +26,7 @@ interface LibraryCalendarWrapperProps {
 }
 
 export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
-    currentDate,
+    currentMonth,
     selectedDate,
     events,
     onDateSelect,
@@ -65,7 +65,7 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
         return marks;
     }, [events, selectedDate, theme]);
 
-    const currentStr = format(currentDate, 'yyyy-MM-dd');
+    const currentStr = format(currentMonth, 'yyyy-MM-dd');
 
     return (
         <View style={[styles.container, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
