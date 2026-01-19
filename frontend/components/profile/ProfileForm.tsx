@@ -4,6 +4,8 @@ import type { UserProfile } from '@/types/userProfile';
 import { formatPhoneNumber } from '@/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 interface ProfileFormProps {
   profile: UserProfile;
   onChange: (field: keyof UserProfile, value: any) => void;
@@ -26,7 +28,7 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
 
   const renderInput = (
     label: string,
-    field: keyof UserProfile | 'major' | 'graduation_year' | 'company' | 'job_title' | 'ucid' | 'phone_number' | 'linkedin_url',
+    field: keyof UserProfile | 'major' | 'graduation_year' | 'company' | 'job_title' | 'ucid' | 'phone_number' | 'linkedin_url' | 'portfolio_url' | 'university',
     placeholder: string,
     maxLength?: number,
     keyboardType: 'default' | 'email-address' | 'numeric' | 'phone-pad' = 'default',
@@ -72,6 +74,41 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
     );
   };
 
+  // Alumni graduation year - must be current year or earlier
+  const renderGraduationYearInput = () => {
+    const value = profile.graduation_year ? String(profile.graduation_year) : '';
+
+    const handleChangeText = (text: string) => {
+      const raw = text.replace(/\D/g, '');
+      const year = parseInt(raw, 10);
+
+      // Only allow years up to current year for alumni
+      if (raw.length === 4 && year > CURRENT_YEAR) {
+        onChange('graduation_year' as any, String(CURRENT_YEAR));
+      } else {
+        onChange('graduation_year' as any, raw);
+      }
+    };
+
+    return (
+      <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
+        <View style={styles.rowLabel}>
+          <Text style={[styles.label, dynamicStyles.label]}>Graduation Year</Text>
+          <Text style={[styles.limit, dynamicStyles.limit]}>Max: {CURRENT_YEAR}</Text>
+        </View>
+        <TextInput
+          style={[styles.input, dynamicStyles.input]}
+          value={value}
+          onChangeText={handleChangeText}
+          placeholder="e.g. 2020"
+          placeholderTextColor={theme.subtext}
+          maxLength={4}
+          keyboardType="numeric"
+        />
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* COMMON FIELDS */}
@@ -87,6 +124,7 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
           {renderInput('Major', 'major', 'e.g. Computer Science')}
           {renderInput('Graduation Year', 'graduation_year', 'e.g. 2025', 4, 'numeric')}
           {renderInput('UCID', 'ucid', 'e.g. yrc')}
+          {renderInput('Portfolio URL', 'portfolio_url', 'https://yourportfolio.com')}
         </>
       )}
 
@@ -94,9 +132,18 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
       {profile.user_type === 'alumni' && (
         <>
           {renderInput('Major', 'major', 'e.g. Computer Science')}
-          {renderInput('Graduation Year', 'graduation_year', 'e.g. 2020', 4, 'numeric')}
+          {renderGraduationYearInput()}
           {renderInput('Current Company', 'company', 'e.g. Google')}
           {renderInput('Current Position', 'job_title', 'e.g. Software Engineer')}
+          {renderInput('Website URL', 'portfolio_url', 'https://yourwebsite.com')}
+        </>
+      )}
+
+      {/* GUEST SPECIFIC */}
+      {profile.user_type === 'guest' && (
+        <>
+          {renderInput('Organization / School', 'university', 'e.g. MIT, Google')}
+          {renderInput('Role / Title', 'major', 'e.g. Recruiter, Student')}
         </>
       )}
     </View>

@@ -94,7 +94,7 @@ export const GeneralSettings = () => {
         style: "destructive",
         onPress: async () => {
           await supabase.auth.signOut();
-          router.replace('/(auth)/login');
+          router.replace('/(auth)/welcome');
         }
       }
     ]);
@@ -169,7 +169,7 @@ export const GeneralSettings = () => {
             text: 'OK',
             onPress: async () => {
               await supabase.auth.signOut();
-              router.replace('/(auth)/login');
+              router.replace('/(auth)/welcome');
             },
           },
         ],

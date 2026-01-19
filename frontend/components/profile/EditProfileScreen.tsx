@@ -225,29 +225,31 @@ export function EditProfileScreen({ onClose, initialData, onSave }: EditProfileS
                         onToggle={toggleInterest}
                     />
 
-                    {/* Resume Uploader */}
-                    <View style={styles.resumeSection}>
-                        {uploadingResume && (
-                            <View style={styles.uploadingIndicator}>
-                                <ActivityIndicator
-                                    size="small"
-                                    color={theme.primary}
-                                    style={styles.uploadingSpinner}
-                                />
-                                <Text style={[styles.uploadingText, { color: theme.primary }]}>
-                                    Uploading PDF...
-                                </Text>
-                            </View>
-                        )}
-                        <ResumeUploader
-                            resumeName={formData.resume_name || null}
-                            onUpload={handleResumePick}
-                            onRemove={() => {
-                                updateField('resume_url', '');
-                                updateField('resume_name', '');
-                            }}
-                        />
-                    </View>
+                    {/* Resume Uploader - Only for students */}
+                    {formData.user_type === 'student' && (
+                        <View style={styles.resumeSection}>
+                            {uploadingResume && (
+                                <View style={styles.uploadingIndicator}>
+                                    <ActivityIndicator
+                                        size="small"
+                                        color={theme.primary}
+                                        style={styles.uploadingSpinner}
+                                    />
+                                    <Text style={[styles.uploadingText, { color: theme.primary }]}>
+                                        Uploading PDF...
+                                    </Text>
+                                </View>
+                            )}
+                            <ResumeUploader
+                                resumeName={formData.resume_name || null}
+                                onUpload={handleResumePick}
+                                onRemove={() => {
+                                    updateField('resume_url', '');
+                                    updateField('resume_name', '');
+                                }}
+                            />
+                        </View>
+                    )}
 
                     {/* Bottom Spacer for Save Button */}
                     <View style={styles.bottomSpacer} />
