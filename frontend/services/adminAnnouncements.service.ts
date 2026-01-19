@@ -25,6 +25,42 @@ class AdminAnnouncementsService {
                 };
             }
 
+            const { data: authData, error: authError } = await supabase.auth.getUser();
+            if (authError || !authData.user) {
+                return {
+                    success: false,
+                    error: createError(
+                        'Announcement sent but user session is missing',
+                        'AUTH_ERROR',
+                        undefined,
+                        authError?.message
+                    ),
+                };
+            }
+
+            const { error: insertError } = await supabase
+                .from('feed_posts')
+                .insert({
+                    user_id: authData.user.id,
+                    title: title.trim(),
+                    content: message.trim(),
+                    image_urls: [],
+                    event_id: null,
+                    is_active: true,
+                    is_announcement: true,
+                });
+
+            if (insertError) {
+                console.error('Announcement insert error:', insertError);
+                return {
+                    success: false,
+                    error: createError(
+                        insertError.message || 'Failed to save announcement',
+                        'DATABASE_ERROR'
+                    ),
+                };
+            }
+
             // Check if the function itself returned an error in the JSON response
             // (Wait, invoke handles HTTP errors, but func might return explicit { error: ... })
             // Our function returns standard Response objects. supabase-js parses them.
