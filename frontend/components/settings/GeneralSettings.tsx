@@ -7,12 +7,15 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  Linking
+  Linking,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
@@ -91,8 +94,7 @@ export const GeneralSettings = () => {
         style: "destructive",
         onPress: async () => {
           await supabase.auth.signOut();
-          router.dismissAll();
-          router.replace('/(auth)/login');
+          router.replace('/(auth)/welcome');
         }
       }
     ]);
@@ -167,8 +169,7 @@ export const GeneralSettings = () => {
             text: 'OK',
             onPress: async () => {
               await supabase.auth.signOut();
-              router.dismissAll();
-              router.replace('/(auth)/login');
+              router.replace('/(auth)/welcome');
             },
           },
         ],
@@ -184,10 +185,6 @@ export const GeneralSettings = () => {
     }
   };
 
-  if (loading) {
-    return <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 50 }} />;
-  }
-
   const appName = Constants.expoConfig?.name ?? 'SHPE NJIT';
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const buildNumber =
@@ -197,292 +194,367 @@ export const GeneralSettings = () => {
       : undefined);
   const versionLabel = `Version ${version}`;
 
+  const gradientColors = isDark
+    ? (['#1a1a1a', '#000000'] as const)
+    : (['#FFFFFF', '#F2F2F7'] as const);
+
   const dynamicStyles = {
-    container: { backgroundColor: theme.background },
     sectionTitle: { color: theme.subtext },
-    card: { backgroundColor: theme.card, shadowColor: isDark ? '#000' : '#000' },
+    card: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
+      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      borderWidth: 1,
+      ...(isDark
+        ? null
+        : {
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 10,
+            elevation: 2,
+          }),
+    },
     text: { color: theme.text },
     subtext: { color: theme.subtext },
-    divider: { backgroundColor: theme.border },
-    backButton: { backgroundColor: theme.card, borderColor: theme.border },
+    divider: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+    },
+    backButton: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+      borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+      ...(isDark
+        ? null
+        : {
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 10,
+            elevation: 2,
+          }),
+    },
     backButtonText: { color: theme.text },
+    segmentedControl: {
+      backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : '#F2F2F7',
+    },
+    segmentActive: isDark
+      ? {
+          backgroundColor: 'rgba(255,255,255,0.15)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.2)',
+        }
+      : {
+          backgroundColor: '#FFFFFF',
+          shadowColor: '#000',
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 2,
+        },
   };
 
-  return (
-    <ScrollView style={[styles.container, dynamicStyles.container]}>
+  const statusBarStyle = isDark ? 'light-content' : 'dark-content';
 
-      {/* --- APPEARANCE --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-        <View style={styles.themeSelectorContainer}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E0E0E0' }]}>
-              <Ionicons name={mode === 'dark' ? "moon" : mode === 'light' ? "sunny" : "settings-sharp"} size={20} color={theme.text} />
-            </View>
-            <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
-            </View>
+  if (loading) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle={statusBarStyle} translucent backgroundColor="transparent" />
+        <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
-          <View style={[styles.segmentedControl, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
-            {(['light', 'dark', 'system'] as const).map((m) => (
-              <TouchableOpacity
-                key={m}
-                style={[
-                  styles.segmentButton,
-                  mode === m && { backgroundColor: theme.primary },
-                  mode === m && styles.segmentButtonActive,
-                ]}
-                onPress={() => setMode(m)}
-              >
-                <Text style={[styles.segmentText, { color: mode === m ? '#fff' : theme.subtext }]}>
-                  {m.charAt(0).toUpperCase() + m.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle={statusBarStyle} translucent backgroundColor="transparent" />
+      <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>SETTINGS</Text>
+        </View>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+
+        {/* --- APPEARANCE --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
+        </View>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <View style={styles.themeSelectorContainer}>
+            <View style={styles.labelContainer}>
+              <Ionicons
+                name={mode === 'dark' ? "moon" : mode === 'light' ? "sunny" : "settings-sharp"}
+                size={22}
+                color={theme.text}
+              />
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
+              </View>
+            </View>
+            <View style={[styles.segmentedControl, dynamicStyles.segmentedControl]}>
+              {(['light', 'dark', 'system'] as const).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  style={[
+                    styles.segmentButton,
+                    mode === m && dynamicStyles.segmentActive,
+                  ]}
+                  onPress={() => setMode(m)}
+                >
+                  <Text
+                    style={[
+                      styles.segmentText,
+                      { color: mode === m ? theme.text : theme.subtext },
+                    ]}
+                  >
+                    {m}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
-      </View>
 
-      {/* --- NOTIFICATIONS --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-        <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: notificationsEnabled ? '#DCFCE7' : '#F3F4F6' }]}>
+        {/* --- NOTIFICATIONS --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
+        </View>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
+            <View style={styles.labelContainer}>
               <Ionicons
                 name={notificationsEnabled ? "notifications" : "notifications-off"}
-                size={20}
-                color={notificationsEnabled ? theme.success : theme.subtext}
+                size={22}
+                color={theme.text}
               />
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>
+                  {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
+                </Text>
+                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                  {notificationsEnabled
+                    ? "Tap to manage in settings"
+                    : "Tap to allow permission"}
+                </Text>
+              </View>
             </View>
-            <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>
-                {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
-              </Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                {notificationsEnabled
-                  ? "Tap to manage in settings"
-                  : "Tap to allow permission"}
-              </Text>
-            </View>
-          </View>
 
-          {/* Visual Indicator of state */}
-          <Ionicons
-            name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"}
-            size={24}
-            color={notificationsEnabled ? theme.success : theme.subtext}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- SUPPORT --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => Linking.openURL('mailto:njitshpe@gmail.com?subject=App Support Request')}
-        >
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E0F2FE' }]}>
-              <Ionicons name="mail-outline" size={20} color={theme.text} />
-            </View>
-            <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                Report or ask questions - njitshpe@gmail.com
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- LEGAL --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
-        >
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E8F5E9' }]}>
-              <Ionicons name="document-text-outline" size={20} color={theme.text} />
-            </View>
-            <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
-        </TouchableOpacity>
-
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
-        >
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#E3F2FD' }]}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={theme.text} />
-            </View>
-            <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- PRIVACY --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => router.push('/(app)/settings/blocked-users')}
-        >
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEF3C7' }]}>
-              <Ionicons name="ban-outline" size={20} color={theme.text} />
-            </View>
-            <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                Manage users you have blocked
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
-        </TouchableOpacity>
-
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => router.push('/(app)/settings/my-reports')}
-        >
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: isDark ? '#333' : '#FEE2E2' }]}>
-              <Ionicons name="flag-outline" size={20} color={theme.text} />
-            </View>
-            <View>
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                View reports you have submitted
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={theme.subtext} />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- ACCOUNT --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
-      </View>
-      <View style={[styles.card, dynamicStyles.card]}>
-        <TouchableOpacity style={styles.row} onPress={handleLogout}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="log-out-outline" size={20} color={theme.error} />
-            </View>
-            <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
-          <View style={styles.labelContainer}>
-            <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="trash-outline" size={20} color={theme.error} />
-            </View>
-            <View>
-              <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
-              <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                Permanently delete your account and data
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={theme.error} />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- RETURN BUTTON --- */}
-      <TouchableOpacity
-        style={[styles.backButton, dynamicStyles.backButton]}
-        onPress={() => router.replace('/(tabs)/profile')}
-      >
-        <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>Return to Profile</Text>
-      </TouchableOpacity>
-
-      {/* --- FOOTER --- */}
-      <View style={styles.footer}>
-        <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
-        <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
-        <View style={styles.footerDisclaimer}>
-          <Disclaimer />
+            {/* Visual Indicator of state */}
+            <Ionicons
+              name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"}
+              size={22}
+              color={theme.text}
+            />
+          </TouchableOpacity>
         </View>
-      </View>
 
-      {/* --- DELETE ACCOUNT MODAL --- */}
-      <DeleteAccountModal
-        visible={deleteModalVisible}
-        onClose={() => setDeleteModalVisible(false)}
-        onConfirmDelete={handleDeleteAccount}
-      />
-    </ScrollView>
+        {/* --- SUPPORT --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
+        </View>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => Linking.openURL('mailto:njitshpe@gmail.com?subject=App Support Request')}
+          >
+            <View style={styles.labelContainer}>
+              <Ionicons name="mail-outline" size={22} color={theme.text} />
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
+                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                  Report or ask questions - njitshpe@gmail.com
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* --- LEGAL --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
+        </View>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
+          >
+            <View style={styles.labelContainer}>
+              <Ionicons name="document-text-outline" size={22} color={theme.text} />
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={theme.text} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, dynamicStyles.divider]} />
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
+          >
+            <View style={styles.labelContainer}>
+              <Ionicons name="shield-checkmark-outline" size={22} color={theme.text} />
+              <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* --- PRIVACY --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
+        </View>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/(app)/settings/blocked-users')}
+          >
+            <View style={styles.labelContainer}>
+              <Ionicons name="ban-outline" size={22} color={theme.text} />
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
+                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                  Manage users you have blocked
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={theme.text} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, dynamicStyles.divider]} />
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/(app)/settings/my-reports')}
+          >
+            <View style={styles.labelContainer}>
+              <Ionicons name="flag-outline" size={22} color={theme.text} />
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
+                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                  View reports you have submitted
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={theme.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* --- ACCOUNT --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
+        </View>
+        <View style={[styles.card, dynamicStyles.card]}>
+          <TouchableOpacity style={styles.row} onPress={handleLogout}>
+            <View style={styles.labelContainer}>
+              <Ionicons name="log-out-outline" size={22} color={theme.error} />
+              <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={[styles.divider, dynamicStyles.divider]} />
+
+          <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
+            <View style={styles.labelContainer}>
+              <Ionicons name="trash-outline" size={22} color={theme.error} />
+              <View>
+                <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
+                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                  Permanently delete your account and data
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={theme.error} />
+          </TouchableOpacity>
+        </View>
+
+        {/* --- RETURN BUTTON --- */}
+        <TouchableOpacity
+          style={[styles.backButton, dynamicStyles.backButton]}
+          onPress={() => router.replace('/(tabs)/profile')}
+        >
+          <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>
+            Return to Profile
+          </Text>
+        </TouchableOpacity>
+
+        {/* --- FOOTER --- */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
+          <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
+          <View style={styles.footerDisclaimer}>
+            <Disclaimer />
+          </View>
+        </View>
+
+        {/* --- DELETE ACCOUNT MODAL --- */}
+        <DeleteAccountModal
+          visible={deleteModalVisible}
+          onClose={() => setDeleteModalVisible(false)}
+          onConfirmDelete={handleDeleteAccount}
+        />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  header: {
+    paddingTop: 12,
+    paddingBottom: 8,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 14,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
   container: {
     flex: 1,
-    paddingTop: 60,
+  },
+  content: {
+    paddingTop: 8,
+    paddingBottom: 40,
   },
   sectionHeader: {
-    marginTop: 24,
-    marginBottom: 8,
-    paddingHorizontal: 16,
+    marginTop: 20,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginLeft: 12,
+    marginBottom: 8,
     textTransform: 'uppercase',
   },
   card: {
-    marginHorizontal: 16,
-    borderRadius: 12,
+    marginHorizontal: 20,
+    borderRadius: 24,
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    marginBottom: 24,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
   },
   labelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     flex: 1,
-  },
-  iconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   rowLabel: {
     fontSize: 16,
@@ -494,19 +566,21 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    marginLeft: 56,
+    marginLeft: 18,
+    marginRight: 18,
   },
   backButton: {
-    marginTop: 30,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
+    marginTop: 12,
+    marginHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 28,
     alignItems: 'center',
     borderWidth: 1,
   },
   backButtonText: {
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 15,
+    letterSpacing: 0.4,
   },
   themeSelectorContainer: {
     padding: 16,
@@ -514,9 +588,10 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 4,
     height: 40,
+    backgroundColor: 'rgba(0,0,0,0.2)',
   },
   segmentButton: {
     flex: 1,
@@ -525,15 +600,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   segmentButtonActive: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.20,
-    shadowRadius: 1.41,
-    elevation: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   segmentText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   footer: {
     marginTop: 28,
@@ -551,5 +626,10 @@ const styles = StyleSheet.create({
   },
   footerDisclaimer: {
     width: '100%',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

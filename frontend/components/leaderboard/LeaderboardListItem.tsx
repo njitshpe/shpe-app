@@ -32,14 +32,14 @@ export const LeaderboardListItem: React.FC<LeaderboardListItemProps> = ({
 
   const isCurrentUser = item.id === currentUserId;
   const rankChange = getRankChange(item.id, item.rank, previousRanks);
-  const staggerDelay = Math.min(index * 50, 500); // Max delay of 500ms
+  const staggerDelay = Math.min(index * 50, 500);
 
-  const baseBackground = isCurrentUser
-    ? isDark
-      ? 'rgba(255, 255, 255, 0.04)'
-      : 'rgba(0, 0, 0, 0.04)'
-    : 'transparent';
+  const currentUserBg = isDark ? 'rgba(255, 215, 0, 0.08)' : 'rgba(255, 215, 0, 0.05)';
+  const currentUserBorder = 'rgba(255, 215, 0, 0.2)';
+
+  const baseBackground = isCurrentUser ? currentUserBg : 'transparent';
   const highlightColor = isDark ? 'rgba(120, 160, 255, 0.25)' : 'rgba(80, 130, 255, 0.2)';
+  
   const rowBackground =
     isHighlighted && highlightAnim
       ? highlightAnim.interpolate({
@@ -75,31 +75,36 @@ export const LeaderboardListItem: React.FC<LeaderboardListItemProps> = ({
         }}
         style={styles.listRowPressable}
       >
-        {/* Transparent Row with Divider */}
         <Animated.View
           style={[
             styles.listRowFlat,
             {
-              borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+              borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
               backgroundColor: rowBackground,
+              borderWidth: isCurrentUser ? 1 : 0,
+              borderColor: isCurrentUser ? currentUserBorder : 'transparent',
+              borderRadius: isCurrentUser ? 12 : 0,
             },
           ]}
         >
-          {/* Left: Rank Number */}
           <View style={styles.rankNumberContainerFlat}>
             <Text style={[styles.rankNumberFlat, { color: theme.subtext }]}>
               {item.rank}
             </Text>
           </View>
 
-          {/* Middle: Avatar + Name/Major */}
           <View style={styles.profileSectionFlat}>
-            {/* Avatar */}
             <View style={styles.avatarSmallContainerFlat}>
               <View
                 style={[
                   styles.avatarSmallFlat,
-                  { backgroundColor: isDark ? '#444' : '#E5E7EB' },
+                  { 
+                      backgroundColor: isDark ? '#444' : '#E5E7EB',
+                      shadowColor: '#000',
+                      shadowOpacity: 0.2,
+                      shadowRadius: 8,
+                      elevation: 4,
+                  },
                 ]}
               >
                 {item.avatarUrl ? (
@@ -112,7 +117,6 @@ export const LeaderboardListItem: React.FC<LeaderboardListItemProps> = ({
               </View>
             </View>
 
-            {/* Text Column: Name + Major/Year */}
             <View style={styles.profileTextColumnFlat}>
               <Text style={[styles.listNameFlat, { color: theme.text }]} numberOfLines={1}>
                 {item.displayName}
@@ -125,17 +129,13 @@ export const LeaderboardListItem: React.FC<LeaderboardListItemProps> = ({
             </View>
           </View>
 
-          {/* Right: Points + Rank Delta */}
           <View style={styles.statsSectionFlat}>
-            {/* Points with Icon */}
             <View style={styles.pointsRowFlat}>
               <Ionicons name="star" size={12} color={theme.primary} style={{ opacity: 0.6 }} />
               <Text style={[styles.pointsTextFlat, { color: theme.text }]}>
                 {item.points.toLocaleString()}
               </Text>
             </View>
-
-            {/* Rank Change Trend */}
             {rankChange && <RankChangeIndicator change={rankChange} />}
           </View>
         </Animated.View>
@@ -147,6 +147,7 @@ export const LeaderboardListItem: React.FC<LeaderboardListItemProps> = ({
 const styles = StyleSheet.create({
   listRowWrapper: {
     marginHorizontal: SPACING.md,
+    marginVertical: 2,
   },
   listRowPressable: {
     width: '100%',
@@ -155,6 +156,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
     gap: SPACING.sm,

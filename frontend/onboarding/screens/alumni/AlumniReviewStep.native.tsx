@@ -174,7 +174,9 @@ export default function AlumniReviewStep({ data, onNext }: AlumniReviewStepProps
 
   const profileSource = data.profilePhoto?.uri
     ? { uri: data.profilePhoto.uri }
-    : require('../../../assets/app-logo-transparent.png');
+    : null;
+
+  const initials = `${data.firstName?.charAt(0) || ''}${data.lastName?.charAt(0) || ''}`.toUpperCase();
 
   const detailsLine = `Alumni • Class of ${data.graduationYear}`;
   const roleAtCompany = `${data.jobTitle} @ ${data.company}`;
@@ -207,7 +209,13 @@ export default function AlumniReviewStep({ data, onNext }: AlumniReviewStepProps
             <View style={styles.summaryCard}>
               {/* Profile Image with White Halo */}
               <View style={styles.profileHalo}>
-                <Image source={profileSource} style={styles.profileImage} />
+                {profileSource ? (
+                  <Image source={profileSource} style={styles.profileImage} />
+                ) : (
+                  <View style={styles.initialsContainer}>
+                    <Text style={styles.initials}>{initials}</Text>
+                  </View>
+                )}
               </View>
 
               {/* Name */}
@@ -319,6 +327,19 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 45,
     backgroundColor: '#000',
+  },
+  initialsContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initials: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   summaryName: {
     fontSize: 22,

@@ -7,12 +7,15 @@ import {
   RefreshControl,
   Animated,
   ViewToken,
+  StyleSheet,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
+
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderboard } from '@/hooks/leaderboard';
@@ -34,13 +37,20 @@ export default function LeaderboardScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
   const { user, profile } = useAuth();
-  const [context, setContext] = useState<LeaderboardContext>('allTime');
+  const insets = useSafeAreaInsets();
+  
+  // 1. Set Default Context to Semester (as requested)
+  const [context, setContext] = useState<LeaderboardContext>('semester');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMajor, setSelectedMajor] = useState<string | undefined>();
   const [selectedClassYear, setSelectedClassYear] = useState<number | undefined>();
+  
+  // Modal States
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showMajorModal, setShowMajorModal] = useState(false);
   const [showClassYearModal, setShowClassYearModal] = useState(false);
+  
+  // UI States
   const [userRowVisible, setUserRowVisible] = useState(false);
   const [previousRanks, setPreviousRanks] = useState<Record<string, number>>({});
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
@@ -48,13 +58,12 @@ export default function LeaderboardScreen() {
   const flatListRef = useRef<FlatList>(null);
   const highlightAnim = useRef(new Animated.Value(0)).current;
 
-  // Get leaderboard data with filters
-  const { entries, loading, error, filters, setFilters, refresh } = useLeaderboard(
+  // Data Hook
+  const { entries, loading, error, setFilters, refresh } = useLeaderboard(
     context,
     { major: selectedMajor, classYear: selectedClassYear }
   );
 
-  // Client-side search filtering (by name, major, and class year)
   const filteredEntries = useMemo(() => {
     const rawQuery = searchQuery.trim();
     if (!rawQuery) return entries;
@@ -84,17 +93,15 @@ export default function LeaderboardScreen() {
   const topThree = isSearching ? [] : filteredEntries.slice(0, 3);
   const restOfList = isSearching ? filteredEntries : filteredEntries.slice(3);
   const currentUserEntry = filteredEntries.find((entry) => entry.id === user?.id);
-  const currentUserEntryRaw = entries.find((entry) => entry.id === user?.id);
+  const currentUserEntryInFullList = entries.find((entry) => entry.id === user?.id);
 
-  // Check if current user has incomplete profile
   const hasCompleteProfile = profile
     ? Boolean(profile.first_name && profile.last_name && profile.user_type)
-    : Boolean(currentUserEntryRaw);
+    : Boolean(currentUserEntryInFullList);
 
   const shouldShowProfileBanner =
-    user && !loading && !currentUserEntryRaw && entries.length > 0 && !hasCompleteProfile;
+    user && !loading && !currentUserEntryInFullList && entries.length > 0 && !hasCompleteProfile;
 
-  // Load previous ranks from AsyncStorage
   useEffect(() => {
     const loadRanks = async () => {
       const ranks = await loadPreviousRanks(context);
@@ -103,19 +110,17 @@ export default function LeaderboardScreen() {
     loadRanks();
   }, [context]);
 
-  // Update filters when major/classYear changes
   useEffect(() => {
     setFilters({ major: selectedMajor, classYear: selectedClassYear });
   }, [selectedMajor, selectedClassYear, setFilters]);
 
-  // Save current ranks when entries change
   useEffect(() => {
     if (entries.length > 0) {
       savePreviousRanks(entries, context);
     }
   }, [entries, context]);
 
-  // Scroll to first match when search query changes
+  // Search Highlight Logic
   useEffect(() => {
     const rawQuery = searchQuery.trim();
     if (rawQuery && filteredEntries.length > 0) {
@@ -126,24 +131,21 @@ export default function LeaderboardScreen() {
 
       if (firstMatchIndex >= 0) {
         const listIndex = isSearching ? firstMatchIndex : firstMatchIndex - 3;
-        if (!isSearching && firstMatchIndex < 3) {
-          return;
-        }
+        if (!isSearching && firstMatchIndex < 3) return;
+        
         try {
           flatListRef.current?.scrollToIndex({
             index: listIndex,
             animated: true,
             viewPosition: 0.2,
           });
-        } catch (error) {
-          console.warn('Failed to scroll to search result:', error);
+        } catch {
           flatListRef.current?.scrollToOffset({
             offset: listIndex * ITEM_HEIGHT,
             animated: true,
           });
         }
 
-        // Highlight briefly
         const matchedEntry = filteredEntries[firstMatchIndex];
         setHighlightedId(matchedEntry.id);
 
@@ -164,6 +166,7 @@ export default function LeaderboardScreen() {
     }
   }, [searchQuery, filteredEntries, highlightAnim, isSearching]);
 
+  // --- Callbacks ---
   const scrollToUser = () => {
     if (!currentUserEntry) return;
 
@@ -176,8 +179,7 @@ export default function LeaderboardScreen() {
           animated: true,
           viewPosition: 0.3,
         });
-      } catch (error) {
-        console.warn('Failed to scroll to user:', error);
+      } catch {
         flatListRef.current?.scrollToOffset({
           offset: listIndex * ITEM_HEIGHT,
           animated: true,
@@ -194,9 +196,7 @@ export default function LeaderboardScreen() {
     [user?.id]
   );
 
-  const viewabilityConfig = {
-    itemVisiblePercentThreshold: 50,
-  };
+  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
   const getItemLayout = useCallback(
     (data: ArrayLike<LeaderboardEntry> | null | undefined, index: number) => ({
@@ -209,7 +209,6 @@ export default function LeaderboardScreen() {
 
   const onScrollToIndexFailed = useCallback(
     (info: { index: number; highestMeasuredFrameIndex: number; averageItemLength: number }) => {
-      console.warn('Scroll to index failed:', info);
       setTimeout(() => {
         flatListRef.current?.scrollToOffset({
           offset: info.averageItemLength * info.index,
@@ -220,7 +219,6 @@ export default function LeaderboardScreen() {
     []
   );
 
-  // Derive unique class years from entries
   const availableClassYears = useMemo(() => {
     const years = new Set<number>();
     entries.forEach((entry) => {
@@ -229,6 +227,7 @@ export default function LeaderboardScreen() {
     return Array.from(years).sort((a, b) => a - b).map(String);
   }, [entries]);
 
+  // --- Render Helpers ---
   const renderListItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => (
     <LeaderboardListItem
       item={item}
@@ -255,25 +254,22 @@ export default function LeaderboardScreen() {
       <Text style={[styles.emptySubtitle, { color: theme.subtext }]}>
         {searchQuery
           ? 'No users match your search'
-          : 'Start attending events to earn points and appear on the leaderboard!'}
+          : 'Start attending events to earn points!'}
       </Text>
     </View>
   );
 
+  // --- Main Render ---
   return (
     <View style={styles.rootContainer}>
-      {/* Atmospheric Background Gradient */}
+      {/* 2. BACKGROUND GRADIENT (Deep Void) */}
       <LinearGradient
-        colors={isDark
-          ? ['#000000', '#000000', '#000000']
-          : ['#F7FAFF', '#E9F0FF', '#DDE8FF']
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.atmosphericBackground}
+        colors={isDark ? ['#1a1a1a', '#000000'] : ['#FFFFFF', '#F5F5F5']}
+        style={StyleSheet.absoluteFill}
       />
+      <StatusBar style={isDark ? "light" : "dark"} translucent />
 
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={[]}>
         {/* Header */}
         <LeaderboardHeader
           context={context}
@@ -287,140 +283,136 @@ export default function LeaderboardScreen() {
           onClearMajor={() => setSelectedMajor(undefined)}
           onClearClassYear={() => setSelectedClassYear(undefined)}
           onShowRules={() => setShowRulesModal(true)}
+          topInset={insets.top}
         />
 
-        {error && (
-          <View style={[styles.errorBanner, { backgroundColor: theme.error + '20' }]}>
-            <Ionicons name="alert-circle" size={20} color={theme.error} />
-            <Text style={[styles.errorText, { color: theme.error }]}>
-              {error.message}
-            </Text>
-          </View>
-        )}
-
-        {/* Profile Completeness Banner */}
-        {shouldShowProfileBanner && (
-          <TouchableOpacity
-            style={[styles.profileBanner, { backgroundColor: theme.info + '20' }]}
-            onPress={() => router.push('/profile')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="person-circle-outline" size={24} color={theme.info} />
-            <View style={styles.profileBannerContent}>
-              <Text style={[styles.profileBannerTitle, { color: theme.info }]}>
-                Complete your profile to be ranked
-              </Text>
-              <Text style={[styles.profileBannerSubtitle, { color: theme.subtext }]}>
-                Tap to add your details
+          {error && (
+            <View style={[styles.errorBanner, { backgroundColor: theme.error + '20' }]}>
+              <Ionicons name="alert-circle" size={20} color={theme.error} />
+              <Text style={[styles.errorText, { color: theme.error }]}>
+                {error.message}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.info} />
-          </TouchableOpacity>
-        )}
+          )}
 
-        {loading && entries.length === 0 ? (
-          renderLoadingState()
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={restOfList}
-            keyExtractor={(item) => item.id}
-            renderItem={renderListItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            getItemLayout={getItemLayout}
-            onScrollToIndexFailed={onScrollToIndexFailed}
-            refreshControl={
-              <RefreshControl
-                refreshing={loading}
-                onRefresh={refresh}
-                tintColor={theme.primary}
-                colors={[theme.primary]}
-              />
-            }
-            ListEmptyComponent={renderEmptyState}
-            ListHeaderComponent={
-              <>
-                {/* Podium Hero Section */}
-                {topThree.length === 3 && (
-                  <View style={styles.heroBackdrop}>
-                    <View style={styles.podiumHeroContainer}>
-                      {/* Second Place - Left */}
-                      <View style={[styles.podiumSlotSide, styles.podiumSlotSecond]}>
-                        <PodiumCard entry={topThree[1]} position="second" currentUserId={user?.id} />
-                      </View>
-
-                      {/* First Place - Center (Elevated) */}
-                      <View style={styles.podiumSlotCenter}>
-                        <PodiumCard entry={topThree[0]} position="first" currentUserId={user?.id} />
-                      </View>
-
-                      {/* Third Place - Right */}
-                      <View style={[styles.podiumSlotSide, styles.podiumSlotThird]}>
-                        <PodiumCard entry={topThree[2]} position="third" currentUserId={user?.id} />
-                      </View>
-                    </View>
-                  </View>
-                )}
-              </>
-            }
-          />
-        )}
-
-        {/* Your Rank Chip */}
-        {currentUserEntry && !userRowVisible && currentUserEntry.rank > 3 && (
-          <BlurView
-            intensity={isDark ? 25 : 15}
-            tint={isDark ? 'dark' : 'light'}
-            style={[
-              styles.yourRankChip,
-              {
-                shadowColor: theme.primary,
-                shadowOpacity: 0.5,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 8,
-              }
-            ]}
-          >
+          {shouldShowProfileBanner && (
             <TouchableOpacity
-              style={styles.yourRankChipInner}
-              onPress={scrollToUser}
+              style={[styles.profileBanner, { backgroundColor: theme.info + '20' }]}
+              onPress={() => router.push('/profile')}
               activeOpacity={0.8}
             >
-              <Ionicons name="arrow-down" size={16} color={theme.primary} />
-              <Text style={[styles.yourRankChipText, { color: theme.primary }]}>
-                Your rank: #{currentUserEntry.rank}
-              </Text>
+              <Ionicons name="person-circle-outline" size={24} color={theme.info} />
+              <View style={styles.profileBannerContent}>
+                <Text style={[styles.profileBannerTitle, { color: theme.info }]}>
+                  Complete your profile
+                </Text>
+                <Text style={[styles.profileBannerSubtitle, { color: theme.subtext }]}>
+                  Tap to add your details
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.info} />
             </TouchableOpacity>
-          </BlurView>
-        )}
+          )}
 
-        {/* Major Selection Modal */}
-        <SearchableSelectionModal
-          visible={showMajorModal}
-          onClose={() => setShowMajorModal(false)}
-          onSelect={(major) => setSelectedMajor(major)}
-          options={NJIT_MAJORS}
-          selectedValue={selectedMajor}
-          title="Filter by Major"
-          placeholder="Search majors..."
-        />
+          {loading && entries.length === 0 ? (
+            renderLoadingState()
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={restOfList}
+              keyExtractor={(item) => item.id}
+              renderItem={renderListItem}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              getItemLayout={getItemLayout}
+              onScrollToIndexFailed={onScrollToIndexFailed}
+              refreshControl={
+                <RefreshControl
+                  refreshing={loading}
+                  onRefresh={refresh}
+                  tintColor={theme.primary}
+                  colors={[theme.primary]}
+                />
+              }
+              ListEmptyComponent={renderEmptyState}
+              ListHeaderComponent={
+                <>
+                  {topThree.length === 3 && (
+                    <View style={styles.heroBackdrop}>
+                      <View style={styles.podiumHeroContainer}>
+                        {/* Second Place */}
+                        <View style={[styles.podiumSlotSide, styles.podiumSlotSecond]}>
+                          <PodiumCard entry={topThree[1]} position="second" currentUserId={user?.id} />
+                        </View>
 
-        {/* Class Year Selection Modal */}
-        <SearchableSelectionModal
-          visible={showClassYearModal}
-          onClose={() => setShowClassYearModal(false)}
-          onSelect={(year) => setSelectedClassYear(Number(year))}
-          options={availableClassYears}
-          selectedValue={selectedClassYear?.toString()}
-          title="Filter by Class Year"
-          placeholder="Search years..."
-        />
+                        {/* First Place */}
+                        <View style={styles.podiumSlotCenter}>
+                          <PodiumCard entry={topThree[0]} position="first" currentUserId={user?.id} />
+                        </View>
 
-        {/* Rules Modal */}
+                        {/* Third Place */}
+                        <View style={[styles.podiumSlotSide, styles.podiumSlotThird]}>
+                          <PodiumCard entry={topThree[2]} position="third" currentUserId={user?.id} />
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </>
+              }
+            />
+          )}
+
+          {/* Floating Rank Chip */}
+          {currentUserEntry && !userRowVisible && currentUserEntry.rank > 3 && (
+            <BlurView
+              intensity={isDark ? 25 : 15}
+              tint={isDark ? 'dark' : 'light'}
+              style={[
+                styles.yourRankChip,
+                {
+                  shadowColor: theme.primary,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 8,
+                }
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.yourRankChipInner}
+                onPress={scrollToUser}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-down" size={16} color={theme.primary} />
+                <Text style={[styles.yourRankChipText, { color: theme.primary }]}>
+                  Your rank: #{currentUserEntry.rank}
+                </Text>
+              </TouchableOpacity>
+            </BlurView>
+          )}
+
+          <SearchableSelectionModal
+            visible={showMajorModal}
+            onClose={() => setShowMajorModal(false)}
+            onSelect={(major) => setSelectedMajor(major)}
+            options={NJIT_MAJORS}
+            selectedValue={selectedMajor}
+            title="Filter by Major"
+            placeholder="Search majors..."
+          />
+
+          <SearchableSelectionModal
+            visible={showClassYearModal}
+            onClose={() => setShowClassYearModal(false)}
+            onSelect={(year) => setSelectedClassYear(Number(year))}
+            options={availableClassYears}
+            selectedValue={selectedClassYear?.toString()}
+            title="Filter by Class Year"
+            placeholder="Search years..."
+          />
+
         <RulesModal
           visible={showRulesModal}
           onClose={() => setShowRulesModal(false)}
