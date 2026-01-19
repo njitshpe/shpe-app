@@ -227,7 +227,7 @@ export default function BlockedUsersScreen() {
         <Ionicons name="search" size={20} color={theme.subtext} />
         <TextInput
           style={[styles.searchInput, dynamicStyles.searchInput]}
-          placeholder="Search by name or username..."
+          placeholder="Search by name..."
           placeholderTextColor={theme.subtext}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -280,8 +280,9 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     padding: 0,
+    fontFamily: 'System',
   },
   loadingContainer: {
     flex: 1,

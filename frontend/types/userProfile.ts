@@ -1,7 +1,7 @@
 export type UserType = 'student' | 'alumni' | 'guest' | 'other';
 
 // Legacy type - kept for backward compatibility
-// New tier names come from rank_tiers table (e.g., 'Chick', 'Pollito', etc.)
+// New tier names come from rank_tiers table (e.g., '---', '---', etc.)
 export type UserRank = string;
 
 // Interest types must match the backend Database Enums exactly
@@ -21,18 +21,18 @@ export type InterestType =
 
 // Legacy options kept for backward compatibility - prefer INTERESTS_LIST from constants/interests.ts
 export const INTEREST_OPTIONS = [
-    { value: 'professional_development' as const, label: '💼 Professional Dev' },
-    { value: 'academic' as const, label: '📚 Academic Support' },
-    { value: 'wellness' as const, label: '❤️ Mental Health' },
-    { value: 'social' as const, label: '🎉 Social Events' },
-    { value: 'technology' as const, label: '💻 Tech Workshops' },
-    { value: 'volunteering' as const, label: '🌟 Community Service' },
-    { value: 'networking' as const, label: '🤝 Networking' },
-    { value: 'career' as const, label: '🧭 Career Fairs' },
-    { value: 'leadership' as const, label: '⭐ Leadership' },
-    { value: 'hackathons' as const, label: '💻 Hackathons' },
-    { value: 'research' as const, label: '🔬 Research' },
-    { value: 'entrepreneurship' as const, label: '🚀 Startup / Biz' },
+    { value: 'professional_development' as const, label: 'Professional Dev' },
+    { value: 'academic' as const, label: 'Academic Support' },
+    { value: 'wellness' as const, label: 'Mental Health' },
+    { value: 'social' as const, label: 'Social Events' },
+    { value: 'technology' as const, label: 'Tech Workshops' },
+    { value: 'volunteering' as const, label: 'Community Service' },
+    { value: 'networking' as const, label: 'Networking' },
+    { value: 'career' as const, label: 'Career Fairs' },
+    { value: 'leadership' as const, label: 'Leadership' },
+    { value: 'hackathons' as const, label: 'Hackathons' },
+    { value: 'research' as const, label: 'Research' },
+    { value: 'entrepreneurship' as const, label: 'Startup / Biz' },
 ];
 
 // Type-specific data stored in profile_data JSONB column

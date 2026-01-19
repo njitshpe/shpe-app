@@ -21,15 +21,15 @@ interface ReportModalProps {
   onClose: () => void;
   targetType: ReportTargetType;
   targetId: string;
-  targetName?: string; // Optional display name for the target (user/post author)
+  targetName?: string;
 }
 
 const REPORT_REASONS: { value: ReportReason; label: string; description: string }[] = [
-  { value: 'Spam', label: 'Spam', description: 'Unwanted or repetitive content' },
-  { value: 'Harassment', label: 'Harassment', description: 'Bullying or harassment' },
-  { value: 'Inappropriate', label: 'Inappropriate', description: 'Inappropriate or offensive content' },
-  { value: 'Hate', label: 'Hate Speech', description: 'Hateful or discriminatory content' },
-  { value: 'Other', label: 'Other', description: 'Other issue' },
+  { value: 'Spam', label: 'SPAM', description: 'Repetitive or unwanted' },
+  { value: 'Harassment', label: 'HARASSMENT', description: 'Bullying or threatening' },
+  { value: 'Inappropriate', label: 'INAPPROPRIATE', description: 'Graphic or offensive' },
+  { value: 'Hate', label: 'HATE SPEECH', description: 'Discriminatory content' },
+  { value: 'Other', label: 'OTHER', description: 'Something else' },
 ];
 
 export function ReportModal({
@@ -39,14 +39,13 @@ export function ReportModal({
   targetId,
   targetName,
 }: ReportModalProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasReported, setHasReported] = useState(false);
 
   const handleClose = () => {
-    // Reset state when closing
     setSelectedReason(null);
     setDetails('');
     setHasReported(false);
@@ -55,7 +54,7 @@ export function ReportModal({
 
   const handleSubmit = async () => {
     if (!selectedReason) {
-      Alert.alert('Required', 'Please select a reason for this report.');
+      Alert.alert('Protocol Error', 'Select a classification to proceed.');
       return;
     }
 
@@ -70,170 +69,186 @@ export function ReportModal({
 
     if (result.success) {
       setHasReported(true);
-      // Show success state briefly, then close
       setTimeout(() => {
         handleClose();
-      }, 2000);
+      }, 2500);
     } else {
-      // Check if this is a duplicate report
       if (result.error?.code === 'ALREADY_EXISTS') {
         Alert.alert(
-          'Already Reported',
-          "You already reported this. Thanks — we'll review your previous report.",
-          [{ text: 'OK', onPress: handleClose }]
+          'Already Logged',
+          "We have already received a report for this item. It is currently under review.",
+          [{ text: 'Dismiss', onPress: handleClose }]
         );
       } else {
-        Alert.alert('Error', result.error?.message || 'Failed to submit report. Please try again.');
+        Alert.alert('Submission Failed', 'Network protocol error. Please try again.');
       }
     }
   };
 
-  const title = targetType === 'post' ? 'Report Post' : 'Report User';
-  const subtitle = targetName
-    ? `Report ${targetType === 'post' ? 'this post' : `@${targetName}`}`
-    : `Report this ${targetType}`;
+  // Dynamic Styles for "Monochrome Luxury"
+  const dynamicStyles = {
+    overlay: { backgroundColor: isDark ? 'rgba(0,0,0,0.9)' : 'rgba(0,0,0,0.6)' },
+    modal: {
+      backgroundColor: isDark ? '#111111' : '#FFFFFF',
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+      borderWidth: 1,
+    },
+    headerText: { color: theme.text },
+    subText: { color: theme.subtext },
+    optionBase: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+      borderColor: 'transparent',
+    },
+    optionSelected: {
+      backgroundColor: isDark ? 'rgba(255, 59, 48, 0.15)' : 'rgba(255, 59, 48, 0.1)',
+      borderColor: theme.error,
+    },
+    input: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F9FAFB',
+      color: theme.text,
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    cancelButton: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    },
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
+        <TouchableOpacity style={[styles.overlay, dynamicStyles.overlay]} activeOpacity={1} onPress={handleClose}>
           <View
-            style={[styles.modal, { backgroundColor: theme.card }]}
+            style={[styles.modal, dynamicStyles.modal]}
             onStartShouldSetResponder={() => true}
           >
-          {hasReported ? (
-            // Success state
-            <View style={styles.successContainer}>
-              <View style={[styles.iconContainer, { backgroundColor: theme.primary + '20' }]}>
-                <Ionicons name="checkmark-circle" size={48} color={theme.primary} />
-              </View>
-              <Text style={[styles.title, { color: theme.text }]}>Report Submitted</Text>
-              <Text style={[styles.successMessage, { color: theme.subtext }]}>
-                Thank you for reporting. Your report will be reviewed within 24-72 hours.
-              </Text>
-            </View>
-          ) : (
-            <>
-              {/* Header */}
-              <View style={styles.header}>
-                <View style={[styles.iconContainer, { backgroundColor: theme.error + '20' }]}>
-                  <Ionicons name="flag" size={32} color={theme.error} />
+            {hasReported ? (
+              // --- SUCCESS STATE ---
+              <View style={styles.successContainer}>
+                <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 199, 89, 0.1)' }]}>
+                  <Ionicons name="shield-checkmark" size={48} color={theme.success} />
                 </View>
-                <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-                <Text style={[styles.subtitle, { color: theme.subtext }]}>{subtitle}</Text>
-              </View>
-
-              {/* Reason Selection */}
-              <ScrollView
-                style={styles.content}
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="none"
-                scrollEventThrottle={16}
-                nestedScrollEnabled={true}
-              >
-                <Text style={[styles.sectionLabel, { color: theme.text }]}>
-                  Why are you reporting this?
+                <Text style={[styles.successTitle, { color: theme.text }]}>REPORT LOGGED</Text>
+                <Text style={[styles.successMessage, { color: theme.subtext }]}>
+                  Protocol initiated. Our moderation team has been notified.
                 </Text>
+              </View>
+            ) : (
+              // --- FORM STATE ---
+              <>
+                {/* Header */}
+                <View style={styles.header}>
+                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(255, 59, 48, 0.1)' }]}>
+                    <Ionicons name="flag" size={28} color={theme.error} />
+                  </View>
+                  <View>
+                    <Text style={[styles.title, dynamicStyles.headerText]}>SUBMIT REPORT</Text>
+                    <Text style={[styles.subtitle, dynamicStyles.subText]}>
+                      TARGET: {targetType.toUpperCase()} {targetName ? `@${targetName.toUpperCase()}` : ''}
+                    </Text>
+                  </View>
+                </View>
 
-                {REPORT_REASONS.map((reason) => (
+                <ScrollView
+                  style={styles.content}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {/* Reason Selection */}
+                  <Text style={[styles.sectionLabel, dynamicStyles.subText]}>CLASSIFICATION</Text>
+                  
+                  <View style={styles.optionsContainer}>
+                    {REPORT_REASONS.map((reason) => {
+                      const isSelected = selectedReason === reason.value;
+                      return (
+                        <TouchableOpacity
+                          key={reason.value}
+                          style={[
+                            styles.reasonOption,
+                            dynamicStyles.optionBase,
+                            isSelected && dynamicStyles.optionSelected,
+                          ]}
+                          onPress={() => setSelectedReason(reason.value)}
+                          disabled={isLoading}
+                        >
+                          <View>
+                            <Text
+                              style={[
+                                styles.reasonLabel,
+                                { color: isSelected ? theme.error : theme.text }
+                              ]}
+                            >
+                              {reason.label}
+                            </Text>
+                            <Text style={[styles.reasonDescription, { color: theme.subtext, opacity: 0.7 }]}>
+                              {reason.description}
+                            </Text>
+                          </View>
+                          {isSelected && (
+                            <Ionicons name="alert-circle" size={20} color={theme.error} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Input */}
+                  <Text style={[styles.sectionLabel, dynamicStyles.subText, { marginTop: 24 }]}>
+                    ADDITIONAL CONTEXT
+                  </Text>
+                  <TextInput
+                    style={[styles.detailsInput, dynamicStyles.input]}
+                    placeholder="Provide details regarding this violation..."
+                    placeholderTextColor={theme.subtext}
+                    multiline
+                    numberOfLines={4}
+                    maxLength={500}
+                    value={details}
+                    onChangeText={setDetails}
+                    editable={!isLoading}
+                    textAlignVertical="top"
+                  />
+                  <Text style={[styles.characterCount, { color: theme.subtext }]}>
+                    {details.length}/500
+                  </Text>
+                </ScrollView>
+
+                {/* Footer Buttons */}
+                <View style={styles.footer}>
                   <TouchableOpacity
-                    key={reason.value}
-                    style={[
-                      styles.reasonOption,
-                      {
-                        backgroundColor: theme.background,
-                        borderColor:
-                          selectedReason === reason.value ? theme.primary : theme.border,
-                      },
-                      selectedReason === reason.value && styles.reasonOptionSelected,
-                    ]}
-                    onPress={() => setSelectedReason(reason.value)}
+                    style={[styles.button, dynamicStyles.cancelButton]}
+                    onPress={handleClose}
                     disabled={isLoading}
                   >
-                    <View style={styles.reasonContent}>
-                      <Text
-                        style={[
-                          styles.reasonLabel,
-                          {
-                            color:
-                              selectedReason === reason.value ? theme.primary : theme.text,
-                          },
-                        ]}
-                      >
-                        {reason.label}
+                    <Text style={[styles.buttonText, { color: theme.text }]}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      {
+                        backgroundColor: selectedReason ? theme.error : 'rgba(150,150,150,0.1)',
+                        opacity: selectedReason ? 1 : 0.5,
+                      },
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={isLoading || !selectedReason}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                        Submit Report
                       </Text>
-                      <Text style={[styles.reasonDescription, { color: theme.subtext }]}>
-                        {reason.description}
-                      </Text>
-                    </View>
-                    {selectedReason === reason.value && (
-                      <Ionicons name="checkmark-circle" size={24} color={theme.primary} />
                     )}
                   </TouchableOpacity>
-                ))}
-
-                {/* Optional Details */}
-                <Text style={[styles.sectionLabel, { color: theme.text, marginTop: 16 }]}>
-                  Additional details {selectedReason === 'Other' ? '(recommended)' : '(optional)'}
-                </Text>
-                <TextInput
-                  style={[
-                    styles.detailsInput,
-                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
-                  ]}
-                  placeholder="Provide more context if needed..."
-                  placeholderTextColor={theme.subtext}
-                  multiline
-                  numberOfLines={4}
-                  maxLength={500}
-                  value={details}
-                  onChangeText={setDetails}
-                  editable={!isLoading}
-                  textAlignVertical="top"
-                  scrollEnabled={false}
-                />
-                <Text style={[styles.characterCount, { color: theme.subtext }]}>
-                  {details.length}/500
-                </Text>
-              </ScrollView>
-
-              {/* Action Buttons */}
-              <View style={styles.buttons}>
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: theme.background }]}
-                  onPress={handleClose}
-                  disabled={isLoading}
-                >
-                  <Text style={[styles.buttonText, { color: theme.text }]}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    {
-                      backgroundColor: selectedReason ? theme.error : theme.border,
-                    },
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={isLoading || !selectedReason}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Submit Report</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
-      </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -242,113 +257,126 @@ export function ReportModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   modal: {
-    borderRadius: 16,
+    borderRadius: 24,
     width: '100%',
-    maxWidth: 500,
-    maxHeight: '80%',
+    maxWidth: 400,
+    maxHeight: '85%',
+    overflow: 'hidden',
+    paddingTop: 8,
   },
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
     padding: 24,
-    paddingBottom: 16,
+    paddingBottom: 20,
+    gap: 16,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 4,
-    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   subtitle: {
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   content: {
     paddingHorizontal: 24,
-    maxHeight: 400,
   },
   sectionLabel: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
     marginBottom: 12,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  optionsContainer: {
+    gap: 8,
   },
   reasonOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    borderWidth: 2,
-    marginBottom: 8,
-  },
-  reasonOptionSelected: {
-    borderWidth: 2,
-  },
-  reasonContent: {
-    flex: 1,
-    marginRight: 12,
+    borderWidth: 1,
   },
   reasonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
   reasonDescription: {
-    fontSize: 13,
+    fontSize: 11,
   },
   detailsInput: {
     borderRadius: 12,
     borderWidth: 1,
-    padding: 12,
-    fontSize: 15,
+    padding: 16,
+    fontSize: 14,
     minHeight: 100,
+    lineHeight: 20,
   },
   characterCount: {
-    fontSize: 12,
+    fontSize: 10,
     textAlign: 'right',
-    marginTop: 4,
-    marginBottom: 16,
+    marginTop: 6,
+    marginBottom: 20,
+    opacity: 0.7,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     gap: 12,
     padding: 24,
-    paddingTop: 16,
+    paddingTop: 8,
+    borderTopWidth: 0,
   },
   button: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
   },
   buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   successContainer: {
     alignItems: 'center',
-    padding: 32,
+    padding: 40,
+    paddingVertical: 60,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginTop: 20,
+    marginBottom: 8,
   },
   successMessage: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    marginTop: 8,
     lineHeight: 22,
+    opacity: 0.8,
   },
 });
