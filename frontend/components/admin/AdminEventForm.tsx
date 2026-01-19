@@ -15,6 +15,7 @@ import {
     KeyboardAvoidingView,
     Switch,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData, EventQuestion, QuestionType, adminEventsService } from '@/services/adminEvents.service';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,23 +24,23 @@ import { storageService } from '@/services/storage.service';
 import * as ImagePicker from 'expo-image-picker';
 
 interface AdminEventFormProps {
-    initialData?: Partial<CreateEventData>;
+    initialData?: Partial<CreateEventData> & { id?: string };
     onSubmit: (data: CreateEventData) => Promise<boolean>;
     onCancel: () => void;
     mode: 'create' | 'edit';
 }
 
 const NJIT_BUILDINGS = [
-    { name: 'GITC', fullName: 'Guttenberg Information Technologies Center', address: '218 Central Ave, Newark, NJ 07102' },
-    { name: 'CC', fullName: 'Campus Center', address: '150 Bleeker St, Newark, NJ 07102' },
-    { name: 'FMH', fullName: 'Faculty Memorial Hall', address: '141-153 Warren St, Newark, NJ 07103' },
-    { name: 'TIER', fullName: 'Tiernan Hall', address: '161 Warren St, Newark, NJ 07103' },
-    { name: 'CKB', fullName: 'Central King Building', address: '138 Warren St, Newark, NJ 07103' },
-    { name: 'KUPF', fullName: 'Kupfrian Hall', address: '100 Summit St, Newark, NJ 07103' },
-    { name: 'EBER', fullName: 'Eberhardt Hall', address: '323 Dr Martin Luther King Jr Blvd, Newark, NJ 07102' },
-    { name: 'ECE', fullName: 'Electrical and Computer Engineering Center', address: 'Ece Bldg, Newark, NJ 07103' },
-    { name: 'WEC', fullName: 'Wellness & Events Center', address: '100 Lock St, Newark, NJ 07103' },
-    { name: 'Other', fullName: 'Other Location', address: '' },
+    { name: 'GITC', fullName: 'Guttenberg Information Technologies Center', address: '218 Central Ave, Newark, NJ 07102', latitude: 40.74460286058541, longitude: -74.17913803608508 },
+    { name: 'CC', fullName: 'Campus Center', address: '150 Bleeker St, Newark, NJ 07102', latitude: 40.7431270192335, longitude: -74.17832429592828 },
+    { name: 'FMH', fullName: 'Faculty Memorial Hall', address: '141-153 Warren St, Newark, NJ 07103', latitude: 40.741893286743775, longitude: -74.17882652242712 },
+    { name: 'TIER', fullName: 'Tiernan Hall', address: '161 Warren St, Newark, NJ 07103', latitude: 40.74172816986461, longitude: -74.17960991918557 },
+    { name: 'CKB', fullName: 'Central King Building', address: '138 Warren St, Newark, NJ 07103', latitude: 40.742104396157394, longitude: -74.17770620932798 },
+    { name: 'KUPF', fullName: 'Kupfrian Hall', address: '100 Summit St, Newark, NJ 07103', latitude: 40.74246401265167, longitude: -74.17858368110186 },
+    { name: 'EBER', fullName: 'Eberhardt Hall', address: '323 Dr Martin Luther King Jr Blvd, Newark, NJ 07102', latitude: 40.74283846944228, longitude: -74.17703154368706 },
+    { name: 'ECE', fullName: 'Electrical and Computer Engineering Center', address: 'Ece Bldg, Newark, NJ 07103', latitude: 40.74142084729287, longitude: -74.17875382952239 },
+    { name: 'WEC', fullName: 'Wellness & Events Center', address: '100 Lock St, Newark, NJ 07103', latitude: 40.74243502605088, longitude: -74.18066386096167 },
+    { name: 'Other', fullName: 'Other Location', address: '', latitude: undefined, longitude: undefined },
 ];
 
 const QUESTION_TYPES: { type: QuestionType; label: string }[] = [
@@ -62,6 +63,8 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [description, setDescription] = useState(initialData?.description || '');
     const [locationName, setLocationName] = useState(initialData?.location_name || '');
     const [location, setLocation] = useState(initialData?.location_address || '');
+    const [latitude, setLatitude] = useState<number | undefined>(initialData?.latitude);
+    const [longitude, setLongitude] = useState<number | undefined>(initialData?.longitude);
     const [coverImageUrl, setCoverImageUrl] = useState(initialData?.cover_image_url || '');
     const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -80,6 +83,10 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [showDateTimeModal, setShowDateTimeModal] = useState(false);
     const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
     const [tempDate, setTempDate] = useState(new Date());
+
+    // Android-specific picker state
+    const [showAndroidPicker, setShowAndroidPicker] = useState(false);
+    const [androidMode, setAndroidMode] = useState<'date' | 'time'>('date');
 
     // Dynamic styles based on theme
     const dynamicStyles = {
@@ -154,7 +161,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
         if (!name.trim()) return 'Event name is required';
         if (!locationName.trim()) return 'Location name is required';
         if (endDate <= startDate) return 'End time must be after start time';
-        
+
         if (requiresRSVP) {
             for (let i = 0; i < questions.length; i++) {
                 const q = questions[i];
@@ -182,7 +189,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 const tempEventId = `temp-${Date.now()}`;
                 const uploadResult = await storageService.uploadEventPoster(tempEventId, selectedImage);
                 setUploadingImage(false);
-                
+
                 if (!uploadResult.success || !uploadResult.data) {
                     Alert.alert('Upload Error', 'Failed to upload poster image');
                     setLoading(false);
@@ -207,11 +214,13 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 requires_rsvp: requiresRSVP,
                 registration_questions: requiresRSVP ? cleanedQuestions : [],
                 event_limit: eventLimit.trim() === '' ? undefined : parseInt(eventLimit, 10),
+                latitude: latitude,
+                longitude: longitude,
             };
 
             // Call the service and capture the result
-            const result = initialData 
-                ? await adminEventsService.updateEvent(initialData.id, eventData)
+            const result = initialData
+                ? await adminEventsService.updateEvent(initialData.id!, eventData)
                 : await adminEventsService.createEvent(eventData);
 
             if (result.success) {
@@ -240,14 +249,21 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     // --- Helpers ---
     const handleImagePick = async () => {
         const result = await PhotoHelper.pickFromLibrary({ allowsEditing: false, quality: 0.8 });
-        if(result) setSelectedImage({ uri: result, width: 0, height: 0, assetId: null });
+        if (result) setSelectedImage({ uri: result, width: 0, height: 0, assetId: null });
     };
 
     const handleBuildingChange = (buildingName: string) => {
         setSelectedBuilding(buildingName);
         const building = NJIT_BUILDINGS.find(b => b.name === buildingName);
-        if (building && building.name !== 'Other') setLocation(building.address);
-        else setLocation('');
+        if (building && building.name !== 'Other') {
+            setLocation(building.address);
+            setLatitude(building.latitude);
+            setLongitude(building.longitude);
+        } else {
+            setLocation('');
+            setLatitude(undefined);
+            setLongitude(undefined);
+        }
         if (roomNumber) setLocationName(buildingName === 'Other' ? roomNumber : `${buildingName} ${roomNumber}`);
         else setLocationName(buildingName === 'Other' ? '' : buildingName);
     };
@@ -260,8 +276,48 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
     const openDateTimePicker = (field: 'start' | 'end') => {
         setEditingField(field);
-        setTempDate(field === 'start' ? startDate : endDate);
-        setShowDateTimeModal(true);
+        const currentDate = field === 'start' ? startDate : endDate;
+        setTempDate(currentDate);
+
+        if (Platform.OS === 'ios') {
+            setShowDateTimeModal(true);
+        } else {
+            setAndroidMode('date');
+            setShowAndroidPicker(true);
+        }
+    };
+
+    const onAndroidChange = (event: any, selectedDate?: Date) => {
+        if (event.type === 'dismissed') {
+            setShowAndroidPicker(false);
+            return;
+        }
+
+        if (selectedDate) {
+            const currentFieldDate = editingField === 'start' ? startDate : endDate;
+
+            if (androidMode === 'date') {
+                const newDate = new Date(currentFieldDate);
+                newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+
+                if (editingField === 'start') setStartDate(newDate);
+                else setEndDate(newDate);
+
+                // Switch to time picker
+                // Small timeout to allow state to settle/picker to close before reopening
+                setShowAndroidPicker(false);
+                setAndroidMode('time');
+                setTimeout(() => setShowAndroidPicker(true), 100);
+            } else {
+                const newDate = new Date(currentFieldDate);
+                newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+
+                if (editingField === 'start') setStartDate(newDate);
+                else setEndDate(newDate);
+
+                setShowAndroidPicker(false);
+            }
+        }
     };
 
     return (
@@ -412,10 +468,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                 </Text>
                             </View>
 
-                            <View style={styles.separator} />
-
                             {/* --- RSVP & QUESTIONS --- */}
-                            <View style={styles.separator} />
                             <View style={styles.rsvpHeader}>
                                 <Text style={[styles.sectionTitle, dynamicStyles.text]}>Registration</Text>
                                 <View style={styles.switchRow}>
@@ -500,7 +553,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                             )}
 
                                             {/* Required Toggle */}
-                                            <TouchableOpacity 
+                                            <TouchableOpacity
                                                 style={styles.requiredToggle}
                                                 onPress={() => updateQuestionField(q.id, 'required', !q.required)}
                                             >
@@ -534,23 +587,48 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* Date Time Modal */}
-            <Modal visible={showDateTimeModal} transparent animationType="fade" onRequestClose={() => setShowDateTimeModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, dynamicStyles.card]}>
-                        <Text style={[styles.modalTitle, dynamicStyles.text]}>{editingField === 'start' ? 'Start Time' : 'End Time'}</Text>
-                        <TouchableOpacity 
-                            style={[styles.button, dynamicStyles.button, { marginTop: 20 }]} 
-                            onPress={() => {
-                                if (editingField === 'start') setStartDate(new Date(startDate.getTime() + 3600000));
-                                setShowDateTimeModal(false);
-                            }}
-                        >
-                            <Text style={styles.submitButtonText}>Done</Text>
-                        </TouchableOpacity>
+            {/* Date Time Modal (iOS only) */}
+            {Platform.OS === 'ios' && (
+                <Modal visible={showDateTimeModal} transparent animationType="fade" onRequestClose={() => setShowDateTimeModal(false)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.modalContent, dynamicStyles.card]}>
+                            <Text style={[styles.modalTitle, dynamicStyles.text]}>{editingField === 'start' ? 'Start Time' : 'End Time'}</Text>
+
+                            <DateTimePicker
+                                value={tempDate}
+                                mode="datetime"
+                                display="spinner"
+                                onChange={(event, date) => date && setTempDate(date)}
+                                textColor={theme.text}
+                                themeVariant={isDark ? 'dark' : 'light'}
+                            />
+
+                            <TouchableOpacity
+                                style={[styles.button, dynamicStyles.button, { marginTop: 20 }]}
+                                onPress={() => {
+                                    if (editingField === 'start') setStartDate(tempDate);
+                                    else setEndDate(tempDate);
+                                    setShowDateTimeModal(false);
+                                }}
+                            >
+                                <Text style={styles.submitButtonText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
+            )}
+
+            {/* Android Picker */}
+            {Platform.OS === 'android' && showAndroidPicker && (
+                <DateTimePicker
+                    testID="dateTimePicker"
+                    value={editingField === 'start' ? startDate : endDate}
+                    mode={androidMode}
+                    is24Hour={false}
+                    display="default"
+                    onChange={onAndroidChange}
+                />
+            )}
         </>
     );
 }
@@ -781,15 +859,12 @@ const styles = StyleSheet.create({
     modalContent: {
         padding: 20,
         borderRadius: 20,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20,
+        alignItems: 'center',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 20,
+        marginBottom: 15,
     },
+
 });

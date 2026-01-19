@@ -47,15 +47,16 @@ export default function AttendeesPreview({
   };
 
   const dynamicStyles = {
-    container: { backgroundColor: theme.card, borderColor: theme.border },
-    text: { color: theme.text },
-    subtext: { color: theme.subtext },
-    avatarWrapper: { borderColor: theme.card, backgroundColor: theme.border },
+    // Make container transparent for glass effect
+    container: {},
+    text: { color: isDark ? '#fff' : '#000' },
+    subtext: { color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)' },
+    avatarWrapper: { borderColor: 'transparent', backgroundColor: theme.border },
     avatarFallback: { backgroundColor: theme.text },
     avatarInitials: { color: theme.background },
-    remainingCircle: { backgroundColor: theme.text },
-    remainingText: { color: theme.background },
-    iconColor: theme.subtext,
+    remainingCircle: { backgroundColor: 'rgba(255,255,255,0.2)' },
+    remainingText: { color: '#fff' },
+    iconColor: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
   };
 
   // Error state
@@ -91,8 +92,12 @@ export default function AttendeesPreview({
         <Text style={[styles.goingCount, dynamicStyles.text]}>
           {totalCount} Going
         </Text>
-        <Ionicons name="chevron-forward" size={20} color={dynamicStyles.iconColor} />
+        {/* Removed chevron as it's not in the design ref */}
       </View>
+
+      <View style={[styles.divider, { backgroundColor: 'rgba(255,255,255,0.15)' }]} />
+
+      {/* Avatars Row with +X */}
 
       {/* Avatars Row with +X */}
       {totalCount > 0 && (
@@ -135,20 +140,12 @@ export default function AttendeesPreview({
 }
 
 const AVATAR_SIZE = 40;
-const AVATAR_OVERLAP = -12;
+const AVATAR_OVERLAP = -15;
 
 const styles = StyleSheet.create({
   container: {
-    // backgroundColor removed
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    // borderColor removed
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingVertical: 8,
+    // Removed borders/shadows/background
   },
   containerPressed: {
     opacity: 0.9,
@@ -158,7 +155,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
   goingCount: {
     fontSize: 18,
@@ -186,6 +182,8 @@ const styles = StyleSheet.create({
   avatar: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
+    borderRadius: AVATAR_SIZE / 2,
   },
   avatarFallback: {
     width: '100%',
@@ -223,5 +221,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     // color removed
     fontWeight: '500',
+  },
+  divider: {
+    height: 1,
+    marginTop: 8,
+    marginBottom: 16,
   },
 });
