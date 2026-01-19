@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
-export type ReportTargetType = 'post' | 'user';
+export type ReportTargetType = 'post' | 'comment' | 'user';
 export type ReportReason = 'Spam' | 'Harassment' | 'Inappropriate' | 'Hate' | 'Other';
 export type ReportStatus = 'open' | 'reviewing' | 'actioned' | 'closed';
 

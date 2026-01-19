@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/contexts/EventsContext';
-import { eventsService, notificationService } from '@/services';
+import { eventsService, notificationService, rankService } from '@/services';
 import { fetchAnnouncementPosts } from '@/lib/feedService';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HeroEventCard } from '@/components/home/HeroEventCard';
@@ -38,7 +38,7 @@ interface MissionEvent {
 
 export default function HomeScreen() {
   const { theme, isDark } = useTheme();
-  const { profile, user } = useAuth();
+  const { user } = useAuth();
   const { isCurrentUserAdmin, isCurrentUserSuperAdmin } = useEvents();
   const router = useRouter();
 
@@ -48,18 +48,20 @@ export default function HomeScreen() {
   const [liveIntel, setLiveIntel] = useState<{ title: string; message: string } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [currentPoints, setCurrentPoints] = useState(0);
 
   // --- Logic ---
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const userId = user?.id;
-      const [upcomingResponse, myEventsResponse, announcementsResponse, badgeCount] =
+      const [upcomingResponse, myEventsResponse, announcementsResponse, badgeCount, rankResponse] =
         await Promise.all([
           eventsService.getUpcomingEvents(),
           userId ? eventsService.getUserUpcomingEvents(userId) : Promise.resolve({ success: true, data: [] }),
           fetchAnnouncementPosts(1),
           notificationService.getBadgeCount(),
+          rankService.getMyRank(),
         ]);
 
       const upcomingEvents = upcomingResponse.success ? upcomingResponse.data : [];
@@ -101,6 +103,7 @@ export default function HomeScreen() {
       }
 
       setUnreadCount(typeof badgeCount === 'number' ? badgeCount : 0);
+      setCurrentPoints(rankResponse.success ? rankResponse.data.points_total : 0);
     } catch (error) {
       console.error(error);
       setFeaturedEvent(null);
@@ -127,15 +130,14 @@ export default function HomeScreen() {
   };
 
   const { rankTitle, nextRankThreshold } = useMemo(() => {
-    const points = profile?.points ?? 0;
-    if (points < 25) {
+    if (currentPoints < 25) {
       return { rankTitle: 'Bronze Member', nextRankThreshold: 25 };
     }
-    if (points < 75) {
+    if (currentPoints < 75) {
       return { rankTitle: 'Silver Member', nextRankThreshold: 75 };
     }
-    return { rankTitle: 'Gold Member', nextRankThreshold: Math.max(points, 75) };
-  }, [profile?.points]);
+    return { rankTitle: 'Gold Member', nextRankThreshold: Math.max(currentPoints, 75) };
+  }, [currentPoints]);
 
   // --- Role Check ---
   const isAdmin = isCurrentUserAdmin || isCurrentUserSuperAdmin;
@@ -192,7 +194,7 @@ export default function HomeScreen() {
 
         {/* 5. Rank Trajectory */}
         <RankTrajectory
-          currentPoints={profile?.points ?? 0}
+          currentPoints={currentPoints}
           rankTitle={rankTitle}
           nextRankThreshold={nextRankThreshold}
           onPress={() => router.push('/(tabs)/leaderboard')}
