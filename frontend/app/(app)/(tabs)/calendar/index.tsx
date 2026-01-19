@@ -1,170 +1,259 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
 import {
     View,
     StyleSheet,
     Text,
-    ActivityIndicator,
     Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '@/contexts/EventsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { EventsFeed } from '@/components/events/EventsFeed';
-import { CalendarView } from '@/components/calendar';
+import { LibraryCalendarWrapper } from '@/components/calendar/LibraryCalendarWrapper';
+import { MonthHeroHeader } from '@/components/events/MonthHeroHeader';
+import { isSameDay, isSameMonth } from 'date-fns';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolation,
+} from 'react-native-reanimated';
 
-type ViewMode = 'calendar' | 'feed';
+const HEADER_TRIGGER_OFFSET = 300;
 
 export default function EventsScreen() {
-    const { events, isLoading, error, refetchEvents } = useEvents();
-    const { theme } = useTheme();
+    const { events, isLoading, refetchEvents } = useEvents();
+    const { theme, isDark } = useTheme();
     const router = useRouter();
-    const { view } = useLocalSearchParams<{ view?: string }>();
+    const insets = useSafeAreaInsets();
 
-    // Set initial view mode based on query parameter
-    const [viewMode, setViewMode] = useState<ViewMode>(
-        view === 'feed' ? 'feed' : 'calendar'
-    );
-    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [showCalendar, setShowCalendar] = useState(false);
+
+    const scrollY = useSharedValue(0);
+    const feedRef = useRef<any>(null);
 
     const handleQRScanPress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push('/check-in');
     };
 
-    const toggleViewMode = () => {
-        setViewMode((prev) => (prev === 'calendar' ? 'feed' : 'calendar'));
+    const handleScrollEvent = (event: any) => {
+        scrollY.value = event.nativeEvent.contentOffset.y;
     };
 
-    const handleDateSelect = (date: Date) => {
-        setSelectedDate(date);
+    useEffect(() => {
+        refetchEvents();
+    }, []);
+
+    // Handlers
+    const handleMonthChange = (date: Date) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setCurrentMonth(date);
+        setSelectedDate(null);
     };
+
+    const handleDateSelect = useCallback((date: Date) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSelectedDate((prev) => {
+            if (prev && isSameDay(date, prev)) {
+                return null;
+            }
+            return date;
+        });
+    }, []);
+
+    const nextMonth = () => {
+        const next = new Date(currentMonth);
+        next.setMonth(next.getMonth() + 1);
+        handleMonthChange(next);
+    };
+
+    const prevMonth = () => {
+        const prev = new Date(currentMonth);
+        prev.setMonth(prev.getMonth() - 1);
+        handleMonthChange(prev);
+    };
+
+    const toggleCalendar = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setShowCalendar(!showCalendar);
+    };
+
+    const monthTitle = `${currentMonth.toLocaleDateString('en-US', { month: 'long' })}`;
+
+    const stickyHeaderStyle = useAnimatedStyle(() => {
+        return {
+            opacity: interpolate(scrollY.value, [250, 300], [0, 1], Extrapolation.CLAMP),
+            transform: [
+                { translateY: interpolate(scrollY.value, [250, 300], [-10, 0], Extrapolation.CLAMP) }
+            ],
+        };
+    });
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-            {/* Header */}
-            <View style={[styles.header, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>Events</Text>
-                <Pressable
-                    onPress={toggleViewMode}
-                    style={styles.calendarButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <Ionicons
-                        name={viewMode === 'calendar' ? 'list-outline' : 'calendar-outline'}
-                        size={24}
-                        color={theme.text}
-                    />
-                </Pressable>
-            </View>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
 
-            {/* Content */}
-            {isLoading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.primary} />
-                    <Text style={[styles.loadingText, { color: theme.subtext }]}>Loading events...</Text>
-                </View>
-            ) : error ? (
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorIcon}>⚠️</Text>
-                    <Text style={[styles.errorText, { color: theme.error }]}>Failed to load events</Text>
-                    <Text style={[styles.errorSubtext, { color: theme.subtext }]}>{error}</Text>
-                </View>
-            ) : (
-                <>
-                    {viewMode === 'feed' ? (
-                        <EventsFeed
-                            events={events}
-                            isRefreshing={isLoading}
-                            onRefresh={refetchEvents}
+            {/* Events Feed */}
+            <EventsFeed
+                ref={feedRef}
+                events={events}
+                isRefreshing={isLoading}
+                onRefresh={refetchEvents}
+                selectedDate={selectedDate}
+                currentMonth={currentMonth}
+                onSelectEvent={(event) => router.push(`/event/${event.id}`)}
+                contentContainerStyle={{ paddingTop: 0 }}
+                ListHeaderComponent={
+                    <>
+                        <MonthHeroHeader
+                            currentMonth={currentMonth}
+                            onScanPress={handleQRScanPress}
+                            onCalendarPress={toggleCalendar}
+                            showCalendar={showCalendar}
                         />
-                    ) : (
-                        <CalendarView
-                            events={events}
-                            selectedDate={selectedDate}
-                            onDateSelect={handleDateSelect}
-                        />
-                    )}
-                </>
+
+                        {/* Inline Calendar (Expandable) */}
+                        {showCalendar && (
+                            <Animated.View style={[
+                                styles.calendarSection,
+                                { backgroundColor: isDark ? 'transparent' : 'rgba(0, 0, 0, 0.03)' }
+                            ]}>
+                                <LibraryCalendarWrapper
+                                    events={events}
+                                    selectedDate={selectedDate}
+                                    onDateSelect={handleDateSelect}
+                                    currentMonth={currentMonth}
+                                    onMonthChange={handleMonthChange}
+                                />
+                            </Animated.View>
+                        )}
+                    </>
+                }
+                onScroll={handleScrollEvent}
+            />
+
+            {/* Sticky Navigation Header (Shows on Scroll) */}
+            <Animated.View
+                style={[styles.header, { paddingTop: insets.top }, stickyHeaderStyle]}
+                pointerEvents="box-none"
+            >
+                <BlurView
+                    intensity={80}
+                    tint={isDark ? 'dark' : 'light'}
+                    style={[StyleSheet.absoluteFill, { borderBottomColor: theme.border, borderBottomWidth: 0.5 }]}
+                />
+                <View style={styles.headerContent}>
+                    <Text style={[styles.headerTitle, { color: theme.text }]}>
+                        {monthTitle}
+                    </Text>
+                    <View style={styles.headerButtons}>
+                        <Pressable onPress={toggleCalendar} style={styles.headerButton}>
+                            <Ionicons
+                                name="calendar-outline"
+                                size={22}
+                                color={showCalendar ? theme.primary : theme.text}
+                            />
+                        </Pressable>
+                        <Pressable onPress={handleQRScanPress} style={styles.headerButton}>
+                            <Ionicons name="qr-code-outline" size={22} color={theme.text} />
+                        </Pressable>
+                    </View>
+                </View>
+            </Animated.View>
+
+            {/* Return to Current Month Button */}
+            {!isSameMonth(currentMonth, new Date()) && (
+                <BlurView
+                    intensity={80}
+                    tint={isDark ? 'dark' : 'light'}
+                    style={[styles.floatingButtonContainer, { bottom: 40 }]}
+                >
+                    <Pressable
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            const now = new Date();
+                            setCurrentMonth(now);
+                            setSelectedDate(null);
+                        }}
+                        style={({ pressed }) => [
+                            styles.floatingButton,
+                            { borderColor: theme.primary, opacity: pressed ? 0.8 : 1 }
+                        ]}
+                    >
+                        <Text style={[styles.floatingButtonText, { color: theme.primary }]}>
+                            Return to Current Month
+                        </Text>
+                    </Pressable>
+                </BlurView>
             )}
 
-            {/* QR Scanner FAB */}
-            <Pressable
-                style={[styles.fab, { backgroundColor: theme.fabBackground }]}
-                onPress={handleQRScanPress}
-            >
-                <Ionicons name="qr-code-outline" size={28} color={theme.fabIcon} />
-            </Pressable>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#000',
+    },
+    calendarSection: {
+        paddingHorizontal: 10,
+        paddingTop: 20,
+        paddingBottom: 10,
+        marginBottom: 10,
+        borderRadius: 16,
     },
     header: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+    },
+    headerContent: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
+        paddingBottom: 12,
+        paddingTop: 8,
     },
     headerTitle: {
-        fontSize: 28,
-        fontWeight: '700',
-        letterSpacing: -0.5,
-    },
-    calendarButton: {
-        padding: 8,
-    },
-    loadingContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60,
-    },
-    loadingText: {
-        marginTop: 16,
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    errorContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 60,
-        paddingHorizontal: 40,
-    },
-    errorIcon: {
-        fontSize: 64,
-        marginBottom: 16,
-    },
-    errorText: {
         fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 8,
-        textAlign: 'center',
+        fontWeight: '700',
+        letterSpacing: -0.3,
     },
-    errorSubtext: {
-        fontSize: 14,
-        textAlign: 'center',
-        lineHeight: 20,
+    headerButtons: {
+        flexDirection: 'row',
+        gap: 12,
     },
-    fab: {
+    headerButton: {
+        padding: 6,
+    },
+    floatingButtonContainer: {
         position: 'absolute',
-        bottom: 24,
-        right: 20,
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        justifyContent: 'center',
+        alignSelf: 'center',
+        borderRadius: 20,
+        overflow: 'hidden',
+        zIndex: 50,
+    },
+    floatingButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderRadius: 20,
+        flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
+        justifyContent: 'center',
+    },
+    floatingButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
 });
