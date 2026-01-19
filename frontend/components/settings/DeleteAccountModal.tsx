@@ -137,7 +137,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 
             {/* Confirmation Input */}
             <View style={styles.section}>
-              <Text style={[styles.label, dynamicStyles.subtext]}>TYPE 'DELETE' TO CONFIRM</Text>
+              <Text style={[styles.label, dynamicStyles.subtext]}>TYPE &apos;DELETE&apos; TO CONFIRM</Text>
               <TextInput
                 style={[styles.input, dynamicStyles.input]}
                 value={confirmationText}

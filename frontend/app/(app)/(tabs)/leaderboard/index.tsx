@@ -59,12 +59,11 @@ export default function LeaderboardScreen() {
   const highlightAnim = useRef(new Animated.Value(0)).current;
 
   // Data Hook
-  const { entries, loading, error, filters, setFilters, refresh } = useLeaderboard(
+  const { entries, loading, error, setFilters, refresh } = useLeaderboard(
     context,
     { major: selectedMajor, classYear: selectedClassYear }
   );
 
-  // --- Filtering Logic (From Old Code) ---
   const filteredEntries = useMemo(() => {
     const rawQuery = searchQuery.trim();
     if (!rawQuery) return entries;
@@ -94,16 +93,15 @@ export default function LeaderboardScreen() {
   const topThree = isSearching ? [] : filteredEntries.slice(0, 3);
   const restOfList = isSearching ? filteredEntries : filteredEntries.slice(3);
   const currentUserEntry = filteredEntries.find((entry) => entry.id === user?.id);
-  const currentUserEntryRaw = entries.find((entry) => entry.id === user?.id);
+  const currentUserEntryInFullList = entries.find((entry) => entry.id === user?.id);
 
   const hasCompleteProfile = profile
     ? Boolean(profile.first_name && profile.last_name && profile.user_type)
-    : Boolean(currentUserEntryRaw);
+    : Boolean(currentUserEntryInFullList);
 
   const shouldShowProfileBanner =
-    user && !loading && !currentUserEntryRaw && entries.length > 0 && !hasCompleteProfile;
+    user && !loading && !currentUserEntryInFullList && entries.length > 0 && !hasCompleteProfile;
 
-  // --- Effects (From Old Code) ---
   useEffect(() => {
     const loadRanks = async () => {
       const ranks = await loadPreviousRanks(context);
@@ -141,7 +139,7 @@ export default function LeaderboardScreen() {
             animated: true,
             viewPosition: 0.2,
           });
-        } catch (error) {
+        } catch {
           flatListRef.current?.scrollToOffset({
             offset: listIndex * ITEM_HEIGHT,
             animated: true,
@@ -181,7 +179,7 @@ export default function LeaderboardScreen() {
           animated: true,
           viewPosition: 0.3,
         });
-      } catch (error) {
+      } catch {
         flatListRef.current?.scrollToOffset({
           offset: listIndex * ITEM_HEIGHT,
           animated: true,
