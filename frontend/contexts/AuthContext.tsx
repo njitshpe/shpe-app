@@ -26,6 +26,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  isBootstrapping: boolean; // True until initial auth check completes
   profileLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AppError | null }>;
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<{ error: AppError | null; needsEmailConfirmation?: boolean }>;
@@ -33,9 +34,12 @@ interface AuthContextType {
   signInWithApple: () => Promise<{ error: AppError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AppError | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: AppError | null }>;
   profile: UserProfile | null;
   loadProfile: (userId: string) => Promise<void>;
   updateUserMetadata: (metadata: Record<string, any>) => Promise<void>;
+  showPasswordRecovery: boolean;
+  setShowPasswordRecovery: (show: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,7 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBootstrapping, setIsBootstrapping] = useState(true); // Initial app load
   const [profileLoading, setProfileLoading] = useState(false);
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
 
   // Track if we're currently loading a profile to avoid concurrent requests
   const loadingProfileRef = React.useRef(false);
@@ -107,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         setIsLoading(false);
+        setIsBootstrapping(false);
       })
       .catch((error) => {
         console.error('Failed to get session:', error);
@@ -114,11 +121,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
         setIsLoading(false);
+        setIsBootstrapping(false);
         setProfileLoading(false);
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        // Handle PASSWORD_RECOVERY event
+        if (event === 'PASSWORD_RECOVERY') {
+          if (__DEV__) {
+            console.log('[AuthContext] PASSWORD_RECOVERY event received');
+          }
+          setShowPasswordRecovery(true);
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -440,6 +456,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Update password - called after PASSWORD_RECOVERY event
+  const updatePassword = async (newPassword: string) => {
+    try {
+      // Validate password
+      const passwordValidation = validators.isValidPassword(newPassword);
+      if (!passwordValidation.valid) {
+        return { error: passwordValidation.error! };
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        return { error: mapSupabaseError(error) };
+      }
+
+      // Close the password recovery sheet on success
+      setShowPasswordRecovery(false);
+      return { error: null };
+    } catch (error: any) {
+      console.error('Update password error:', error);
+      return {
+        error: createError(
+          'Unable to update password. Please try again.',
+          'UNKNOWN_ERROR',
+          undefined,
+          error.message
+        ),
+      };
+    }
+  };
+
   const loadProfile = async (userId: string) => {
     // Skip if we're already loading a profile for the same user
     if (loadingProfileRef.current && currentUserIdRef.current === userId) {
@@ -491,6 +540,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     isLoading,
+    isBootstrapping,
     profileLoading,
     signIn,
     signUp,
@@ -498,9 +548,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithApple,
     signOut,
     resetPassword,
+    updatePassword,
     profile,
     loadProfile,
     updateUserMetadata,
+    showPasswordRecovery,
+    setShowPasswordRecovery,
   };
 
   return (

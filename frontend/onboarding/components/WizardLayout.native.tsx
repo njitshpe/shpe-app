@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
+import { SPACING, RADIUS } from '@/constants/colors';
 import WizardBackButton from './WizardBackButton.native';
 
 export type WizardVariant = 'student' | 'alumni' | 'guest';
@@ -30,86 +30,56 @@ export default function WizardLayout({
   showConfirmation = false,
   headerRight,
   children,
-  variant = 'student',
   progressType = 'segmented',
 }: WizardLayoutProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
 
-  // Variant-specific colors
-  const getProgressColor = () => {
-    switch (variant) {
-      case 'student':
-        return SHPE_COLORS.accentBlueBright;
-      case 'alumni':
-        return '#0D9488'; // Teal
-      case 'guest':
-        return isDark ? '#8B5CF6' : '#7C3AED'; // Purple
-      default:
-        return SHPE_COLORS.accentBlueBright;
-    }
-  };
+  // 1. THE NEW AESTHETIC: Deep NJIT Red fade to Pitch Black
+  // Starts with a very dark red at the top, fades to black by 30% down the screen
+  const backgroundGradient = ['#250505', '#000000', '#000000']; 
 
-  const backgroundGradient = isDark ? GRADIENTS.darkBackground : GRADIENTS.lightBackground;
-  const progressColor = getProgressColor();
-  const progressPercentage = ((currentStep + 1) / totalSteps) * 100;
+  // 2. THE NEW ACCENT: Modern White/Grey
+  const progressColor = '#FFFFFF'; 
+  const inactiveColor = 'rgba(255, 255, 255, 0.15)';
 
   return (
     <LinearGradient
-      colors={backgroundGradient}
+      colors={backgroundGradient as any}
       style={styles.gradient}
       start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
+      end={{ x: 0.5, y: 0.35 }} // Gradient ends quickly to leave mostly black
     >
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
+        {/* Force Light Content for Status Bar (White text time/battery) */}
+        <StatusBar style="light" />
+        
         <View style={styles.container}>
+          
           {/* Progress Indicator */}
           <View style={styles.progressContainer}>
             {progressType === 'segmented' ? (
-              <>
-                <View style={styles.segmentedProgress}>
-                  {Array.from({ length: totalSteps }).map((_, index) => (
-                    <MotiView
-                      key={index}
-                      animate={{
-                        backgroundColor:
-                          index <= currentStep
-                            ? progressColor
-                            : isDark
-                              ? 'rgba(255, 255, 255, 0.2)'
-                              : theme.border,
-                      }}
-                      transition={{ type: 'timing', duration: 400 }}
-                      style={styles.progressSegment}
-                    />
-                  ))}
-                </View>
-                <Text style={[styles.progressText, { color: theme.subtext }]}>
-                  Step {currentStep + 1} of {totalSteps}
-                </Text>
-              </>
-            ) : (
-              <>
-                <View
-                  style={[
-                    styles.progressTrack,
-                    {
-                      backgroundColor: isDark
-                        ? 'rgba(255, 255, 255, 0.16)'
-                        : 'rgba(11, 22, 48, 0.12)',
-                    },
-                  ]}
-                >
+              <View style={styles.segmentedProgress}>
+                {Array.from({ length: Math.max(0, totalSteps) }).map((_, index) => (
                   <MotiView
-                    animate={{ width: `${progressPercentage}%` }}
-                    transition={{ type: 'timing', duration: 300 }}
-                    style={[styles.progressFill, { backgroundColor: progressColor }]}
+                    key={index}
+                    animate={{
+                      backgroundColor: index <= currentStep ? progressColor : inactiveColor,
+                      opacity: index <= currentStep ? 1 : 0.5,
+                    }}
+                    transition={{ type: 'timing', duration: 400 }}
+                    style={styles.progressSegment}
                   />
-                </View>
-                <Text style={[styles.progressText, { color: theme.subtext }]}>
-                  Step {currentStep + 1} of {totalSteps}
-                </Text>
-              </>
+                ))}
+              </View>
+            ) : (
+              // Bar Style
+              <View style={[styles.progressTrack, { backgroundColor: inactiveColor }]}>
+                <MotiView
+                  animate={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
+                  transition={{ type: 'timing', duration: 300 }}
+                  style={[styles.progressFill, { backgroundColor: progressColor }]}
+                />
+              </View>
             )}
           </View>
 
@@ -119,6 +89,7 @@ export default function WizardLayout({
               onPress={onBack}
               hasFormData={hasFormData}
               showConfirmation={showConfirmation}
+              color="#FFFFFF" // Force white back button
             />
             {headerRight && <View style={styles.headerRight}>{headerRight}</View>}
           </View>
@@ -134,6 +105,7 @@ export default function WizardLayout({
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
+    overflow: 'hidden', // Clip any stray absolute elements
   },
   safeArea: {
     flex: 1,
@@ -141,49 +113,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: SPACING.md,
+    backgroundColor: 'transparent', // Force transparency
   },
   progressContainer: {
     width: '100%',
     maxWidth: 448,
     alignSelf: 'center',
     marginTop: SPACING.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
   segmentedProgress: {
     flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    gap: 6,
+    marginBottom: SPACING.xs,
   },
   progressSegment: {
     flex: 1,
-    height: 4,
+    height: 3, // Thinner, more modern
     borderRadius: RADIUS.full,
   },
   progressTrack: {
-    height: 8,
+    height: 4,
     width: '100%',
-    borderRadius: 4,
+    borderRadius: RADIUS.full,
     overflow: 'hidden',
-    marginBottom: SPACING.sm,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: SPACING.xs,
+    borderRadius: RADIUS.full,
   },
   headerContainer: {
     width: '100%',
     maxWidth: 448,
     alignSelf: 'center',
     marginTop: 0,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    zIndex: 20,
   },
   headerRight: {
     marginLeft: 'auto',
@@ -191,5 +159,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     width: '100%',
+    backgroundColor: 'transparent', // Ensure no phantom background
   },
 });
