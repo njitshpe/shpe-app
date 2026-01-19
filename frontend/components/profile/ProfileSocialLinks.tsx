@@ -48,7 +48,7 @@ export function ProfileSocialLinks({
     };
 
     const handlePortfolioPress = () => {
-        const portfolioUrl = (profile as any)?.portfolio_url;
+        const portfolioUrl = getProfileValue(profile, 'portfolio_url');
         if (portfolioUrl) {
             let url = portfolioUrl;
             if (!url.startsWith('http')) url = 'https://' + url;
@@ -178,17 +178,17 @@ export function ProfileSocialLinks({
                 <TouchableOpacity
                     style={styles.socialLink}
                     onPress={handlePortfolioPress}
-                    disabled={!(profile as any)?.portfolio_url && readOnly}
+                    disabled={!getProfileValue(profile, 'portfolio_url') && readOnly}
                 >
                     <Ionicons
                         name="link-outline"
                         size={22}
-                        color={(profile as any)?.portfolio_url ? themeText : themeSubtext}
+                        color={getProfileValue(profile, 'portfolio_url') ? themeText : themeSubtext}
                     />
                     <Text style={[
                         styles.socialLinkText,
                         { color: themeText },
-                        !(profile as any)?.portfolio_url && { color: themeSubtext }
+                        !getProfileValue(profile, 'portfolio_url') && { color: themeSubtext }
                     ]}>
                         Portfolio
                     </Text>

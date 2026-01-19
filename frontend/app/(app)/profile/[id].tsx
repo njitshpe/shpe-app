@@ -63,7 +63,7 @@ export default function PublicProfileScreen() {
 
     const profileDisplay = useProfileDisplay({
         profile,
-        user: { id: id || '' } as any,
+        user: null,
         pointsTotal: rankData.points_total,
         tier: rankData.tier,
     });
