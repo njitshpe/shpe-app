@@ -29,3 +29,4 @@ export type { RoleType, AdminRole } from './adminRole.service';
 // Event-driven points system
 export { eventBus } from './eventBus.service';
 export type { ActionType, ActionEvent } from './eventBus.service';
+export { PendingCheckInService } from './pendingCheckIn.service';

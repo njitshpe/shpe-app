@@ -9,12 +9,19 @@ interface LoginScreenProps {
   onGoogleLogin?: () => void;
   onAppleLogin?: () => void;
   onEmailLogin?: () => void;
+  onGuestScan?: () => void;
+  onContinueWithPhone?: () => void;
+  onContinueWithEmail?: () => void;
+  onGuestLogin?: () => void;
 }
 
 export function LoginScreen({
   onGoogleLogin,
   onAppleLogin,
   onEmailLogin,
+  onGuestScan,
+  onContinueWithPhone, // Add this
+  onContinueWithEmail, // Add this
 }: LoginScreenProps) {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -55,6 +62,16 @@ export function LoginScreen({
             <Text style={styles.socialButtonText}>Email</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Guest Scan Button */}
+        <TouchableOpacity
+          style={styles.guestButton}
+          onPress={onGuestScan}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="qr-code-outline" size={20} color="#9E9E9E" style={styles.socialIcon} />
+          <Text style={styles.guestButtonText}>Scan Check-in QR</Text>
+        </TouchableOpacity>
 
         {/* Footer Legal Text */}
         <Text style={styles.footer}>
@@ -146,5 +163,16 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: '#DFDFDF',
+  },
+  guestButton: { // Added style
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    padding: 8,
+  },
+  guestButtonText: {
+    color: '#9E9E9E',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
