@@ -8,6 +8,91 @@ import { createError, mapSupabaseError } from '../types/errors';
 import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent, validateImageUpload } from '../utils/feed';
 import { checkPostRateLimit, recordPostCreation } from '../utils/rateLimiter';
 
+export interface AnnouncementPost {
+    id: string;
+    title?: string | null;
+    content: string;
+    createdAt: string;
+}
+
+export async function fetchAnnouncementPosts(
+    limit: number = 20
+): Promise<ServiceResponse<AnnouncementPost[]>> {
+    try {
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select('id, title, content, created_at, is_announcement, is_active')
+            .eq('is_announcement', true)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            return { success: false, error: mapSupabaseError(error) };
+        }
+
+        const announcements = (data ?? []).map((row) => ({
+            id: row.id,
+            title: (row as any).title ?? null,
+            content: row.content,
+            createdAt: row.created_at,
+        }));
+
+        return { success: true, data: announcements };
+    } catch (error) {
+        return {
+            success: false,
+            error: createError(
+                'Failed to fetch announcements',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
+        };
+    }
+}
+
+export async function fetchLatestAnnouncement(): Promise<ServiceResponse<AnnouncementPost | null>> {
+    try {
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select('id, title, content, created_at, is_announcement, is_active')
+            .eq('is_announcement', true)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            return { success: false, error: mapSupabaseError(error) };
+        }
+
+        if (!data) {
+            return { success: true, data: null };
+        }
+
+        return {
+            success: true,
+            data: {
+                id: data.id,
+                title: (data as any).title ?? null,
+                content: data.content,
+                createdAt: data.created_at,
+            },
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: createError(
+                'Failed to fetch latest announcement',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
+        };
+    }
+}
+
 /**
  * Fetches a single post by ID
  */
