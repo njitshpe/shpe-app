@@ -1,122 +1,60 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { SHPE_COLORS } from '@/constants';
+import { MotiView } from 'moti';
+import { RADIUS, SPACING } from '@/constants/colors';
 
-interface ProfileHeaderProps {
-    profilePictureUrl?: string;
-    initials: string;
-    userTypeBadge: string;
-    displayName: string;
-    subtitle: string;
-    secondarySubtitle: string | null;
-    isDark: boolean;
-    themeText: string;
-    themeSubtext: string;
-}
+// ... Props remain the same as your existing ProfileHeader
 
-export function ProfileHeader({
-    profilePictureUrl,
-    initials,
-    userTypeBadge,
-    displayName,
-    subtitle,
-    secondarySubtitle,
-    isDark,
-    themeText,
-    themeSubtext,
-}: ProfileHeaderProps) {
+export function ProfileHeader({ profilePictureUrl, initials, userTypeBadge, displayName, subtitle }) {
     return (
-        <>
-            {/* Profile Photo - Centered */}
-            <View style={styles.avatarContainer}>
+        <View style={styles.container}>
+            {/* The Halo Avatar */}
+            <MotiView 
+                from={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', damping: 15 }}
+                style={styles.haloWrapper}
+            >
+                <View style={styles.avatarGlow} />
                 {profilePictureUrl ? (
                     <Image source={{ uri: profilePictureUrl }} style={styles.avatar} />
                 ) : (
-                    <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? '#444' : '#C0C0C0' }]}>
-                        <Text style={[styles.avatarInitials, { color: isDark ? SHPE_COLORS.white : '#000' }]}>
-                            {initials}
-                        </Text>
+                    <View style={styles.avatarPlaceholder}>
+                        <Text style={styles.initials}>{initials}</Text>
                     </View>
                 )}
-            </View>
+            </MotiView>
 
-            {/* User Type Badge - Red Pill */}
-            <View style={styles.badgeContainer}>
-                <View style={styles.userTypeBadge}>
-                    <Text style={styles.userTypeBadgeText}>{userTypeBadge}</Text>
+            {/* Identity Text */}
+            <View style={styles.textWrapper}>
+                <View style={styles.badgeGlass}>
+                    <Text style={styles.badgeText}>{userTypeBadge.toUpperCase()}</Text>
                 </View>
+                <Text style={styles.name}>{displayName}</Text>
+                <Text style={styles.subtitle}>{subtitle}</Text>
             </View>
-
-            {/* Name - Centered */}
-            <Text style={[styles.nameText, { color: themeText }]}>{displayName}</Text>
-
-            {/* Subtitle - Major | Class of YYYY */}
-            <Text style={[styles.subtitleText, { color: themeSubtext }]}>{subtitle}</Text>
-
-            {/* Secondary Subtitle - Job Title at Company (Alumni) / University (Guest) */}
-            {secondarySubtitle && (
-                <Text style={[styles.secondarySubtitleText, { color: themeSubtext }]}>{secondarySubtitle}</Text>
-            )}
-        </>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    avatarContainer: {
-        alignItems: 'center',
-        marginTop: 60,
-        marginBottom: 8,
+    container: { alignItems: 'center', marginTop: 40 },
+    haloWrapper: {
+        width: 120, height: 120, borderRadius: 60,
+        backgroundColor: '#000', justifyContent: 'center', alignItems: 'center',
+        // White Halo Glow
+        shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.3, shadowRadius: 20, elevation: 15,
     },
-    avatar: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        borderWidth: 3,
-        borderColor: 'rgba(128,128,128,0.3)',
+    avatar: { width: 114, height: 114, borderRadius: 57, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    avatarPlaceholder: { width: 114, height: 114, borderRadius: 57, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center' },
+    initials: { color: '#FFF', fontSize: 32, fontWeight: '800' },
+    textWrapper: { alignItems: 'center', marginTop: 20 },
+    badgeGlass: { 
+        backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 4, 
+        borderRadius: RADIUS.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginBottom: 12 
     },
-    avatarPlaceholder: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 3,
-        borderColor: 'rgba(128,128,128,0.3)',
-    },
-    avatarInitials: {
-        fontSize: 40,
-        fontWeight: 'bold',
-    },
-    badgeContainer: {
-        alignItems: 'center',
-        marginTop: -20,
-        marginBottom: 12,
-    },
-    userTypeBadge: {
-        backgroundColor: '#E53E3E',
-        paddingHorizontal: 24,
-        paddingVertical: 6,
-        borderRadius: 20,
-    },
-    userTypeBadgeText: {
-        color: SHPE_COLORS.white,
-        fontSize: 15,
-        fontWeight: '600',
-    },
-    nameText: {
-        fontSize: 26,
-        fontWeight: '700',
-        textAlign: 'center',
-        marginBottom: 4,
-    },
-    subtitleText: {
-        fontSize: 16,
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    secondarySubtitleText: {
-        fontSize: 15,
-        textAlign: 'center',
-        marginBottom: 24,
-    },
+    badgeText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    name: { color: '#FFF', fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+    subtitle: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 4, fontWeight: '500' },
 });

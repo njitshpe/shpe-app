@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { EditProfileScreen } from '@/components/profile';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import { BlurView } from 'expo-blur';
+import { RADIUS } from '@/constants/colors';
 
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
 import { useRank } from '@/hooks/profile/useRank';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
-import { fetchUserPosts, deletePost } from '@/lib/feedService';
 import { FeedList } from '@/components/feed/FeedList';
-import type { FeedPostUI } from '@/types/feed';
-import { useRouter } from 'expo-router';
 import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile, profileLoading } = useAuth();
-    const { theme, isDark } = useTheme();
-    const router = useRouter();
+    const { theme } = useTheme();
 
     // Fetch points/tier from points_balances
     const { tier, pointsTotal, refreshRank } = useRank();
@@ -88,138 +88,156 @@ export default function ProfileScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
+        <View style={[styles.container, { backgroundColor: '#000' }]}>
+            <StatusBar style="light" />
+
+            {/* 1. BACKGROUND LAYER: Deep Mesh or Grid */}
+            <View style={StyleSheet.absoluteFill}>
+                <LinearGradient
+                    colors={['#1a1a1a', '#000000']}
+                    style={StyleSheet.absoluteFill}
+                />
+            </View>
+
             {profileLoading ? (
-                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
-                    <ProfileSkeleton />
-                </View>
+                <ProfileSkeleton />
             ) : (
-                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+                <>
                     <ScrollView
-                        style={styles.scrollView}
+                        stickyHeaderIndices={[1]}
                         showsVerticalScrollIndicator={false}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={refreshing}
-                                onRefresh={onRefresh}
-                                tintColor={theme.primary}
-                                colors={[theme.primary]}
-                            />
-                        }
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFF" />}
                     >
+                        {/* 2. HERO SECTION: Identity & Aura */}
+                        <MotiView
+                            from={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            style={styles.heroSection}
+                        >
+                            {profile && (
+                                <ProfileHeader
+                                    profilePictureUrl={profile.profile_picture_url ?? undefined}
+                                    initials={profileDisplay.initials}
+                                    userTypeBadge={profileDisplay.userTypeBadge}
+                                    displayName={profileDisplay.displayName}
+                                    subtitle={profileDisplay.subtitle}
+                                    secondarySubtitle={profileDisplay.secondarySubtitle}
+                                    isDark={true}
+                                    themeText="#FFFFFF"
+                                    themeSubtext="rgba(255,255,255,0.6)"
+                                />
+                            )}
 
-                        {/* Settings Icon - Top Right */}
-                        <Link href="/settings" asChild>
-                            <TouchableOpacity style={styles.settingsButton}>
-                                <Ionicons name="settings-outline" size={28} color={theme.text} />
-                            </TouchableOpacity>
-                        </Link>
-
-                        {/* Profile Header */}
-                        {profile && (
-                            <ProfileHeader
-                                profilePictureUrl={profile.profile_picture_url ?? undefined}
-                                initials={profileDisplay.initials}
-                                userTypeBadge={profileDisplay.userTypeBadge}
-                                displayName={profileDisplay.displayName}
-                                subtitle={profileDisplay.subtitle}
-                                secondarySubtitle={profileDisplay.secondarySubtitle}
-                                isDark={isDark}
-                                themeText={theme.text}
-                                themeSubtext={theme.subtext}
-                            />
-                        )}
-
-                        {/* Social Links */}
-                        {profile && (
+                            {/* SOCIAL CHIPS: Glass Style */}
                             <ProfileSocialLinks
-                                profile={profile}
+                                profile={profile!}
                                 displayName={profileDisplay.displayName}
-                                themeText={theme.text}
-                                themeSubtext={theme.subtext}
-                                isDark={isDark}
+                                themeText="#FFF"
+                                themeSubtext="rgba(255,255,255,0.6)"
+                                isDark={true}
                                 onOpenResume={handleOpenResume}
                                 onMentorshipUpdate={async () => {
                                     if (user?.id) await loadProfile(user.id);
                                 }}
                             />
-                        )}
+                        </MotiView>
 
-                        {/* Bio - Centered with Background */}
-                        {profile?.bio && (
-                            <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                                <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
-                            </View>
-                        )}
-
-                        {/* Edit Profile Button */}
-                        <TouchableOpacity
-                            style={[styles.editProfileButton, { backgroundColor: isDark ? 'rgba(60,60,80,1)' : 'rgba(200,200,220,1)' }]}
-                            onPress={() => setShowEditProfile(true)}
-                        >
-                            <Text style={[styles.editProfileButtonText, { color: theme.text }]}>Edit Profile</Text>
-                        </TouchableOpacity>
-
-                        {/* Badges Section */}
-                        <View style={styles.badgesSection}>
-                            <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.badgesScrollContent}
-                            >
-                                {/* Points / Rank Badge */}
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
-                                        <Text style={{ color: '#000000ff', fontWeight: 'bold', fontSize: 14 }}>
-                                            {profileDisplay.points}
-                                        </Text>
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
-                                        {profileDisplay.rank}
+                        {/* 3. IMPACT BELT: Points & Rank (Sticky) */}
+                        <BlurView intensity={20} tint="dark" style={styles.impactBelt}>
+                            <View style={styles.impactContent}>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statValue}>{profileDisplay.points}</Text>
+                                    <Text style={styles.statLabel}>POINTS</Text>
+                                </View>
+                                <View style={styles.statDivider} />
+                                <View style={styles.statItem}>
+                                    <Text style={[styles.statValue, { color: profileDisplay.rankColor }]}>
+                                        {profileDisplay.rank.toUpperCase()}
                                     </Text>
+                                    <Text style={styles.statLabel}>TIER</Text>
                                 </View>
+                            </View>
+                        </BlurView>
 
-                                {/* Placeholder badges - replace with real data when available */}
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="trophy" size={24} color="#FFD700" />
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
+                        {/* 4. CONTENT CARDS: Glassmorphism */}
+                        <View style={styles.detailsContainer}>
+                            {/* Bio Card */}
+                            <View style={styles.glassCard}>
+                                <Text style={styles.cardHeader}>ABOUT</Text>
+                                <Text style={styles.bioBody}>{profile?.bio || "No bio yet."}</Text>
+                            </View>
+
+                            {/* Interests Card */}
+                            <View style={styles.glassCard}>
+                                <Text style={styles.cardHeader}>INTERESTS</Text>
+                                <View style={styles.interestGrid}>
+                                    {profile?.interests?.map((id) => (
+                                        <View key={id} style={styles.interestChip}>
+                                            <Text style={styles.interestText}>{id}</Text>
+                                        </View>
+                                    ))}
                                 </View>
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="star" size={24} color="#FF9500" />
+                            </View>
+
+                            {/* Badges Carousel */}
+                            <View style={styles.glassCard}>
+                                <Text style={styles.cardHeader}>ACHIEVEMENTS</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {/* Points / Rank Badge */}
+                                    <View style={styles.badgeItem}>
+                                        <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
+                                            <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 14 }}>
+                                                {profileDisplay.points}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.badgeLabel}>{profileDisplay.rank}</Text>
                                     </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Top Contributor</Text>
-                                </View>
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="people" size={24} color="#00A3E0" />
+                                    <View style={styles.badgeItem}>
+                                        <View style={[styles.badgeIconContainer, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                                            <Ionicons name="trophy" size={24} color="#FFD700" />
+                                        </View>
+                                        <Text style={styles.badgeLabel}>First Event</Text>
                                     </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Networker</Text>
-                                </View>
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="ribbon" size={24} color="#AF52DE" />
+                                    <View style={styles.badgeItem}>
+                                        <View style={[styles.badgeIconContainer, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                                            <Ionicons name="star" size={24} color="#FF9500" />
+                                        </View>
+                                        <Text style={styles.badgeLabel}>Top Contributor</Text>
                                     </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Early Adopter</Text>
-                                </View>
-                            </ScrollView>
+                                    <View style={styles.badgeItem}>
+                                        <View style={[styles.badgeIconContainer, { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                                            <Ionicons name="people" size={24} color="#00A3E0" />
+                                        </View>
+                                        <Text style={styles.badgeLabel}>Networker</Text>
+                                    </View>
+                                </ScrollView>
+                            </View>
+
+                            {/* Edit Action */}
+                            <TouchableOpacity
+                                style={styles.luxuryEditBtn}
+                                onPress={() => setShowEditProfile(true)}
+                            >
+                                <Text style={styles.luxuryEditBtnText}>EDIT PROFILE</Text>
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Posts Section */}
-                        <View style={styles.postsSection}>
-                            <View style={styles.postsSectionHeader}>
-                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
-                            </View>
-
-                            {/* Post List */}
+                        {/* 5. ACTIVITY FEED */}
+                        <View style={styles.feedSection}>
+                            <Text style={styles.feedTitle}>RECENT ACTIVITY</Text>
                             {user?.id && <FeedList userId={user.id} scrollEnabled={false} />}
                         </View>
-
                     </ScrollView>
-                </View>
+
+                    {/* Settings Overlay Button */}
+                    <Link href="/settings" asChild>
+                        <TouchableOpacity style={styles.floatingSettings}>
+                            <BlurView intensity={30} tint="light" style={styles.settingsBlur}>
+                                <Ionicons name="settings-sharp" size={24} color="#FFF" />
+                            </BlurView>
+                        </TouchableOpacity>
+                    </Link>
+                </>
             )}
 
             {/* Edit Profile Modal */}
@@ -238,77 +256,73 @@ export default function ProfileScreen() {
             </Modal>
 
             {/* Resume Viewer Modal */}
-            {
-                signedUrl && (
-                    <ResumeViewerModal
-                        visible={showResumeViewer}
-                        onClose={() => setShowResumeViewer(false)}
-                        resumeUrl={signedUrl}
-                    />
-                )
-            }
-
-        </SafeAreaView >
+            {signedUrl && (
+                <ResumeViewerModal
+                    visible={showResumeViewer}
+                    onClose={() => setShowResumeViewer(false)}
+                    resumeUrl={signedUrl}
+                />
+            )}
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    gradient: {
-        flex: 1,
-    },
-    scrollView: {
-        flex: 1,
-    },
-    settingsButton: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        zIndex: 10,
-        padding: 8,
-    },
-    bioSection: {
-        marginHorizontal: 20,
-        marginBottom: 24,
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    bioText: {
-        fontSize: 15,
-        textAlign: 'center',
-        lineHeight: 22,
-    },
-    editProfileButton: {
-        marginHorizontal: 40,
-        paddingVertical: 14,
-        borderRadius: 24,
+    container: { flex: 1 },
+    heroSection: {
         alignItems: 'center',
-        marginBottom: 32,
+        paddingTop: 40,
+        paddingBottom: 20,
     },
-    editProfileButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
+    impactBelt: {
+        marginHorizontal: 20,
+        borderRadius: RADIUS.xl,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        overflow: 'hidden',
+        marginTop: -10,
     },
-    badgesSection: {
-        paddingTop: 8,
-        paddingBottom: 12,
+    impactContent: {
+        flexDirection: 'row',
+        paddingVertical: 15,
+        justifyContent: 'space-evenly',
+        alignItems: 'center',
     },
-    badgesSectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
+    statItem: { alignItems: 'center' },
+    statValue: { fontSize: 20, fontWeight: '900', color: '#FFF' },
+    statLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1 },
+    statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+
+    detailsContainer: { padding: 20, gap: 20 },
+    glassCard: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: RADIUS.lg,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    cardHeader: {
+        fontSize: 12,
+        fontWeight: '900',
+        color: 'rgba(255,255,255,0.4)',
+        letterSpacing: 2,
         marginBottom: 12,
-        paddingHorizontal: 20,
     },
-    badgesScrollContent: {
-        paddingHorizontal: 20,
-        gap: 12,
+    bioBody: { fontSize: 16, color: '#FFF', lineHeight: 24 },
+
+    interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    interestChip: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: RADIUS.full,
     },
+    interestText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+
     badgeItem: {
         alignItems: 'center',
-        width: 60,
+        width: 70,
+        marginRight: 12,
     },
     badgeIconContainer: {
         width: 48,
@@ -322,32 +336,37 @@ const styles = StyleSheet.create({
         fontSize: 10,
         textAlign: 'center',
         fontWeight: '500',
+        color: 'rgba(255,255,255,0.6)',
     },
-    postsSection: {
-        paddingTop: 24,
-        paddingBottom: 40,
-        paddingHorizontal: 20,
+
+    luxuryEditBtn: {
+        backgroundColor: '#FFF',
+        paddingVertical: 18,
+        borderRadius: RADIUS.full,
+        alignItems: 'center',
+        marginTop: 10,
     },
-    postsSectionHeader: {
-        marginBottom: 20,
+    luxuryEditBtnText: { color: '#000', fontWeight: '900', letterSpacing: 1 },
+
+    floatingSettings: {
+        position: 'absolute',
+        top: 60,
+        right: 20,
+        zIndex: 100,
     },
-    postsSectionTitle: {
-        fontSize: 22,
-        fontWeight: '700',
+    settingsBlur: {
+        padding: 10,
+        borderRadius: RADIUS.full,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
     },
-    postsList: {
-        gap: 16,
-    },
-    noPostsText: {
-        textAlign: 'center',
-        fontStyle: 'italic',
-        marginTop: 20,
-        marginBottom: 40,
-    },
+    feedSection: { paddingHorizontal: 20, paddingBottom: 100 },
+    feedTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', marginBottom: 20 },
+
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-
 });

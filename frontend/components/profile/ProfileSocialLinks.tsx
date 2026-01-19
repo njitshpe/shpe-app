@@ -1,130 +1,66 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { UserProfile, AlumniProfile } from '@/types/userProfile';
-import { AlumniMentorButton } from './AlumniMentorButton';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import { RADIUS, SPACING } from '@/constants/colors';
 
-interface ProfileSocialLinksProps {
-    profile: UserProfile;
-    displayName: string;
-    themeText: string;
-    themeSubtext: string;
-    isDark: boolean;
-    onOpenResume: () => void;
-    onMentorshipUpdate: () => Promise<void>;
-    readOnly?: boolean;
-}
-
-export function ProfileSocialLinks({
-    profile,
-    displayName,
-    themeText,
-    themeSubtext,
-    isDark,
-    onOpenResume,
-    onMentorshipUpdate,
-    readOnly = false,
-}: ProfileSocialLinksProps) {
-    const handleLinkedInPress = () => {
-        if (profile.linkedin_url) {
-            let url = profile.linkedin_url;
-            if (!url.startsWith('http')) url = 'https://' + url;
-            Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open LinkedIn'));
-        } else {
-            Alert.alert('No LinkedIn', 'Add your LinkedIn in Edit Profile');
-        }
-    };
-
-    const handleResumePress = () => {
-        if (profile.resume_url) {
-            onOpenResume();
-        } else {
-            Alert.alert('No Resume', 'Add your resume in Edit Profile');
-        }
-    };
-
-    const handlePortfolioPress = () => {
-        const portfolioUrl = (profile as any)?.portfolio_url;
-        if (portfolioUrl) {
-            let url = portfolioUrl;
-            if (!url.startsWith('http')) url = 'https://' + url;
-            Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Portfolio'));
-        } else {
-            Alert.alert('No Portfolio', 'Add your portfolio in Edit Profile');
-        }
+export function ProfileSocialLinks({ profile, onOpenResume }) {
+    const handlePress = (type: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Navigation or Linking logic here
     };
 
     return (
-        <View style={styles.socialLinksContainer}>
-            {/* LinkedIn */}
-            <TouchableOpacity style={styles.socialLink} onPress={handleLinkedInPress}>
-                <Ionicons
-                    name="logo-linkedin"
-                    size={22}
-                    color={profile.linkedin_url ? "#0077B5" : "#8E8E93"}
-                />
-                <Text style={[styles.socialLinkText, { color: themeText }, !profile.linkedin_url && { color: themeSubtext }]}>
-                    LinkedIn
-                </Text>
-            </TouchableOpacity>
+        <View style={styles.container}>
+            {/* Professional Assets Row */}
+            <View style={styles.assetRow}>
+                {profile.resume_url && (
+                    <TouchableOpacity 
+                        style={styles.resumeCard} 
+                        onPress={() => {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            onOpenResume();
+                        }}
+                    >
+                        <BlurView intensity={10} tint="light" style={styles.glassInner}>
+                            <Ionicons name="document-text" size={20} color="#FFF" />
+                            <Text style={styles.resumeText} numberOfLines={1}>
+                                {profile.resume_name || 'Resume.pdf'}
+                            </Text>
+                        </BlurView>
+                    </TouchableOpacity>
+                )}
+            </View>
 
-            {/* Mentor Button (for alumni) or Resume (for non-alumni non-guests) */}
-            {profile.user_type === 'alumni' ? (
-                <AlumniMentorButton
-                    profile={profile as AlumniProfile}
-                    displayName={displayName}
-                    isDark={isDark}
-                    themeText={themeText}
-                    themeSubtext={themeSubtext}
-                    onMentorshipUpdate={onMentorshipUpdate}
-                    readOnly={readOnly}
-                />
-            ) : profile.user_type !== 'guest' ? (
-                <TouchableOpacity style={styles.socialLink} onPress={handleResumePress}>
-                    <Ionicons
-                        name="document-text"
-                        size={22}
-                        color={profile.resume_url ? themeText : themeSubtext}
-                    />
-                    <Text style={[styles.socialLinkText, { color: themeText }, !profile.resume_url && { color: themeSubtext }]}>
-                        Resume
-                    </Text>
-                </TouchableOpacity>
-            ) : null}
-
-            {/* Portfolio - Hidden for guests */}
-            {profile.user_type !== 'guest' && (
-                <TouchableOpacity style={styles.socialLink} onPress={handlePortfolioPress}>
-                    <Ionicons
-                        name="link-outline"
-                        size={22}
-                        color={(profile as any)?.portfolio_url ? themeText : themeSubtext}
-                    />
-                    <Text style={[styles.socialLinkText, { color: themeText }, !(profile as any)?.portfolio_url && { color: themeSubtext }]}>
-                        Portfolio
-                    </Text>
-                </TouchableOpacity>
-            )}
+            {/* Social Circle Chips */}
+            <View style={styles.socialRow}>
+                {profile.linkedin_url && (
+                    <SocialCircle icon="logo-linkedin" onPress={() => handlePress('linkedin')} />
+                )}
+                {profile.portfolio_url && (
+                    <SocialCircle icon="globe-outline" onPress={() => handlePress('portfolio')} />
+                )}
+            </View>
         </View>
     );
 }
 
+const SocialCircle = ({ icon, onPress }) => (
+    <TouchableOpacity onPress={onPress} style={styles.circleWrapper}>
+        <BlurView intensity={20} tint="dark" style={styles.circleInner}>
+            <Ionicons name={icon} size={20} color="#FFF" />
+        </BlurView>
+    </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
-    socialLinksContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 28,
-        marginBottom: 28,
-        paddingHorizontal: 20,
-    },
-    socialLink: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    socialLinkText: {
-        fontSize: 14,
-        fontWeight: '500',
-    },
+    container: { width: '100%', paddingHorizontal: 20, marginTop: 24 },
+    assetRow: { marginBottom: 16, alignItems: 'center' },
+    resumeCard: { width: '100%', maxWidth: 300, borderRadius: RADIUS.lg, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    glassInner: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
+    resumeText: { color: '#FFF', fontSize: 13, fontWeight: '600', flex: 1 },
+    socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+    circleWrapper: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    circleInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

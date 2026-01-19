@@ -1,7 +1,7 @@
 export type UserType = 'student' | 'alumni' | 'guest' | 'other';
 
 // Legacy type - kept for backward compatibility
-// New tier names come from rank_tiers table (e.g., 'Chick', 'Pollito', etc.)
+// New tier names come from rank_tiers table (e.g., '---', '---', etc.)
 export type UserRank = string;
 
 // Interest types must match the backend Database Enums exactly
