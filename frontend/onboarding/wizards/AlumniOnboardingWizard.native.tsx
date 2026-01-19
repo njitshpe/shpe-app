@@ -38,6 +38,7 @@ interface AlumniFormData {
   // Impact
   bio: string;
   isMentor: boolean;
+  mentorshipWays: string[];
 }
 
 export default function AlumniOnboardingWizard() {
@@ -64,6 +65,7 @@ export default function AlumniOnboardingWizard() {
     linkedinUrl: '',
     bio: '',
     isMentor: false,
+    mentorshipWays: [],
   });
 
   useEffect(() => {
@@ -160,7 +162,8 @@ export default function AlumniOnboardingWizard() {
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
         
         bio: formData.bio?.trim() || '',
-        is_mentor: formData.isMentor, // Important for the "Mentor" badge later
+        mentorship_available: formData.isMentor,
+        mentorship_ways: formData.isMentor ? formData.mentorshipWays : [],
         
         profile_picture_url: profilePictureUrl,
         user_type: 'alumni' as const,
