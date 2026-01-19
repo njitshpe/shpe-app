@@ -59,18 +59,20 @@ export default function ReviewRSVPScreen() {
     // 1. Optimistic Update: Move to next card immediately
     const nextIndex = currentIndex + 1;
     setCurrentIndex(nextIndex);
-    translateX.value = 0; // Reset position for the "next" card becoming "current"
+    translateX.value = 0; // Reset position for the "next" card
 
-    // 2. Send API Request in background
-    const action = direction === 'right' ? 'approve' : 'reject';
+    // 2. DETERMINE ACTION
+    const action = direction === 'right' ? 'approve' : 'accept';
+
+    // 3. Send API Request in background
     try {
       await adminRSVPService.processRSVP(currentCard.attendance_id, action);
     } catch (error) {
+      console.error("Swipe failed:", error);
       Alert.alert('Error', 'Failed to update RSVP status.');
-      // Ideally revert index here if it fails
     }
 
-    // 3. If finished, go back
+    // 4. If finished, go back
     if (nextIndex >= cards.length) {
       Alert.alert('All Done!', 'You have reviewed all pending requests.', [
         { text: 'OK', onPress: () => router.back() }
@@ -136,7 +138,12 @@ export default function ReviewRSVPScreen() {
   // Render Overlay (Like/Nope text)
   const LikeBadge = () => {
     const style = useAnimatedStyle(() => ({
-      opacity: interpolate(translateX.value, [0, 50], [0, 1]),
+      opacity: interpolate(
+        translateX.value,
+        [0, 60],        // When dragging from 0 to 60 (RIGHT)
+        [0, 1],         // Opacity goes from Invisible to Visible
+        Extrapolation.CLAMP
+      ),
     }));
     return (
       <Animated.View style={[styles.overlayBadge, { left: 40, borderColor: '#4CD964', transform: [{ rotate: '-15deg' }] }, style]}>
@@ -147,7 +154,12 @@ export default function ReviewRSVPScreen() {
 
   const NopeBadge = () => {
     const style = useAnimatedStyle(() => ({
-      opacity: interpolate(translateX.value, [-50, 0], [1, 0]),
+      opacity: interpolate(
+        translateX.value,
+        [-60, 0],       // When dragging from -60 to 0 (LEFT)
+        [1, 0],         // Opacity goes from Visible to Invisible
+        Extrapolation.CLAMP
+      ),
     }));
     return (
       <Animated.View style={[styles.overlayBadge, { right: 40, borderColor: '#FF3B30', transform: [{ rotate: '15deg' }] }, style]}>
