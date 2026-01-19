@@ -8,6 +8,8 @@ export { default as IdentityStep } from './screens/shared/IdentityStep.native';
 export { default as InterestsStep } from './screens/shared/InterestsStep.native';
 
 // Student screens
+export { default as AcademicsStep } from './screens/student/AcademicsStep.native';
+export { default as BioStep } from './screens/student/BioStep.native';
 export { default as AssetsStep } from './screens/student/AssetsStep.native';
 export { default as ReviewStep } from './screens/student/ReviewStep.native';
 
