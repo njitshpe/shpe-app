@@ -10,9 +10,9 @@ export default function Index() {
     return null;
   }
 
-  // No session → go to login
+  // No session → go to welcome
   if (!session) {
-    return <Redirect href="/login" />;
+    return <Redirect href="/(auth)/welcome" />;
   }
 
   // Has session but no profile AND no user_type selected → go to role selection

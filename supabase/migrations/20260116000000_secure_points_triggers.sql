@@ -104,7 +104,7 @@ SET search_path = public
 AS $$
 BEGIN
     -- If it has images, give the photo bonus
-    IF NEW.images IS NOT NULL AND array_length(NEW.images, 1) > 0 THEN
+    IF NEW.image_urls IS NOT NULL AND array_length(NEW.image_urls, 1) > 0 THEN
          PERFORM public.award_points(
             'feed_post_photo', 
             'post', 
