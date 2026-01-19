@@ -88,7 +88,7 @@ export function ProfileHeader({
         haloShadowOpacity: isDark ? 0.3 : 0.25,
         mentorHaloShadowOpacity: isDark ? 0.5 : 0.4,
         
-        glassBadgeBg: isDark ? 'rgb(45, 45, 45)' : 'rgba(0,0,0,0.05)',
+        glassBadgeBg: isDark ? 'rgb(45, 45, 45)' : 'rgb(243, 243, 243)',
         glassBadgeBorder: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
         ringTrackColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)',
         avatarPlaceholderBg: isDark ? '#333333' : '#E5E7EB',

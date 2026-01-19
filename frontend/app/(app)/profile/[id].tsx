@@ -1,19 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    RefreshControl,
+    Alert,
+    Platform,
+} from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBlock } from '@/contexts/BlockContext';
 import { profileService } from '@/services/profile.service';
-import { fetchUserPosts } from '@/lib/feedService';
 
-// Import components from the main profile tab
-// Import components from the main profile tab
-// Note: We're importing from the (tabs) group which is a sibling of this directory's parent
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
 import { FeedList } from '@/components/feed/FeedList';
@@ -24,15 +31,18 @@ import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
 import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
 import { rankService, PointsSummary } from '@/services/rank.service';
+import { RankProgressCard } from '@/components/profile/RankProgressCard';
+import { BadgeGrid, Badge } from '@/components/profile/BadgeGrid';
+import { INTEREST_OPTIONS, InterestType } from '@/types/userProfile';
 
 import type { UserProfile } from '@/types/userProfile';
-import type { FeedPostUI } from '@/types/feed';
 
 export default function PublicProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { theme, isDark } = useTheme();
-    const { user: currentUser } = useAuth(); // Just to check if it's me
+    const { user: currentUser } = useAuth();
     const { isUserBlocked, blockUser, unblockUser } = useBlock();
 
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -45,14 +55,12 @@ export default function PublicProfileScreen() {
     const [rankData, setRankData] = useState<PointsSummary>({
         season_id: '',
         points_total: 0,
-        tier: 'Chick',
+        tier: '---',
         points_to_next_tier: 0,
     });
 
-    // --- SECURE RESUME HOOK ---
     const { signedUrl, loading: resumeLoading } = useSecureResume(profile?.resume_url || null);
 
-    // --- PROFILE DISPLAY HOOK ---
     const profileDisplay = useProfileDisplay({
         profile,
         user: { id: id || '' } as any,
@@ -64,7 +72,6 @@ export default function PublicProfileScreen() {
         if (!id) return;
 
         try {
-            // 1. Fetch Profile
             const profileReq = await profileService.getProfile(id);
             if (profileReq.success && profileReq.data) {
                 setProfile(profileReq.data);
@@ -74,7 +81,6 @@ export default function PublicProfileScreen() {
                 return;
             }
 
-            // 2. Fetch Points/Tier (Posts fetched by FeedList)
             const rankReq = await rankService.getUserRank(id);
             if (rankReq.success && rankReq.data) {
                 setRankData(rankReq.data);
@@ -82,7 +88,6 @@ export default function PublicProfileScreen() {
         } catch (error) {
             console.error('Error loading public profile:', error);
         } finally {
-            setLoading(false);
             setLoading(false);
         }
     };
@@ -100,7 +105,7 @@ export default function PublicProfileScreen() {
     const handleOpenResume = () => {
         if (!signedUrl) {
             if (resumeLoading) {
-                Alert.alert("Please wait", "Secure link is generating...");
+                Alert.alert('Please wait', 'Secure link is generating...');
             } else {
                 Alert.alert("No Resume", "This user hasn't uploaded a resume.");
             }
@@ -125,86 +130,161 @@ export default function PublicProfileScreen() {
 
         if (success) {
             if (!isBlocked) {
-                // After blocking, go back to previous screen
-                Alert.alert(
-                    'User Blocked',
-                    'You will no longer see their content.',
-                    [{ text: 'OK', onPress: () => router.back() }]
-                );
+                Alert.alert('User Blocked', 'You will no longer see their content.', [
+                    { text: 'OK', onPress: () => router.back() },
+                ]);
             } else {
                 Alert.alert('User Unblocked', 'You can now see their content again.');
-                // Refresh the data
                 await loadData();
             }
         } else {
-            Alert.alert('Error', `Failed to ${isBlocked ? 'unblock' : 'block'} user. Please try again.`);
+            Alert.alert(
+                'Error',
+                `Failed to ${isBlocked ? 'unblock' : 'block'} user. Please try again.`
+            );
         }
     };
 
-    // Derived state
     const isMe = currentUser?.id === id;
     const isBlocked = id ? isUserBlocked(id) : false;
 
-    return (
-        <View style={{ flex: 1, backgroundColor: theme.background }}>
-            {/* Always render Stack.Screen to prevent header jump/artifact */}
-            <Stack.Screen options={{
-                headerShown: true,
-                title: profileDisplay.displayName || 'Profile',
-                headerStyle: { backgroundColor: theme.card },
-                headerTintColor: theme.text,
-                headerShadowVisible: false,
-                headerBackTitle: 'Back',
-                headerRight: !isMe ? () => (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                        <TouchableOpacity onPress={() => setShowReportModal(true)}>
-                            <Ionicons name="flag-outline" size={24} color={theme.text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={handleBlockPress}
-                            style={{ marginRight: 8 }}
-                        >
-                            <Ionicons
-                                name={isBlocked ? "eye" : "eye-off"}
-                                size={24}
-                                color={theme.text}
-                            />
-                        </TouchableOpacity>
-                    </View>
-                ) : undefined,
-            }} />
+    const userInterests = useMemo(() => {
+        if (!profile?.interests || !Array.isArray(profile.interests)) {
+            return [];
+        }
+        return profile.interests
+            .map((interest: InterestType) => {
+                const option = INTEREST_OPTIONS.find((opt) => opt.value === interest);
+                return option ? option.label : null;
+            })
+            .filter(Boolean);
+    }, [profile?.interests]);
 
-            {loading ? (
-                <ProfileSkeleton />
-            ) : !profile ? (
-                <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-                    <Text style={{ color: theme.text }}>User not found.</Text>
-                </View>
-            ) : (isBlocked && !isMe) ? (
-                <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-                    <Ionicons name="eye-off" size={64} color={theme.subtext} style={{ marginBottom: 16 }} />
-                    <Text style={[styles.unavailableTitle, { color: theme.text }]}>User Unavailable</Text>
-                    <Text style={[styles.unavailableMessage, { color: theme.subtext }]}>
-                        You have blocked this user.
-                    </Text>
-                    <TouchableOpacity
-                        style={[styles.unblockButton, { backgroundColor: theme.primary }]}
-                        onPress={handleBlockPress}
-                    >
-                        <Text style={styles.unblockButtonText}>Unblock User</Text>
+    const badges = useMemo((): Badge[] => {
+        const result: Badge[] = [];
+
+        if (rankData.tier) {
+            result.push({
+                id: 'rank',
+                icon: 'trophy',
+                label: rankData.tier,
+                color: profileDisplay.rankColor,
+            });
+        }
+
+        result.push({
+            id: 'member',
+            icon: 'shield-checkmark',
+            label: 'Member',
+            color: theme.text,
+        });
+
+        if (profile?.mentorship_available) {
+            result.push({
+                id: 'mentor',
+                icon: 'school',
+                label: 'Mentor',
+                color: '#FFD700',
+            });
+        }
+
+        if (profile?.user_type === 'alumni') {
+            result.push({
+                id: 'alumni',
+                icon: 'time',
+                label: 'Alumni',
+                color: '#C0C0C0',
+            });
+        }
+
+        return result;
+    }, [rankData.tier, profileDisplay.rankColor, profile?.mentorship_available, profile?.user_type, theme.text]);
+
+    const glassCardBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+    const glassCardBorder = 'rgba(255,255,255,0.08)';
+
+    const renderBackButton = () => {
+        const fallbackBg = 'rgba(255,255,255,0.08)';
+
+        if (Platform.OS === 'ios') {
+            return (
+                <BlurView intensity={40} tint="dark" style={styles.backButton}>
+                    <TouchableOpacity style={styles.backButtonContent} onPress={() => router.back()}>
+                        <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
                     </TouchableOpacity>
-                    {/* Block User Modal for Unblocking */}
-                    <BlockUserModal
-                        visible={showBlockModal}
-                        onClose={() => setShowBlockModal(false)}
-                        onConfirm={handleBlockConfirm}
-                        userName={profile.first_name || 'User'}
-                        isBlocked={isBlocked}
-                        isLoading={blockActionLoading}
-                    />
-                </View>
-            ) : (
-                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+                </BlurView>
+            );
+        }
+
+        return (
+            <TouchableOpacity
+                style={[styles.backButton, { backgroundColor: fallbackBg }]}
+                onPress={() => router.back()}
+            >
+                <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+        );
+    };
+
+    const renderActionButton = (icon: React.ComponentProps<typeof Ionicons>['name'], onPress: () => void) => {
+        const fallbackBg = 'rgba(255,255,255,0.08)';
+
+        if (Platform.OS === 'ios') {
+            return (
+                <BlurView intensity={40} tint="dark" style={styles.actionButton}>
+                    <TouchableOpacity style={styles.actionButtonContent} onPress={onPress}>
+                        <Ionicons name={icon} size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                </BlurView>
+            );
+        }
+
+        return (
+            <View style={[styles.actionButton, { backgroundColor: fallbackBg }]}
+            >
+                <TouchableOpacity style={styles.actionButtonContent} onPress={onPress}>
+                    <Ionicons name={icon} size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
+    return (
+        <View style={styles.root}>
+            <StatusBar style="light" translucent />
+            <LinearGradient colors={['#1a1a1a', '#000000']} style={StyleSheet.absoluteFill} />
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <Stack.Screen options={{ headerShown: false }} />
+
+                {loading ? (
+                    <ProfileSkeleton />
+                ) : !profile ? (
+                    <View style={styles.loadingContainer}>
+                        <Text style={{ color: theme.text }}>User not found.</Text>
+                    </View>
+                ) : isBlocked && !isMe ? (
+                    <View style={styles.loadingContainer}>
+                        <Ionicons name="eye-off" size={64} color={theme.subtext} style={{ marginBottom: 16 }} />
+                        <Text style={[styles.unavailableTitle, { color: theme.text }]}>User Unavailable</Text>
+                        <Text style={[styles.unavailableMessage, { color: theme.subtext }]}>
+                            You have blocked this user.
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.unblockButton, { backgroundColor: theme.text }]}
+                            onPress={handleBlockPress}
+                        >
+                            <Text style={[styles.unblockButtonText, { color: '#000000' }]}>Unblock User</Text>
+                        </TouchableOpacity>
+                        <BlockUserModal
+                            visible={showBlockModal}
+                            onClose={() => setShowBlockModal(false)}
+                            onConfirm={handleBlockConfirm}
+                            userName={profile.first_name || 'User'}
+                            isBlocked={isBlocked}
+                            isLoading={blockActionLoading}
+                        />
+                    </View>
+                ) : (
                     <ScrollView
                         style={styles.scrollView}
                         showsVerticalScrollIndicator={false}
@@ -213,98 +293,124 @@ export default function PublicProfileScreen() {
                                 refreshing={refreshing}
                                 onRefresh={onRefresh}
                                 tintColor={theme.primary}
+                                colors={[theme.primary]}
                             />
                         }
                     >
-                        {/* If it's me, give a link to go to my actual profile tab */}
-                        {isMe && (
-                            <TouchableOpacity
-                                style={styles.meBanner}
-                                onPress={() => router.push('/(tabs)/profile')}
-                            >
-                                <Text style={styles.meBannerText}>This is your public profile look.</Text>
-                                <Text style={styles.meBannerLink}>Go to Profile Tab →</Text>
-                            </TouchableOpacity>
-                        )}
+                        <View style={styles.headerSection}>
+                            <ProfileHeader
+                                profilePictureUrl={profile.profile_picture_url ?? undefined}
+                                initials={profileDisplay.initials}
+                                userTypeBadge={profileDisplay.userTypeBadge}
+                                displayName={profileDisplay.displayName}
+                                subtitle={profileDisplay.subtitle}
+                                secondarySubtitle={profileDisplay.secondarySubtitle}
+                                rankColor={profileDisplay.rankColor}
+                                pointsTotal={rankData.points_total}
+                                pointsToNextTier={rankData.points_to_next_tier}
+                                isMentor={profile.mentorship_available ?? false}
+                            />
+                        </View>
 
-                        <ProfileHeader
-                            profilePictureUrl={profile.profile_picture_url ?? undefined}
-                            initials={profileDisplay.initials}
-                            userTypeBadge={profileDisplay.userTypeBadge}
-                            displayName={profileDisplay.displayName}
-                            subtitle={profileDisplay.subtitle}
-                            secondarySubtitle={profileDisplay.secondarySubtitle}
-                            rankColor={profileDisplay.rankColor}
-                            pointsTotal={rankData.points_total}
-                            pointsToNextTier={rankData.points_to_next_tier}
-                            isMentor={profile.mentorship_available ?? false}
-                        />
-
-                        <ProfileSocialLinks
-                            profile={profile}
-                            displayName={profileDisplay.displayName}
-                            themeText={theme.text}
-                            themeSubtext={theme.subtext}
-                            isDark={isDark}
-                            onOpenResume={handleOpenResume}
-                            onMentorshipUpdate={async () => { }} // No-op for public view
-                            readOnly={true} // IMPORTANT: Prevents editing
-                        />
-
-                        {/* Bio */}
-                        {profile.bio && (
-                            <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                                <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
+                        <View style={styles.stickyRankContainer}>
+                            <View style={styles.rankCardWrapper}>
+                                <RankProgressCard
+                                    pointsTotal={rankData.points_total}
+                                    tier={rankData.tier}
+                                    rankColor={profileDisplay.rankColor}
+                                    pointsToNextTier={rankData.points_to_next_tier}
+                                />
                             </View>
-                        )}
+                        </View>
 
+                        <View style={styles.contentContainer}>
+                            <ProfileSocialLinks
+                                profile={profile}
+                                displayName={profileDisplay.displayName}
+                                themeText={theme.text}
+                                themeSubtext={theme.subtext}
+                                isDark={isDark}
+                                onOpenResume={handleOpenResume}
+                                onMentorshipUpdate={async () => { }}
+                                readOnly={true}
+                            />
 
-
-                        {/* Badges Section - Read Only View */}
-                        <View style={styles.badgesSection}>
-                            <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.badgesScrollContent}
+                            <View
+                                style={[
+                                    styles.glassCard,
+                                    { backgroundColor: glassCardBg, borderColor: glassCardBorder },
+                                ]}
                             >
-                                {/* Points / Rank Badge */}
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
-                                        <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 14 }}>
-                                            {profileDisplay.points}
-                                        </Text>
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
-                                        {profileDisplay.rank}
+                                <Text style={[styles.cardTitle, { color: theme.text }]}>About</Text>
+                                {profile.bio ? (
+                                    <Text style={[styles.bioText, { color: theme.subtext }]}>
+                                        {profile.bio}
                                     </Text>
-                                </View>
-
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="trophy" size={24} color="#FFD700" />
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
-                                </View>
-                                {/* ... more badges ... */}
-                            </ScrollView>
-                        </View>
-
-                        {/* Posts Section */}
-                        <View style={styles.postsSection}>
-                            <View style={styles.postsSectionHeader}>
-                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
+                                ) : (
+                                    <Text style={[styles.emptyText, { color: theme.subtext }]}>No bio yet.</Text>
+                                )}
                             </View>
 
-                            {id && <FeedList userId={id} scrollEnabled={false} />}
-                        </View>
+                            {userInterests.length > 0 && (
+                                <View
+                                    style={[
+                                        styles.glassCard,
+                                        { backgroundColor: glassCardBg, borderColor: glassCardBorder },
+                                    ]}
+                                >
+                                    <Text style={[styles.cardTitle, { color: theme.text }]}>Interests</Text>
+                                    <View style={styles.interestsContainer}>
+                                        {userInterests.map((interest, index) => (
+                                            <View
+                                                key={index}
+                                                style={[
+                                                    styles.interestChip,
+                                                    {
+                                                        backgroundColor: isDark
+                                                            ? 'rgba(255,255,255,0.08)'
+                                                            : 'rgba(0,0,0,0.05)',
+                                                    },
+                                                ]}
+                                            >
+                                                <Text style={[styles.interestText, { color: theme.text }]}>
+                                                    {interest}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
 
-                        <View style={{ height: 40 }} />
+                            <View
+                                style={[
+                                    styles.glassCard,
+                                    { backgroundColor: glassCardBg, borderColor: glassCardBorder },
+                                ]}
+                            >
+                                <Text style={[styles.cardTitle, { color: theme.text }]}>Badges</Text>
+                                <BadgeGrid badges={badges} />
+                            </View>
+
+                            <View style={styles.postsSection}>
+                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
+                                {id && <FeedList userId={id} scrollEnabled={false} />}
+                            </View>
+                        </View>
                     </ScrollView>
+                )}
+            </SafeAreaView>
+
+            <View style={[styles.backButtonPositioner, { top: insets.top + 10 }]}> 
+                {renderBackButton()}
+            </View>
+
+            {!isMe && profile && !isBlocked && (
+                <View style={[styles.actionsPositioner, { top: insets.top + 10 }]}> 
+                    {renderActionButton('flag-outline', () => setShowReportModal(true))}
+                    {renderActionButton(isBlocked ? 'eye' : 'eye-off', handleBlockPress)}
                 </View>
             )}
 
-            {/* Resume Viewer Modal */}
             {signedUrl && (
                 <ResumeViewerModal
                     visible={showResumeViewer}
@@ -313,7 +419,6 @@ export default function PublicProfileScreen() {
                 />
             )}
 
-            {/* Block User Modal */}
             {!isMe && profile && !isBlocked && (
                 <BlockUserModal
                     visible={showBlockModal}
@@ -325,7 +430,6 @@ export default function PublicProfileScreen() {
                 />
             )}
 
-            {/* Report User Modal */}
             {!isMe && id && (
                 <ReportModal
                     visible={showReportModal}
@@ -340,95 +444,122 @@ export default function PublicProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-    loadingContainer: {
+    root: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: '#000000',
     },
-    gradient: {
+    safeArea: {
         flex: 1,
+        backgroundColor: 'transparent',
     },
     scrollView: {
         flex: 1,
     },
-    meBanner: {
-        backgroundColor: 'rgba(52, 199, 89, 0.1)',
-        padding: 12,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
+    headerSection: {
+        paddingBottom: 24,
     },
-    meBannerText: {
-        color: '#34C759',
-        fontWeight: '500',
+    stickyRankContainer: {
+        marginTop: -20,
+        paddingTop: 20,
+        paddingBottom: 16,
+        paddingHorizontal: 20,
     },
-    meBannerLink: {
-        color: '#34C759',
-        fontWeight: '700',
+    rankCardWrapper: {
+        marginBottom: 12,
     },
-    bioSection: {
-        marginHorizontal: 20,
-        marginBottom: 24,
-        padding: 16,
-        borderRadius: 16,
+    contentContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+    },
+    glassCard: {
+        borderRadius: 24,
         borderWidth: 1,
+        padding: 24,
+        marginBottom: 16,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 16,
+        letterSpacing: 0.5,
     },
     bioText: {
         fontSize: 15,
-        textAlign: 'center',
         lineHeight: 22,
     },
-    badgesSection: {
-        paddingTop: 8,
-        paddingBottom: 12,
+    emptyText: {
+        fontSize: 15,
+        lineHeight: 22,
+        fontStyle: 'italic',
     },
-    badgesSectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 12,
-        paddingHorizontal: 20,
+    interestsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
     },
-    badgesScrollContent: {
-        paddingHorizontal: 20,
-        gap: 12,
+    interestChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 16,
     },
-    badgeItem: {
-        alignItems: 'center',
-        width: 60,
-    },
-    badgeIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    badgeLabel: {
-        fontSize: 10,
-        textAlign: 'center',
+    interestText: {
+        fontSize: 14,
         fontWeight: '500',
     },
     postsSection: {
-        paddingTop: 24,
+        paddingTop: 8,
         paddingBottom: 40,
-        paddingHorizontal: 20,
-    },
-    postsSectionHeader: {
-        marginBottom: 20,
     },
     postsSectionTitle: {
-        fontSize: 22,
+        fontSize: 18,
         fontWeight: '700',
+        marginBottom: 20,
+        letterSpacing: 0.5,
     },
-    postsList: {
-        gap: 16,
+    backButtonPositioner: {
+        position: 'absolute',
+        left: 20,
+        zIndex: 999,
     },
-    noPostsText: {
-        textAlign: 'center',
-        fontStyle: 'italic',
-        marginTop: 20,
+    actionsPositioner: {
+        position: 'absolute',
+        right: 20,
+        flexDirection: 'row',
+        gap: 12,
+        zIndex: 999,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    backButtonContent: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionButtonContent: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     unavailableTitle: {
         fontSize: 24,
@@ -445,12 +576,11 @@ const styles = StyleSheet.create({
     unblockButton: {
         paddingHorizontal: 24,
         paddingVertical: 12,
-        borderRadius: 8,
+        borderRadius: 24,
         marginTop: 8,
     },
     unblockButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '700',
     },
 });

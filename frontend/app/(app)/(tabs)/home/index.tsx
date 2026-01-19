@@ -25,7 +25,7 @@ export default function HomeScreen() {
     const [rankData, setRankData] = useState<PointsSummary>({
         season_id: '',
         points_total: 0,
-        tier: 'Chick',
+        tier: '---',
         points_to_next_tier: 0,
     });
     const [debugExpanded, setDebugExpanded] = useState(false);

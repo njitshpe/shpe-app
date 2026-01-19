@@ -42,10 +42,13 @@ export default function ProfileScreen() {
     const { tier, pointsTotal, pointsToNextTier, refreshRank } = useRank();
 
     React.useEffect(() => {
-        if (user?.id && !profile && !profileLoading) {
-            loadProfile(user.id);
+        if (user?.id) {
+            if (!profile && !profileLoading) {
+                loadProfile(user.id);
+            }
+            refreshRank();
         }
-    }, [user?.id, profile, profileLoading, loadProfile]);
+    }, [user?.id, profile, profileLoading, loadProfile, refreshRank]);
 
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [showResumeViewer, setShowResumeViewer] = useState(false);
@@ -164,7 +167,6 @@ export default function ProfileScreen() {
 
     const glassCardBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
     const glassCardBorder = 'rgba(255,255,255,0.08)';
-    const stickyHeaderBg = isDark ? 'rgba(0, 0, 0, 0.95)' : 'rgba(255, 255, 255, 0.95)';
 
     // Floating settings button component (Visuals Only)
     const SettingsButton = () => {
@@ -218,7 +220,6 @@ export default function ProfileScreen() {
                     <ScrollView
                         style={styles.scrollView}
                         showsVerticalScrollIndicator={false}
-                        stickyHeaderIndices={[1]}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
@@ -247,12 +248,7 @@ export default function ProfileScreen() {
                         </View>
 
                         {/* Index 1: Sticky Rank Card Container */}
-                        <View
-                            style={[
-                                styles.stickyRankContainer,
-                                { backgroundColor: stickyHeaderBg },
-                            ]}
-                        >
+                        <View style={styles.stickyRankContainer}>
                             <View style={styles.rankCardWrapper}>
                                 <RankProgressCard
                                     pointsTotal={pointsTotal}

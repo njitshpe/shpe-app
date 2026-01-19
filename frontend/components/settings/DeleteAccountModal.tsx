@@ -60,23 +60,25 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   };
 
   const dynamicStyles = {
-    modalOverlay: { backgroundColor: isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.5)' },
-    modalContent: { backgroundColor: theme.card },
+    modalOverlay: { backgroundColor: 'rgba(0,0,0,0.9)' },
+    modalContent: {
+      backgroundColor: isDark ? '#111111' : '#FFFFFF',
+      borderColor: 'rgba(255,59,48,0.3)',
+    },
     title: { color: theme.error },
     text: { color: theme.text },
-    bulletText: { color: theme.text },
+    subtext: { color: theme.subtext },
+    bulletText: { color: theme.subtext },
     warningBox: { backgroundColor: isDark ? '#3F1F1F' : '#FEF2F2', borderColor: theme.error },
     warningText: { color: theme.error },
     input: {
-      backgroundColor: isDark ? '#1F1F1F' : '#F9FAFB',
-      borderColor: isConfirmationValid ? theme.success : theme.border,
-      color: theme.text,
+      backgroundColor: 'rgba(255,59,48,0.05)',
+      borderColor: 'rgba(255,59,48,0.2)',
+      color: theme.error,
     },
-    cancelButton: { backgroundColor: isDark ? '#333' : '#E5E7EB' },
-    cancelButtonText: { color: theme.text },
-    deleteButton: {
-      backgroundColor: isConfirmationValid && !isDeleting ? theme.error : theme.border,
-    },
+    cancelButton: { backgroundColor: 'rgba(255,255,255,0.05)' },
+    cancelButtonText: { color: theme.subtext },
+    deleteButton: { backgroundColor: '#FF3B30' },
   };
 
   return (
@@ -95,9 +97,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
-                <Ionicons name="warning" size={32} color={theme.error} />
+                <Ionicons name="warning" size={48} color={theme.error} />
               </View>
-              <Text style={[styles.title, dynamicStyles.title]}>Delete Account</Text>
+              <Text style={[styles.title, dynamicStyles.title]}>DELETE ACCOUNT</Text>
             </View>
 
             {/* Warning Box */}
@@ -135,15 +137,13 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 
             {/* Confirmation Input */}
             <View style={styles.section}>
-              <Text style={[styles.label, dynamicStyles.text]}>
-                Type <Text style={{ fontWeight: 'bold' }}>DELETE</Text> to confirm:
-              </Text>
+              <Text style={[styles.label, dynamicStyles.subtext]}>TYPE 'DELETE' TO CONFIRM</Text>
               <TextInput
                 style={[styles.input, dynamicStyles.input]}
                 value={confirmationText}
                 onChangeText={setConfirmationText}
                 placeholder="DELETE"
-                placeholderTextColor={theme.subtext}
+                placeholderTextColor="rgba(255,59,48,0.5)"
                 autoCapitalize="characters"
                 autoCorrect={false}
                 editable={!isDeleting}
@@ -161,7 +161,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton, dynamicStyles.cancelButton]}
+                style={[
+                  styles.button,
+                  styles.cancelButton,
+                  dynamicStyles.cancelButton,
+                  isDeleting && styles.buttonDisabled,
+                ]}
                 onPress={handleCancel}
                 disabled={isDeleting}
               >
@@ -169,14 +174,19 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.button, styles.deleteButton, dynamicStyles.deleteButton]}
+                style={[
+                  styles.button,
+                  styles.deleteButton,
+                  dynamicStyles.deleteButton,
+                  (!isConfirmationValid || isDeleting) && styles.buttonDisabled,
+                ]}
                 onPress={handleDelete}
                 disabled={!isConfirmationValid || isDeleting}
               >
                 {isDeleting ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.deleteButtonText}>Delete My Account</Text>
+                  <Text style={styles.deleteButtonText}>Delete Account</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -194,8 +204,8 @@ interface BulletPointProps {
 
 const BulletPoint: React.FC<BulletPointProps> = ({ text, theme }) => (
   <View style={styles.bulletItem}>
-    <Text style={[styles.bullet, { color: theme.error }]}>•</Text>
-    <Text style={[styles.bulletText, { color: theme.text }]}>{text}</Text>
+    <Ionicons name="close-circle" size={14} color={theme.error} />
+    <Text style={[styles.bulletText, { color: theme.subtext }]}>{text}</Text>
   </View>
 );
 
@@ -209,38 +219,40 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxWidth: 500,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 24,
+    padding: 32,
     maxHeight: '90%',
+    borderWidth: 1,
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEE2E2',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,59,48,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     marginBottom: 20,
     gap: 8,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     flex: 1,
   },
@@ -248,7 +260,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -257,16 +269,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bulletList: {
-    gap: 6,
+    gap: 8,
   },
   bulletItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  bullet: {
-    fontSize: 20,
-    lineHeight: 20,
+    alignItems: 'center',
+    gap: 10,
   },
   bulletText: {
     fontSize: 14,
@@ -274,16 +282,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
     marginBottom: 8,
   },
   input: {
-    borderWidth: 2,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderRadius: 12,
     padding: 12,
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: 4,
     textAlign: 'center',
   },
   validIndicator: {
@@ -304,15 +315,19 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 50,
   },
   cancelButton: {
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   deleteButton: {},
+  buttonDisabled: {
+    opacity: 0.3,
+  },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -320,7 +335,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {},
   deleteButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });
