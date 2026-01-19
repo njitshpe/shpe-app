@@ -74,7 +74,7 @@ export const MonthHeroHeader: React.FC<MonthHeroHeaderProps> = ({ currentMonth }
 
             {/* Content Overlay */}
             <View style={styles.contentContainer}>
-                <Text style={[styles.eyebrow, { color: isDark ? '#e5e5e5' : '#1a1a1a' }]}>
+                <Text style={[styles.eyebrow, { color: isDark ? '#b0b0b0' : '#555555' }]}>
                     What's Happening in
                 </Text>
 
@@ -82,9 +82,9 @@ export const MonthHeroHeader: React.FC<MonthHeroHeaderProps> = ({ currentMonth }
                     {themeData.title}
                 </Text>
 
-                <View style={[styles.divider, { backgroundColor: theme.primary }]} />
+                <View style={styles.divider} />
 
-                <Text style={[styles.description, { color: isDark ? '#d4d4d4' : '#404040' }]}>
+                <Text style={[styles.description, { color: isDark ? '#b0b0b0' : '#555555' }]}>
                     {themeData.description}
                 </Text>
             </View>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     },
     eyebrow: {
         fontSize: 12,
-        fontWeight: '700',
+        fontWeight: '600',
         letterSpacing: 2,
         marginBottom: 1,
         opacity: 0.9,
@@ -136,18 +136,19 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         letterSpacing: -1.5,
         lineHeight: 60,
-        marginBottom: 16,
+        marginBottom: 10,
     },
     divider: {
-        height: 4,
-        width: 60,
-        borderRadius: 2,
-        marginBottom: 16,
+        height: 0.8,
+        width: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        opacity: 0.25,
+        marginBottom: 10,
     },
     description: {
         fontSize: 16,
         lineHeight: 24,
-        fontWeight: '500',
+        fontWeight: '400',
         maxWidth: '90%',
     },
 });

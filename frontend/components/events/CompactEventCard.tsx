@@ -156,7 +156,7 @@ export const CompactEventCard: React.FC<CompactEventCardProps> = ({
         : { uri: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop' };
 
     return (
-        <Animated.View style={[styles.cardWrapper, { transform: [{ scale: scaleAnim }] }]}>
+        <Animated.View style={[styles.cardWrapper, { transform: [{ scale: scaleAnim }] }, showPastOverlay && { opacity: 0.5 }]}>
             <View style={[styles.shadowContainer]}>
                 <Pressable
                     style={[

@@ -133,7 +133,26 @@ export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
                 };
             });
 
-            return finalSections;
+
+            // Split into Upcoming (incl. Today) and Past
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const upcoming = finalSections.filter(section => section.key >= todayStr);
+            const past = finalSections.filter(section => section.key < todayStr);
+
+            // Put all past events into a single section
+            if (past.length > 0) {
+                const allPastEvents = past.flatMap(section => section.data);
+                const pastSection: EventSection = {
+                    key: 'past-events',
+                    title: 'Past Events',
+                    mainTitle: 'Past Events',
+                    subTitle: '',
+                    data: allPastEvents,
+                };
+                return [...upcoming, pastSection];
+            }
+
+            return upcoming;
 
         } else {
             const startOfSelected = new Date(selectedDate);
@@ -275,7 +294,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 15,
+        paddingTop: 0,
         paddingBottom: 12,
     },
     sectionTitleContainer: {
