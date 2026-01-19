@@ -210,7 +210,7 @@ export default function RoleSelectionScreen() {
           <RoleCard
             id="alumni"
             index={1}
-            title="Alumni / Pro"
+            title="Alumni"
             subtitle="Working professional or graduate"
             icon="briefcase-outline"
             accentColor={colors.alumni}

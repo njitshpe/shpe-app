@@ -1,11 +1,32 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { SPACING, RADIUS, SHADOWS } from '@/constants/colors';
 
+const HOLD_DURATION = 1500; // 1.5 seconds
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 export interface FormData {
   firstName: string;
   lastName: string;
@@ -13,8 +34,7 @@ export interface FormData {
   major: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  interests: string[];
-  phoneNumber: string;
+  intent: string;
 }
 
 interface GuestReviewStepProps {
@@ -22,166 +42,270 @@ interface GuestReviewStepProps {
   onNext: () => void;
 }
 
-const INTEREST_LABELS: Record<string, string> = {
-  'internships': 'Internships 💼',
-  'scholarships': 'Scholarships 🎓',
-  'resume-help': 'Resume Help 📄',
-  'mental-health': 'Mental Health 💙',
-  'networking': 'Networking 🤝',
-  'leadership': 'Leadership 🌟',
-  'career-fairs': 'Career Fairs 🧭',
-  'community-service': 'Community Service 🤲',
+// ─────────────────────────────────────────────────────────────────────────────
+// Intent Label Mapping
+// ─────────────────────────────────────────────────────────────────────────────
+const INTENT_LABELS: Record<string, string> = {
+  recruiter: 'RECRUITER',
+  student_other: 'VISITING STUDENT',
+  family: 'FAMILY & FRIENDS',
+  other: 'GUEST',
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Hold-to-Confirm Button Component
+// ─────────────────────────────────────────────────────────────────────────────
+function HoldToConfirmButton({ onComplete }: { onComplete: () => void }) {
+  const progress = useSharedValue(0);
+  const isHolding = useSharedValue(false);
+  const scale = useSharedValue(1);
+  const hapticInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const triggerHaptic = useCallback(
+    (intensity: 'light' | 'medium' | 'heavy') => {
+      if (intensity === 'light')
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (intensity === 'medium')
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    },
+    []
+  );
+
+  const startHapticFeedback = useCallback(() => {
+    triggerHaptic('light');
+    let count = 0;
+    hapticInterval.current = setInterval(() => {
+      count++;
+      triggerHaptic(count < 5 ? 'light' : count < 10 ? 'medium' : 'heavy');
+    }, 150);
+  }, [triggerHaptic]);
+
+  const stopHapticFeedback = useCallback(() => {
+    if (hapticInterval.current) {
+      clearInterval(hapticInterval.current);
+      hapticInterval.current = null;
+    }
+  }, []);
+
+  const handleComplete = useCallback(() => {
+    stopHapticFeedback();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onComplete();
+  }, [onComplete, stopHapticFeedback]);
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(0)
+    .onStart(() => {
+      'worklet';
+      isHolding.value = true;
+      scale.value = withTiming(0.95, { duration: 120 });
+      runOnJS(startHapticFeedback)();
+      progress.value = withTiming(1, { duration: HOLD_DURATION }, (finished) => {
+        if (finished && isHolding.value) runOnJS(handleComplete)();
+      });
+    })
+    .onFinalize(() => {
+      'worklet';
+      isHolding.value = false;
+      scale.value = withTiming(1, { duration: 160 });
+      runOnJS(stopHapticFeedback)();
+      if (progress.value < 1) progress.value = withTiming(0, { duration: 200 });
+    });
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const animatedFillStyle = useAnimatedStyle(() => ({
+    width: `${interpolate(progress.value, [0, 1], [0, 100], Extrapolate.CLAMP)}%`,
+  }));
+
+  return (
+    <GestureDetector gesture={longPressGesture}>
+      <Animated.View style={[holdButtonStyles.wrapper, animatedContainerStyle]}>
+        {/* Track */}
+        <View style={holdButtonStyles.track}>
+          <Animated.View style={[holdButtonStyles.fillWrapper, animatedFillStyle]}>
+            {/* Black Fill */}
+            <View style={holdButtonStyles.fill} />
+          </Animated.View>
+
+          <View style={holdButtonStyles.content}>
+            <Ionicons
+              name="ticket"
+              size={20}
+              color="#000"
+              style={holdButtonStyles.icon}
+            />
+            <Text style={holdButtonStyles.text}>HOLD TO CONFIRM</Text>
+          </View>
+        </View>
+        <Text style={holdButtonStyles.hint}>Hold for 1.5s to get your pass</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+const holdButtonStyles = StyleSheet.create({
+  wrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  track: {
+    width: '100%',
+    borderRadius: RADIUS.full,
+    height: 56,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fillWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#E2E8F0',
+    zIndex: 0,
+  },
+  fill: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  icon: {
+    marginRight: 8,
+  },
+  text: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: 1,
+  },
+  hint: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 8,
+    fontWeight: '600',
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function GuestReviewStep({ data, onNext }: GuestReviewStepProps) {
-  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const accent = isDark ? '#8B5CF6' : '#7C3AED';
 
-  const formatPhoneDisplay = (phone: string) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
+  const profileSource = data.profilePhoto?.uri
+    ? { uri: data.profilePhoto.uri }
+    : null;
 
-  const detailsLine = (() => {
-    const major = data.major?.trim();
-    const year = data.graduationYear?.trim();
-    if (major && year) return `${major} • Class of ${year}`;
-    if (major) return major;
-    if (year) return `Class of ${year}`;
-    return '';
-  })();
+  const initials = `${data.firstName?.charAt(0) || ''}${data.lastName?.charAt(0) || ''}`.toUpperCase();
+  const intentLabel = INTENT_LABELS[data.intent] || 'GUEST';
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
   return (
     <View style={styles.outerContainer}>
       <MotiView
-        from={{ translateX: 50, opacity: 0 }}
-        animate={{ translateX: 0, opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 500 }}
         style={styles.container}
       >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Almost there!</Text>
-          <Text style={[styles.subtitle, { color: theme.subtext }]}>
-            Review your information before we launch 🚀
-          </Text>
-        </View>
-
-        {/* Hero ID Badge Card */}
-        <MotiView
-          from={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', damping: 15 }}
-        >
-          <LinearGradient
-            colors={isDark ? GRADIENTS.darkCard : GRADIENTS.lightCard}
-            style={[styles.heroCard, { borderColor: accent }]}
+          {/* Header */}
+          <MotiView
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            style={styles.header}
           >
-            {/* Profile Photo with Gradient Ring */}
-            <View style={styles.photoContainer}>
-              <LinearGradient
-                colors={[accent, SHPE_COLORS.accentBlueBright]}
-                style={styles.photoRing}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {data.profilePhoto ? (
-                  <Image source={{ uri: data.profilePhoto.uri }} style={styles.profileImage} />
+            <Text style={styles.title}>Ready?</Text>
+            <Text style={styles.subtitle}>Here is your guest pass.</Text>
+          </MotiView>
+
+          {/* Hero Card */}
+          <MotiView
+            from={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 15, delay: 200 }}
+            style={styles.cardContainer}
+          >
+            <View style={styles.heroCard}>
+              {/* Profile Photo with Halo */}
+              <View style={styles.profileHalo}>
+                {profileSource ? (
+                  <Image source={profileSource} style={styles.profileImage} />
                 ) : (
-                  <View
-                    style={[
-                      styles.placeholderImage,
-                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(11, 22, 48, 0.08)' },
-                    ]}
-                  >
-                    <Text style={[styles.placeholderText, { color: isDark ? '#F5F8FF' : '#0B1630' }]}>
-                      {data.firstName?.charAt(0)}{data.lastName?.charAt(0)}
-                    </Text>
+                  <View style={styles.initialsContainer}>
+                    <Text style={styles.initials}>{initials}</Text>
                   </View>
                 )}
-              </LinearGradient>
-            </View>
+              </View>
 
-            {/* Name & Details */}
-            <View style={styles.identitySection}>
-              <Text style={[styles.fullName, { color: theme.text }]}>
+              {/* Name */}
+              <Text style={styles.name}>
                 {data.firstName} {data.lastName}
               </Text>
-              <Text style={[styles.roleText, { color: accent }]}>Guest Member</Text>
-              {detailsLine ? (
-                <Text style={[styles.detailsText, { color: theme.subtext }]}>
-                  {detailsLine}
-                </Text>
-              ) : null}
+
+              {/* Intent Badge */}
+              <View style={styles.intentBadge}>
+                <Text style={styles.intentText}>{intentLabel}</Text>
+              </View>
+
+              {/* Details */}
+              <Text style={styles.details}>
+                Guest Access • {currentDate}
+              </Text>
+
+              {/* Divider */}
+              <View style={styles.divider} />
+
+              {/* Additional Info */}
               {data.university && (
-                <Text style={[styles.universityText, { color: theme.subtext }]}>
-                  {data.university}
-                </Text>
+                <View style={styles.infoRow}>
+                  <Ionicons name="business-outline" size={16} color="#94A3B8" />
+                  <Text style={styles.infoText}>{data.university}</Text>
+                </View>
+              )}
+              {data.major && (
+                <View style={styles.infoRow}>
+                  <Ionicons name="briefcase-outline" size={16} color="#94A3B8" />
+                  <Text style={styles.infoText}>{data.major}</Text>
+                </View>
               )}
             </View>
+          </MotiView>
 
-            {/* Divider */}
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-            {/* Interests Pills */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Interests</Text>
-              <View style={styles.interestsContainer}>
-                {data.interests.map((id) => (
-                  <View key={id} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(139, 92, 246, 0.2)' : 'rgba(124, 58, 237, 0.12)' }]}>
-                    <Text style={[styles.interestText, { color: accent }]}>
-                      {INTEREST_LABELS[id] || id}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Additional Info */}
-            {data.phoneNumber && (
-              <>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Contact</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailIcon}>📱</Text>
-                    <Text style={[styles.detail, { color: theme.subtext }]}>
-                      {formatPhoneDisplay(data.phoneNumber)}
-                    </Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </LinearGradient>
-        </MotiView>
-
-        <Text style={[styles.helperText, { color: theme.subtext }]}>
-          You can update this information anytime in your profile settings.
-        </Text>
+          {/* Helper Text */}
+          <Text style={styles.helperText}>
+            You can update your profile anytime in settings.
+          </Text>
         </ScrollView>
       </MotiView>
 
-      {/* Fixed Navigation Button - Outside MotiView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
-        <TouchableOpacity onPress={onNext} activeOpacity={0.8} style={styles.buttonWrapper}>
-          <LinearGradient
-            colors={GRADIENTS.accentButton}
-            style={styles.confirmButton}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      {/* Footer */}
+      <MotiView
+        from={{ translateY: 50, opacity: 0 }}
+        animate={{ translateY: 0, opacity: 1 }}
+        transition={{ delay: 400 }}
+        style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}
+      >
+        <HoldToConfirmButton onComplete={onNext} />
+      </MotiView>
     </View>
   );
 }
@@ -200,140 +324,126 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  buttonContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    backgroundColor: 'transparent',
-  },
-  buttonWrapper: {
-    width: '100%',
+    padding: SPACING.lg,
+    paddingBottom: 60,
   },
   header: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+    alignItems: 'center',
   },
   title: {
-    ...TYPOGRAPHY.title,
-    marginBottom: SPACING.xs,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
+    color: '#94A3B8',
+    marginTop: 8,
+    fontWeight: '500',
+  },
+  cardContainer: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
   },
   heroCard: {
-    borderWidth: 2,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginBottom: SPACING.lg,
+    width: '100%',
     alignItems: 'center',
+    padding: SPACING.xl,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
     ...SHADOWS.large,
   },
-  photoContainer: {
-    marginBottom: SPACING.lg,
-  },
-  photoRing: {
-    width: 120,
-    height: 120,
-    borderRadius: RADIUS.full,
-    padding: 4,
+  profileHalo: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: SPACING.lg,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
   },
   profileImage: {
-    width: 112,
-    height: 112,
-    borderRadius: RADIUS.full,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#000',
   },
-  placeholderImage: {
-    width: 112,
-    height: 112,
-    borderRadius: RADIUS.full,
+  initialsContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  placeholderText: {
+  initials: {
     fontSize: 36,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
-  identitySection: {
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  fullName: {
-    ...TYPOGRAPHY.headline,
-    marginBottom: SPACING.xs,
+  name: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: SPACING.sm,
     textAlign: 'center',
   },
-  roleText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
+  intentBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginBottom: SPACING.sm,
   },
-  detailsText: {
+  intentText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  details: {
     fontSize: 14,
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
-  },
-  universityText: {
-    fontSize: 14,
-    textAlign: 'center',
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   divider: {
     height: 1,
     width: '100%',
-    marginVertical: SPACING.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: SPACING.lg,
   },
-  section: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: SPACING.sm,
     width: '100%',
-    marginBottom: SPACING.sm,
+    justifyContent: 'center',
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-  },
-  interestsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  interestChip: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-  },
-  interestText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.xs,
-  },
-  detailIcon: {
-    fontSize: 16,
-    marginRight: SPACING.sm,
-  },
-  detail: {
+  infoText: {
     fontSize: 14,
-    flex: 1,
-  },
-  confirmButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   helperText: {
-    fontSize: 12,
+    fontSize: 13,
+    color: '#64748B',
     textAlign: 'center',
+    marginTop: SPACING.sm,
+  },
+  footer: {
+    paddingHorizontal: SPACING.lg,
   },
 });
