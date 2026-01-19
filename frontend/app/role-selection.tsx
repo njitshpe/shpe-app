@@ -18,15 +18,13 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  FadeInDown,
 } from 'react-native-reanimated';
+import { MotiView } from 'moti';
 import { AnimatedGridBackground } from '@/components/auth/AnimatedGridBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type Role = 'student' | 'alumni' | 'guest';
-
-const SELECTION_DELAY = 1000;
 
 interface RoleOptionProps {
   id: Role;
@@ -37,7 +35,6 @@ interface RoleOptionProps {
   isSelected: boolean;
   isAnySelected: boolean;
   onSelect: (role: Role) => void;
-  index: number;
 }
 
 const RoleCard = ({
@@ -49,7 +46,6 @@ const RoleCard = ({
   isSelected,
   isAnySelected,
   onSelect,
-  index,
 }: RoleOptionProps) => {
   const scale = useSharedValue(1);
 
@@ -65,7 +61,6 @@ const RoleCard = ({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(300 + index * 100).springify()}
       style={[styles.cardContainer, animatedStyle]}
     >
       <Pressable
@@ -115,9 +110,10 @@ const RoleCard = ({
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
-  const { user, updateUserMetadata } = useAuth();
+  const { user, updateUserMetadata, loading: authLoading } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   // Reset state on mount to prevent "glitchy" returns
   useEffect(() => {
@@ -125,33 +121,43 @@ export default function RoleSelectionScreen() {
     setIsProcessing(false);
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleSelect = useCallback(async (role: Role) => {
-    if (isProcessing) return;
+    if (isProcessing || !user) return;
     
     setIsProcessing(true);
     setSelectedRole(role);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    setTimeout(async () => {
-      try {
-        if (user) {
-          await updateUserMetadata({ user_type: role });
-          
-          const routes = {
-            student: '/onboarding',
-            alumni: '/alumni-onboarding',
-            guest: '/guest-onboarding'
-          };
-          
-          router.replace(routes[role] as any);
-        }
-      } catch (error) {
-        console.error("Role selection error:", error);
-        setSelectedRole(null);
-        setIsProcessing(false);
-      }
-    }, SELECTION_DELAY);
+    try {
+      await updateUserMetadata({ user_type: role });
+
+      setTimeout(() => {
+        const routes = {
+          student: '/onboarding',
+          alumni: '/alumni-onboarding',
+          guest: '/guest-onboarding',
+        };
+
+        router.replace(routes[role] as any);
+      }, 800);
+    } catch (error) {
+      console.error('Role selection error:', error);
+      setSelectedRole(null);
+      setIsProcessing(false);
+    }
   }, [user, updateUserMetadata, router, isProcessing]);
+
+  if (!isReady || authLoading) {
+    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -165,7 +171,12 @@ export default function RoleSelectionScreen() {
         />
       </View>
 
-      <View style={styles.contentContainer}>
+      <MotiView
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 1000 }}
+        style={styles.contentContainer}
+      >
         <View style={styles.header}>
           <Text style={styles.superTitle}>WHO ARE YOU?</Text>
           <Text style={styles.subTitle}>Choose your path to customize your experience.</Text>
@@ -174,7 +185,6 @@ export default function RoleSelectionScreen() {
         <View style={styles.listContainer}>
           <RoleCard
             id="student"
-            index={0}
             title="Student"
             subtitle="Undergrad or Graduate at NJIT"
             icon="school-outline"
@@ -185,7 +195,6 @@ export default function RoleSelectionScreen() {
           />
           <RoleCard
             id="alumni"
-            index={1}
             title="Alumni"
             subtitle="Working professional or graduate"
             icon="briefcase-outline"
@@ -196,7 +205,6 @@ export default function RoleSelectionScreen() {
           />
           <RoleCard
             id="guest"
-            index={2}
             title="Guest"
             subtitle="Visiting from another org"
             icon="earth-outline"
@@ -208,11 +216,15 @@ export default function RoleSelectionScreen() {
         </View>
 
         {isProcessing && (
-          <View style={styles.loadingWrapper}>
+          <MotiView
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={styles.loadingWrapper}
+          >
             <Text style={styles.loadingText}>PREPARING YOUR EXPERIENCE...</Text>
-          </View>
+          </MotiView>
         )}
-      </View>
+      </MotiView>
     </View>
   );
 }
