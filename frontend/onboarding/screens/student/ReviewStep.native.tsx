@@ -186,7 +186,9 @@ export default function ReviewStep({ data, onNext }: ReviewStepProps) {
   
   const profileSource = data.profilePhoto?.uri
     ? { uri: data.profilePhoto.uri }
-    : require('../../../assets/app-logo-transparent.png'); // Fallback
+    : null;
+
+  const initials = `${data.firstName?.charAt(0) || ''}${data.lastName?.charAt(0) || ''}`.toUpperCase();
 
   const detailsLine = [data.major, data.graduationYear ? `Class of ${data.graduationYear}` : null].filter(Boolean).join(' • ');
 
@@ -214,7 +216,13 @@ export default function ReviewStep({ data, onNext }: ReviewStepProps) {
           >
             <View style={styles.summaryCard}>
               <View style={styles.profileHalo}>
-                <Image source={profileSource} style={styles.profileImage} />
+                {profileSource ? (
+                  <Image source={profileSource} style={styles.profileImage} />
+                ) : (
+                  <View style={styles.initialsContainer}>
+                    <Text style={styles.initials}>{initials}</Text>
+                  </View>
+                )}
               </View>
               
               <Text style={styles.summaryName}>{data.firstName} {data.lastName}</Text>
@@ -287,6 +295,19 @@ const styles = StyleSheet.create({
     shadowColor: '#FFFFFF', shadowOpacity: 0.3, shadowRadius: 15, elevation: 10,
   },
   profileImage: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#000' },
+  initialsContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initials: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   summaryName: { fontSize: 22, fontWeight: '700', color: '#FFF', marginBottom: 4 },
   summaryDetails: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
   summaryBio: { 

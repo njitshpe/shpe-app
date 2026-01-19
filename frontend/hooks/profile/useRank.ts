@@ -43,7 +43,7 @@ export interface UseRankResult {
  * ```
  */
 export function useRank(): UseRankResult {
-  const [tier, setTier] = useState<string>('Chick');
+  const [tier, setTier] = useState<string>('---');
   const [pointsTotal, setPointsTotal] = useState(0);
   const [seasonId, setSeasonId] = useState('');
   const [pointsToNextTier, setPointsToNextTier] = useState(0);

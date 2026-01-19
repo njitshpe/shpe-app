@@ -418,7 +418,7 @@ export default function EventDetailScreen() {
 
           {/* Attendees Preview Section */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Who's Going</Text>
+            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Who&apos;s Going</Text>
             <AttendeesPreview eventId={event.id} />
           </View>
 
