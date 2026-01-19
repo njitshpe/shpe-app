@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9E9E9E',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
     lineHeight: 20,
   },
   primaryButton: {
