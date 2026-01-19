@@ -14,11 +14,6 @@ import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from './CompactEventCard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MotiView } from 'moti';
-import Animated, { AnimatedProps } from 'react-native-reanimated';
-import { Gesture, GestureDetector, GestureType } from 'react-native-gesture-handler';
-
-// Reanimated SectionList
-const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
 interface EventsFeedProps {
     events: Event[];
@@ -31,8 +26,6 @@ interface EventsFeedProps {
     contentContainerStyle?: any;
     onScroll?: any;
     bounces?: boolean;
-    listGesture?: GestureType; // Optional: Allow parent to coordinate gestures
-    animatedProps?: any; // Optional: Pass animated props (e.g. scrollEnabled)
 }
 
 interface EventSection {
@@ -45,8 +38,6 @@ interface EventSection {
 
 export type EventsFeedHandle = {
     scrollToTop: () => void;
-    gesture: GestureType;
-    nativeGestureRef: React.RefObject<any>;
 };
 
 export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
@@ -60,24 +51,15 @@ export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
     contentContainerStyle,
     onScroll,
     bounces = true,
-    listGesture,
-    animatedProps,
 }, ref) => {
     const router = useRouter();
     const { theme } = useTheme();
     const listRef = React.useRef<any>(null);
 
-    // Use provided gesture or create default
-    const nativeGesture = useMemo(() => {
-        return listGesture || Gesture.Native();
-    }, [listGesture]);
-
     React.useImperativeHandle(ref, () => ({
         scrollToTop: () => {
             listRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, animated: true });
         },
-        gesture: nativeGesture,
-        nativeGestureRef: listRef,
     }));
 
     const { pastEvents } = useOngoingEvents(events);
@@ -253,34 +235,31 @@ export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
     };
 
     return (
-        <GestureDetector gesture={nativeGesture}>
-            <AnimatedSectionList
-                ref={listRef}
-                sections={filteredSections}
-                renderItem={renderEvent as any}
-                renderSectionHeader={renderSectionHeader as any}
-                keyExtractor={(item: any) => item.id}
-                contentContainerStyle={[styles.listContent, contentContainerStyle]}
-                showsVerticalScrollIndicator={false}
-                stickySectionHeadersEnabled={false}
-                ListHeaderComponent={ListHeaderComponent}
-                ListEmptyComponent={renderEmptyComponent}
-                onScroll={onScroll}
-                scrollEventThrottle={16}
-                bounces={bounces}
-                animatedProps={animatedProps}
-                refreshControl={
-                    onRefresh ? (
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={onRefresh}
-                            tintColor={theme.primary}
-                            progressViewOffset={150}
-                        />
-                    ) : undefined
-                }
-            />
-        </GestureDetector>
+        <SectionList
+            ref={listRef}
+            sections={filteredSections}
+            renderItem={renderEvent as any}
+            renderSectionHeader={renderSectionHeader as any}
+            keyExtractor={(item: any) => item.id}
+            contentContainerStyle={[styles.listContent, contentContainerStyle]}
+            showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
+            ListHeaderComponent={ListHeaderComponent}
+            ListEmptyComponent={renderEmptyComponent}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            bounces={bounces}
+            refreshControl={
+                onRefresh ? (
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={onRefresh}
+                        tintColor={theme.primary}
+                        progressViewOffset={150}
+                    />
+                ) : undefined
+            }
+        />
     );
 });
 
