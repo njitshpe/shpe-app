@@ -42,7 +42,7 @@ export const MONTH_THEMES = {
     0: {
         title: 'January',
         description: "Getting ready to start the spring semester off on the right foot. We have some social events to get you right into the swing of things.",
-        image: 'https://connect-njit-edu.cdn.technolutions.net/www/images/Snowy%20Eberhardt.jpg',
+        image: 'https://images.unsplash.com/photo-1509845350455-fb0c36048db1?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     },
     1: {
         title: 'February',
