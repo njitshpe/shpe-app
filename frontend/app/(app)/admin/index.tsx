@@ -23,7 +23,7 @@ import { AnnouncementModal } from '@/components/admin/AnnouncementModal';
 export default function AdminDashboard() {
     const router = useRouter();
     const { theme, isDark } = useTheme();
-    const { events, isCurrentUserAdmin, createEvent } = useEvents();
+    const { events, isCurrentUserAdmin, refetchEvents } = useEvents();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -60,11 +60,11 @@ export default function AdminDashboard() {
     const pastEvents = events.filter((e) => e.status === 'past');
 
     const handleCreateEvent = async (data: CreateEventData) => {
-        const success = await createEvent(data);
-        if (success) {
-            setShowCreateModal(false);
-        }
-        return success;
+        // AdminEventForm handles the API call internally.
+        // We just need to refresh the list and close the modal.
+        await refetchEvents();
+        setShowCreateModal(false);
+        return true;
     };
 
     // Handle sending announcement from Modal
