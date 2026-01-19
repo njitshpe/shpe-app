@@ -124,6 +124,9 @@ function mapEventRowToEvent(row: EventRow): Event {
     tags: (row.tags as EventTag[]) ?? [],
     status: isPast ? 'past' : 'upcoming',
     registration_questions: row.registration_questions ?? [],
+    points: row.points ?? 50,
+    requiresRsvp: row.requires_rsvp ?? false,
+    eventLimit: row.event_limit ?? undefined,
   };
 }
 
@@ -162,7 +165,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       await refetchEvents();
       return true;
     }
-    console.error('Failed to create event:', response.error);
+
     return false;
   };
 
@@ -175,7 +178,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       await refetchEvents();
       return true;
     }
-    console.error('Failed to update event:', response.error);
+
     return false;
   };
 
@@ -185,17 +188,17 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       await refetchEvents();
       return true;
     }
-    console.error('Failed to delete event:', response.error);
+
     return false;
   };
 
   const refetchEvents = useCallback(async () => {
-    console.log('[EventsContext] 🔄 Starting refetch...');
+
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      console.log('[EventsContext] 📡 Querying Supabase for events...');
+
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -209,13 +212,39 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      console.log('[EventsContext] ✅ Query successful!');
-      console.log('[EventsContext] 📊 Raw rows returned:', data?.length ?? 0);
-      console.log('[EventsContext] 📋 First row sample:', data?.[0] ? JSON.stringify(data[0], null, 2) : 'No data');
+
 
       const mappedEvents = (data ?? []).map(mapEventRowToEvent);
-      console.log('[EventsContext] 🗺️  Mapped events:', mappedEvents.length);
-      console.log('[EventsContext] 📌 First mapped event:', mappedEvents[0] ? JSON.stringify(mappedEvents[0], null, 2) : 'No events');
+
+
+      // Fetch attendance status for the current user
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      if (currentSession?.user?.id) {
+
+        const { data: attendanceData, error: attendanceError } = await supabase
+          .from('event_attendance')
+          .select('event_id, status')
+          .eq('user_id', currentSession.user.id);
+
+        if (!attendanceError && attendanceData) {
+
+
+          const attendanceMap = new Map(attendanceData.map(a => [a.event_id, a.status]));
+
+          // Merge status into events
+          mappedEvents.forEach(event => {
+            if (attendanceMap.has(event.uuid)) {
+
+              event.userRegistrationStatus = attendanceMap.get(event.uuid);
+            }
+          });
+        } else if (attendanceError) {
+
+        }
+      }
+
+
 
       dispatch({ type: 'SET_EVENTS', payload: mappedEvents });
     } catch (err) {
@@ -223,14 +252,14 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_ERROR', payload: mapSupabaseError(err).message });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
-      console.log('[EventsContext] ✅ Refetch complete');
+
     }
   }, []);
 
   // Initial fetch and listen for auth changes
   useEffect(() => {
     if (session?.user?.id) {
-      console.log('[EventsContext] 👤 User authenticated, fetching events...');
+
       refetchEvents();
     }
   }, [session?.user?.id, refetchEvents]);
@@ -238,18 +267,18 @@ export function EventsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check admin status
     const checkAdminStatus = async () => {
-      console.log('[EventsContext] Checking admin status...');
+
       const response = await adminService.isCurrentUserAdmin();
-      console.log('[EventsContext] Admin status response:', response);
+
       if (response.success && response.data !== undefined) {
-        console.log('[EventsContext] Setting admin status to:', response.data);
+
         dispatch({ type: 'SET_ADMIN_STATUS', payload: response.data });
       }
 
       // Check super admin status
       const superAdminResponse = await adminService.isCurrentUserSuperAdmin();
       if (superAdminResponse.success && superAdminResponse.data !== undefined) {
-        console.log('[EventsContext] Setting super admin status to:', superAdminResponse.data);
+
         dispatch({ type: 'SET_SUPER_ADMIN_STATUS', payload: superAdminResponse.data });
       }
     };
