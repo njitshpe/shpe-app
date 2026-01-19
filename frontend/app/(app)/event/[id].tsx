@@ -6,13 +6,15 @@ import {
   ScrollView,
   Pressable,
   TouchableOpacity,
-  Image,
+  Image as RNImage,
   ImageBackground,
   Dimensions,
   Alert,
   Modal,
   Platform,
+  Animated,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -26,6 +28,7 @@ import RegistrationFormModal from '@/components/events/RegistrationFormModal';
 import {
   AttendeesPreview,
   RegistrationSuccessModal,
+  EventRegistrationConfirmModal,
   EventMoreMenu,
 } from '@/components/events';
 import { CheckInQRModal } from '@/components/admin/CheckInQRModal';
@@ -38,6 +41,45 @@ import { CreateEventData } from '@/services/adminEvents.service';
 import { FeedList } from '@/components/feed/FeedList';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Helper Component for Scale Animation
+const ScaleButton = ({ onPress, disabled, style, children }: { onPress?: () => void, disabled?: boolean, style?: any, children: React.ReactNode }) => {
+  const scaleValue = React.useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.92,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 4,
+    }).start();
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      disabled={disabled}
+      style={({ pressed }) => [
+        style,
+      ]}
+    >
+      <Animated.View style={[{ transform: [{ scale: scaleValue }], width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -54,7 +96,7 @@ export default function EventDetailScreen() {
 
   useEffect(() => {
     if (event?.coverImageUrl) {
-      Image.getSize(event.coverImageUrl, (width, height) => {
+      RNImage.getSize(event.coverImageUrl, (width, height) => {
         const aspectRatio = width / height;
         const maxHeight = SCREEN_HEIGHT * 0.45;
         const maxWidth = SCREEN_WIDTH - 48;
@@ -81,6 +123,7 @@ export default function EventDetailScreen() {
 
   // UI state
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -136,6 +179,7 @@ export default function EventDetailScreen() {
    * Handle Register button press
    */
   const handleRegister = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!event) return;
 
     if (hasEventPassed) {
@@ -148,11 +192,20 @@ export default function EventDetailScreen() {
       return;
     }
 
-    // INTERCEPT: Check if event has questions
+    // Step 1: Open Confirmation Modal (Poster View)
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmRegistration = async () => {
+    if (!event) return;
+    setShowConfirmModal(false);
+
+    // Step 2: Check for questions
     if (event.registration_questions && event.registration_questions.length > 0) {
-      setShowRegistrationForm(true);
+      // Delay slightly to allow confirm modal to close nicely
+      setTimeout(() => setShowRegistrationForm(true), 300);
     } else {
-      // If no questions, proceed as normal
+      // Step 3: No questions, just register
       await executeRegistration({});
     }
   };
@@ -350,11 +403,13 @@ export default function EventDetailScreen() {
           <View style={styles.posterContainer}>
             {event.coverImageUrl && (
               <Image
-                source={{ uri: event.coverImageUrl }}
+                source={event.coverImageUrl}
                 style={[
                   styles.posterImage,
-                  imageDimensions && { width: imageDimensions.width, height: imageDimensions.height, resizeMode: 'cover' }
+                  imageDimensions && { width: imageDimensions.width, height: imageDimensions.height }
                 ]}
+                contentFit="cover"
+                transition={500}
               />
             )}
           </View>
@@ -376,11 +431,13 @@ export default function EventDetailScreen() {
               </View>
             )}
 
+
+
             {/* ACTION ROW (SQUIRCLE STYLE) */}
             <View style={styles.actionRow}>
 
               {/* Primary Action: Join/Register */}
-              <TouchableOpacity
+              <ScaleButton
                 style={[
                   styles.actionButton,
                   styles.primaryButton,
@@ -397,10 +454,10 @@ export default function EventDetailScreen() {
                 <Text style={styles.primaryButtonText}>
                   {loading ? "..." : (isRegistered ? "Registered" : "Register")}
                 </Text>
-              </TouchableOpacity>
+              </ScaleButton>
 
               {/* Secondary Action: Check-In */}
-              <TouchableOpacity
+              <ScaleButton
                 style={[
                   styles.actionButton,
                   styles.glassButton,
@@ -411,27 +468,25 @@ export default function EventDetailScreen() {
               >
                 <Ionicons name="qr-code-outline" size={22} color="#fff" />
                 <Text style={styles.glassButtonText}>Check-in</Text>
-              </TouchableOpacity>
-
-
+              </ScaleButton>
 
               {/* Share Action */}
-              <TouchableOpacity
+              <ScaleButton
                 style={[styles.actionButton, styles.glassButton]}
                 onPress={handleShare}
               >
                 <Ionicons name="share-outline" size={22} color="#fff" />
                 <Text style={styles.glassButtonText}>Share</Text>
-              </TouchableOpacity>
+              </ScaleButton>
 
               {/* More Action */}
-              <TouchableOpacity
+              <ScaleButton
                 style={[styles.actionButton, styles.glassButton]}
                 onPress={handleMorePress}
               >
                 <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
                 <Text style={styles.glassButtonText}>More</Text>
-              </TouchableOpacity>
+              </ScaleButton>
 
             </View>
 
@@ -545,6 +600,14 @@ export default function EventDetailScreen() {
         onClose={() => setShowRegistrationForm(false)}
         onSubmit={executeRegistration}
       />
+      {event && (
+        <EventRegistrationConfirmModal
+          visible={showConfirmModal}
+          event={event}
+          onConfirm={handleConfirmRegistration}
+          onClose={() => setShowConfirmModal(false)}
+        />
+      )}
       <RegistrationSuccessModal
         visible={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
