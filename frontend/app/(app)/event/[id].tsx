@@ -576,6 +576,7 @@ export default function EventDetailScreen() {
           <AdminEventForm
             mode="edit"
             initialData={{
+              id: event.id,
               name: event.title,
               description: event.description,
               location_name: event.locationName,
@@ -715,8 +716,8 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#000',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
   glassButtonText: {
     color: '#fff',

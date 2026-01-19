@@ -25,7 +25,7 @@ export interface CreateEventData {
     name: string;
     description?: string;
     location_name: string;
-    location_address: string; // Correct variable name
+    location_address?: string; // Correct variable name
     start_time: string;
     end_time: string;
     cover_image_url?: string;
@@ -50,7 +50,7 @@ class AdminEventsService {
                 location_address: eventData.location_address,
                 start_time: eventData.start_time,
                 end_time: eventData.end_time,
-                max_attendees: eventData.max_attendees,
+
                 cover_image_url: eventData.cover_image_url,
                 tags: eventData.tags,
                 latitude: eventData.latitude,
