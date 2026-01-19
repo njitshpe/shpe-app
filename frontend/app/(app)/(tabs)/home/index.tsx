@@ -1,701 +1,218 @@
-import React, { useState } from 'react';
-import * as Crypto from 'expo-crypto';
-import { supabase } from '@/lib/supabase';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, ScrollView, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { profileService } from '@/services/profile.service';
-import { Ionicons } from '@expo/vector-icons';
+
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/contexts/EventsContext';
-import { useOngoingEvents } from '@/hooks/events';
-import { CompactEventCard } from '@/components/events/CompactEventCard';
-import { rankService, PointsSummary, RankActionType } from '@/services/rank.service';
-import { Skeleton } from '@/components/ui/Skeleton';
-import { OfflineNotice } from '@/components/ui/OfflineNotice';
+import { eventsService, notificationService } from '@/services';
+import { fetchAnnouncementPosts } from '@/lib/feedService';
+import { HomeHeader } from '@/components/home/HomeHeader';
+import { HeroEventCard } from '@/components/home/HeroEventCard';
+import { QuickActions } from '@/components/home/QuickActions';
+import { LiveIntel } from '@/components/home/LiveIntel';
+import { MissionLog } from '@/components/home/MissionLog';
+import { RankTrajectory } from '@/components/home/RankTrajectory';
+import { AdminControls } from '@/components/home/AdminControls'; // New Import
+
+interface HeroEvent {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  flyer?: string | null;
+  image_url?: string | null;
+  is_registered?: boolean;
+}
+
+interface MissionEvent {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+}
 
 export default function HomeScreen() {
-    const router = useRouter();
-    const { user, signOut, updateUserMetadata, profile, loadProfile } = useAuth();
-    const { theme, isDark } = useTheme();
-    const { events, isCurrentUserAdmin, isCurrentUserSuperAdmin, isLoading, refetchEvents } = useEvents();
-    const { ongoingEvents, upcomingEvents } = useOngoingEvents(events);
-    const [showScanner, setShowScanner] = useState(false);
-    const [rankData, setRankData] = useState<PointsSummary>({
-        season_id: '',
-        points_total: 0,
-        tier: '---',
-        points_to_next_tier: 0,
-    });
-    const [debugExpanded, setDebugExpanded] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
+  const { theme, isDark } = useTheme();
+  const { profile, user } = useAuth();
+  const { isCurrentUserAdmin, isCurrentUserSuperAdmin } = useEvents();
+  const router = useRouter();
 
-    React.useEffect(() => {
-        loadRank();
-    }, []);
+  const [refreshing, setRefreshing] = useState(false);
+  const [featuredEvent, setFeaturedEvent] = useState<HeroEvent | null>(null);
+  const [missionEvents, setMissionEvents] = useState<MissionEvent[]>([]);
+  const [liveIntel, setLiveIntel] = useState<{ title: string; message: string } | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-    const loadRank = async () => {
-        const response = await rankService.getMyRank();
-        if (response.success && response.data) {
-            setRankData({
-                season_id: response.data.season_id,
-                points_total: response.data.points_total,
-                tier: response.data.tier,
-                points_to_next_tier: response.data.points_to_next_tier,
-            });
-        }
-    };
-
-    const onRefresh = React.useCallback(async () => {
-        setRefreshing(true);
+  // --- Logic ---
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const userId = user?.id;
+      const [upcomingResponse, myEventsResponse, announcementsResponse, badgeCount] =
         await Promise.all([
-            refetchEvents(),
-            loadRank(),
+          eventsService.getUpcomingEvents(),
+          userId ? eventsService.getUserUpcomingEvents(userId) : Promise.resolve({ success: true, data: [] }),
+          fetchAnnouncementPosts(1),
+          notificationService.getBadgeCount(),
         ]);
-        setRefreshing(false);
-    }, [refetchEvents]);
 
-    // Determine relevant event to show
-    const relevantEvent = ongoingEvents.length > 0
-        ? ongoingEvents[0]
-        : upcomingEvents.length > 0
-            ? upcomingEvents[0]
-            : null;
+      const upcomingEvents = upcomingResponse.success ? upcomingResponse.data : [];
+      const myEvents = myEventsResponse.success ? myEventsResponse.data : [];
+      const myEventIds = new Set(myEvents.map((event) => event.event_id));
 
-    const handleAwardPoints = async (action: RankActionType, overrides?: { eventId?: string | null; postId?: string; feedbackId?: string }) => {
-        // Validation for event-based actions
-        const eventActions: RankActionType[] = ['event_check_in', 'rsvp', 'early_checkin'];
-        if (eventActions.includes(action) && !relevantEvent && !overrides?.eventId) {
-            Alert.alert('Debug Error', 'No active/upcoming event found to assign this action to.');
-            return;
-        }
-
-        try {
-            const response = await rankService.awardForAction(action, {
-                event_id: overrides?.eventId !== undefined ? overrides.eventId : relevantEvent?.id,
-                post_id: overrides?.postId,
-                feedback_id: overrides?.feedbackId,
-            });
-            if (response.success && response.data) {
-                Alert.alert(
-                    'Success',
-                    `Awarded!\nTotal: ${response.data.points_total} pts\nTier: ${response.data.tier}\nTo next tier: ${response.data.points_to_next_tier} pts\nSeason: ${response.data.season_id}`
-                );
-                setRankData({
-                    season_id: response.data.season_id,
-                    points_total: response.data.points_total,
-                    tier: response.data.tier,
-                    points_to_next_tier: response.data.points_to_next_tier,
-                });
-            } else {
-                console.error(response.error);
-                const errorMsg = JSON.stringify(response.error, null, 2);
-                Alert.alert('Invoke Failed', errorMsg);
+      const nextEvent = upcomingEvents[0];
+      setFeaturedEvent(
+        nextEvent
+          ? {
+              id: nextEvent.event_id,
+              title: nextEvent.name,
+              start_time: nextEvent.start_time,
+              end_time: nextEvent.end_time,
+              location: nextEvent.location_name,
+              flyer: nextEvent.cover_image_url ?? null,
+              is_registered: myEventIds.has(nextEvent.event_id),
             }
-        } catch (e: any) {
-            Alert.alert('Exceptions', e.message);
+          : null
+      );
+
+      setMissionEvents(
+        myEvents.map((event) => ({
+          id: event.event_id,
+          title: event.name,
+          date: event.start_time,
+          location: event.location_name,
+        }))
+      );
+
+      if (announcementsResponse.success && announcementsResponse.data.length > 0) {
+        const latestAlert = announcementsResponse.data[0];
+        setLiveIntel({
+          title: latestAlert.title?.trim() || 'Announcement',
+          message: latestAlert.content,
+        });
+      } else if (announcementsResponse.success) {
+        setLiveIntel(null);
+      }
+
+      setUnreadCount(typeof badgeCount === 'number' ? badgeCount : 0);
+    } catch (error) {
+      console.error(error);
+      setFeaturedEvent(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const handleActionPress = (route: string) => router.push(route as any);
+  
+  const handleHeroAction = (action: 'check-in' | 'rsvp') => {
+    if (action === 'check-in') router.push('/check-in');
+    else if (featuredEvent) router.push(`/event/${featuredEvent.id}`);
+  };
+
+  const { rankTitle, nextRankThreshold } = useMemo(() => {
+    const points = profile?.points ?? 0;
+    if (points < 25) {
+      return { rankTitle: 'Bronze Member', nextRankThreshold: 25 };
+    }
+    if (points < 75) {
+      return { rankTitle: 'Silver Member', nextRankThreshold: 75 };
+    }
+    return { rankTitle: 'Gold Member', nextRankThreshold: Math.max(points, 75) };
+  }, [profile?.points]);
+
+  // --- Role Check ---
+  const isAdmin = isCurrentUserAdmin || isCurrentUserSuperAdmin;
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" translucent />
+      
+      <LinearGradient
+        colors={isDark ? ['#1a1a1a', '#000000'] : ['#FFFFFF', '#F5F5F5']}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
         }
-    };
+      >
+        {/* 1. Hero Event */}
+        {loading ? (
+            <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 100 }} />
+        ) : featuredEvent ? (
+            <HeroEventCard
+                event={featuredEvent}
+                onPress={() => router.push(`/event/${featuredEvent.id}`)}
+                onAction={handleHeroAction}
+            />
+        ) : null}
 
-    const handleSignOut = () => {
-        Alert.alert(
-            'Sign Out',
-            'Are you sure you want to sign out?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign Out', style: 'destructive', onPress: signOut },
-            ]
-        );
-    };
+        {/* 2. Quick Actions */}
+        <QuickActions onPress={handleActionPress} />
 
-    const dynamicStyles = {
-        container: { backgroundColor: theme.background },
-        text: { color: theme.text },
-        subtext: { color: theme.subtext },
-        card: { backgroundColor: theme.card, shadowColor: isDark ? '#000' : '#000' },
-        iconBg: { backgroundColor: isDark ? '#333' : '#F3F4F6' },
-        signOut: { backgroundColor: theme.card, borderColor: theme.border },
-    };
+        {/* 3. Live Intel */}
+        {liveIntel && (
+            <LiveIntel
+                title={liveIntel.title}
+                message={liveIntel.message}
+                onPress={() => router.push('/notifications')}
+            />
+        )}
 
-    // Calculate card width based on number of buttons
-    // Use flex: 1 for equal distribution, flexWrap handles 2 vs 3 columns
-    const cardWidthStyle = { flex: 1, minWidth: 0 };
+        {/* 4. Mission Log */}
+        <MissionLog 
+            events={missionEvents} 
+            onPress={(id) => router.push(`/event/${id}`)}
+        />
 
-    return (
-        <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['top']}>
-            {/* Offline Notice - Placed here or globally in _layout (User plan said _layout but verify) */}
-            {/* We will place it globally in _layout as per plan, but good to have imported just in case */}
+        {/* 5. Rank Trajectory */}
+        <RankTrajectory
+            currentPoints={profile?.points ?? 0}
+            rankTitle={rankTitle}
+            nextRankThreshold={nextRankThreshold}
+            onPress={() => router.push('/(tabs)/leaderboard')}
+        />
 
-            <ScrollView
-                style={styles.content}
-                contentContainerStyle={styles.scrollContent}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
-                }
-            >
-                {/* Welcome Card */}
-                <View style={styles.welcomeCard}>
-                    <Text style={styles.welcomeText}>Welcome to</Text>
-                    <Text style={styles.title}>SHPE NJIT</Text>
-                    <Text style={styles.email}>{user?.email}</Text>
-                </View>
+        {/* 6. Admin Controls (Hidden) */}
+        {isAdmin && (
+            <AdminControls 
+                onDebug={() => router.push('/_sitemap')}
+                onAdmin={() => router.push('/admin')}
+            />
+        )}
 
-                {/* Featured Event Card */}
-                <View style={styles.eventSection}>
-                    <Text style={[styles.sectionTitle, dynamicStyles.text]}>
-                        {isLoading ? 'Loading Events...' : (ongoingEvents.length > 0 ? 'Happening Now' : 'Up Next')}
-                    </Text>
+      </ScrollView>
 
-                    {isLoading ? (
-                        <View style={{ gap: 16 }}>
-                            <Skeleton width="100%" height={140} borderRadius={16} />
-                        </View>
-                    ) : relevantEvent ? (
-                        <CompactEventCard
-                            event={relevantEvent}
-                            onPress={() => router.push(`/event/${relevantEvent.id}`)}
-                        />
-                    ) : (
-                        <View style={[styles.emptyEventCard, dynamicStyles.card]}>
-                            <Ionicons name="calendar-outline" size={48} color={theme.subtext} style={{ marginBottom: 8, opacity: 0.5 }} />
-                            <Text style={[styles.emptyEventText, dynamicStyles.subtext]}>No upcoming events</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Announcement Section */}
-                <View style={[styles.announcementCard, dynamicStyles.card]}>
-                    <View style={[styles.announcementIcon, { backgroundColor: theme.primary + '20' }]}>
-                        <Text style={styles.announcementEmoji}>👤</Text>
-                    </View>
-                    <View style={styles.announcementContent}>
-                        <View style={styles.announcementHeader}>
-                            <Text style={[styles.announcementTitle, { color: theme.text }]}>Welcome Back!🎉🎉</Text>
-                            <Text style={[styles.announcementTime, { color: theme.subtext }]}>2h ago</Text>
-                        </View>
-                        <Text style={[styles.announcementText, { color: theme.subtext }]}>
-                            Get ready for an amazing semester with SHPE!
-                        </Text>
-                    </View>
-                </View>
-
-                {/* Quick Actions */}
-                <View style={styles.actionsGrid}>
-                    {/* Debug Tools Button */}
-                    {(__DEV__ || isCurrentUserSuperAdmin) && (
-                        <TouchableOpacity
-                            style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
-                            onPress={() => setDebugExpanded(!debugExpanded)}
-                        >
-                            <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
-                                <Ionicons name="bug" size={32} color={(theme as any).warning || '#F59E0B'} />
-                            </View>
-                            <Text style={[styles.actionTitle, dynamicStyles.text]}>Debug</Text>
-                            <Text style={[styles.actionDescription, dynamicStyles.subtext]}>
-                                {debugExpanded ? 'Hide tools' : 'Show tools'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Admin Dashboard - Only for admins */}
-                    {isCurrentUserAdmin && (
-                        <TouchableOpacity
-                            style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
-                            onPress={() => router.push('/admin')}
-                        >
-                            <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
-                                <Ionicons name="shield-checkmark" size={32} color={theme.primary} />
-                            </View>
-                            <Text style={[styles.actionTitle, dynamicStyles.text]}>Admin</Text>
-                            <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Manage events</Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {/* Check In */}
-                    <TouchableOpacity
-                        style={[styles.actionCard, dynamicStyles.card, cardWidthStyle]}
-                        onPress={() => router.push('/check-in')}
-                    >
-                        <View style={[styles.actionIconContainer, dynamicStyles.iconBg]}>
-                            <Ionicons name="qr-code" size={32} color={theme.success} />
-                        </View>
-                        <Text style={[styles.actionTitle, dynamicStyles.text]}>Check In</Text>
-                        <Text style={[styles.actionDescription, dynamicStyles.subtext]}>Scan event QR code</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Debug Tools Expanded Content */}
-                {(__DEV__ || isCurrentUserSuperAdmin) && debugExpanded && (
-                    <View style={[styles.debugExpandedCard, { backgroundColor: isDark ? '#1C1C1E' : '#f0f0f0', borderColor: theme.border }]}>
-                        <Text style={styles.debugTitle}>Debug Tools</Text>
-                        <View style={styles.debugActions}>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    try {
-                                        await updateUserMetadata({ onboarding_completed: false });
-                                        Alert.alert('Success', 'Onboarding reset! Restart the app to see changes.');
-                                    } catch (e) {
-                                        Alert.alert('Error', 'Failed to reset onboarding');
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Reset Onboarding</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => {
-                                    console.log('User:', JSON.stringify(user, null, 2));
-                                    console.log('Profile:', JSON.stringify(profile, null, 2));
-                                    Alert.alert('Logged', 'User data logged to console');
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Log User Data</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={[styles.debugTitle, { marginTop: 16 }]}>Points System</Text>
-                        <Text style={[styles.debugText, dynamicStyles.text]}>
-                            Tier: {rankData.tier} | Points: {rankData.points_total}
-                        </Text>
-                        <Text style={[styles.debugText, dynamicStyles.text]}>
-                            To next tier: {rankData.points_to_next_tier} pts
-                        </Text>
-                        <Text style={[styles.debugText, dynamicStyles.text]}>
-                            Season: {rankData.season_id || 'N/A'}
-                        </Text>
-                        <View style={styles.debugActions}>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => handleAwardPoints('event_check_in', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Check In</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => handleAwardPoints('rsvp', { eventId: '15b46007-b2e0-4077-a1bb-048073d37d91' })}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ RSVP</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => handleAwardPoints('profile_completed', { eventId: null })}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Profile</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => handleAwardPoints('feedback', { feedbackId: Crypto.randomUUID() })}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>+ Feedback</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    try {
-                                        const { data, error } = await supabase
-                                            .from('point_rules')
-                                            .select('action_type, base_points, is_enabled')
-                                            .eq('is_enabled', true);
-
-                                        if (error) throw error;
-                                        if (!data || data.length === 0) {
-                                            Alert.alert('No Rules', 'No enabled point_rules found.');
-                                            return;
-                                        }
-                                        const rules = data.map((r) => `${r.action_type}: ${r.base_points}pts`).join('\n');
-                                        Alert.alert('Point Rules', `Found ${data.length} enabled rules:\n\n${rules}`);
-                                    } catch (e: any) {
-                                        Alert.alert('DB Error', e.message);
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Rules</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={() => setRankData((prev) => ({ ...prev }))}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh (Local)</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    try {
-                                        const response = await rankService.getMyRank();
-                                        console.log('[Refresh(DB)] result=', response);
-                                        if (response.success && response.data) {
-                                            const shouldUpdate =
-                                                response.data.points_total > 0 || rankData == null;
-                                            if (shouldUpdate) {
-                                                setRankData(response.data);
-                                                Alert.alert(
-                                                    'Refreshed from DB',
-                                                    `Season: ${response.data.season_id}\nPoints: ${response.data.points_total}\nTier: ${response.data.tier}\nTo next: ${response.data.points_to_next_tier} pts`
-                                                );
-                                            } else if (rankData.points_total > 0) {
-                                                console.log('[Refresh(DB)] No DB row yet for season; keeping local state.');
-                                            }
-                                        } else {
-                                            Alert.alert('DB Error', JSON.stringify(response.error, null, 2));
-                                        }
-                                    } catch (e: any) {
-                                        Alert.alert('Error', e.message);
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Refresh (DB)</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={[styles.debugTitle, { marginTop: 16 }]}>Admin Status</Text>
-                        <Text style={[styles.debugText, dynamicStyles.text]}>
-                            Is Admin: {isCurrentUserAdmin ? '✅ YES' : '❌ NO'}
-                        </Text>
-                        <View style={styles.debugActions}>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    try {
-                                        const { data: { user } } = await supabase.auth.getUser();
-                                        if (!user) {
-                                            Alert.alert('Error', 'Not logged in');
-                                            return;
-                                        }
-
-                                        const { data: adminRole, error } = await supabase
-                                            .from('admin_roles')
-                                            .select('*')
-                                            .eq('user_id', user.id)
-                                            .is('revoked_at', null)
-                                            .maybeSingle();
-
-                                        if (error) {
-                                            Alert.alert('Database Error', error.message);
-                                            return;
-                                        }
-
-                                        if (adminRole) {
-                                            Alert.alert(
-                                                'Admin Status: YES ✅',
-                                                `User ID: ${user.id}\nRole: ${adminRole.role_type}\nGranted: ${new Date(adminRole.granted_at).toLocaleDateString()}`
-                                            );
-                                        } else {
-                                            Alert.alert(
-                                                'Admin Status: NO ❌',
-                                                `User ID: ${user.id}\n\nTo grant admin access, run:\n\nINSERT INTO admin_roles (user_id, role_type) VALUES ('${user.id}', 'event_manager');`
-                                            );
-                                        }
-                                    } catch (e: any) {
-                                        Alert.alert('Error', e.message);
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Check Admin</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    const { adminService } = await import('@/services/admin.service');
-                                    adminService.clearCache();
-                                    Alert.alert('Cache Cleared', 'Admin status cache cleared. Reload the app to refresh.');
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Clear Cache</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={[styles.debugTitle, { marginTop: 16 }]}>RLS Testing</Text>
-                        <View style={styles.debugActions}>
-                            <TouchableOpacity
-                                style={[styles.debugButton, { backgroundColor: isDark ? '#333' : '#e0e0e0', borderColor: theme.border }]}
-                                onPress={async () => {
-                                    try {
-                                        const { data: { user } } = await supabase.auth.getUser();
-                                        if (!user) {
-                                            Alert.alert('RLS Test - FAIL', 'Not logged in');
-                                            return;
-                                        }
-
-                                        console.log('Starting RLS test for user:', user.id);
-
-                                        // Query points_transactions - should only return current user's transactions
-                                        const { data: transactions, error } = await supabase
-                                            .from('points_transactions')
-                                            .select('id, user_id, season_id, action_type, points, created_at')
-                                            .order('created_at', { ascending: false })
-                                            .limit(10);
-
-                                        if (error) {
-                                            console.error('RLS Test error:', error);
-                                            Alert.alert('RLS Test - ERROR', `Query failed: ${error.message}`);
-                                            return;
-                                        }
-
-                                        // Get unique user IDs from the results
-                                        const uniqueUserIds = Array.from(new Set(transactions?.map(t => t.user_id) || []));
-
-                                        console.log('Unique user IDs found:', uniqueUserIds);
-                                        console.log('Transactions:', JSON.stringify(transactions, null, 2));
-
-                                        // Test passes if we only see the current user's transactions
-                                        if (uniqueUserIds.length === 0) {
-                                            Alert.alert(
-                                                'RLS Test - PASS ✅',
-                                                `No transactions found for your account.\n\nUser ID: ${user.id}\n\nThis is expected if you haven't earned any points yet.`
-                                            );
-                                        } else if (uniqueUserIds.length === 1 && uniqueUserIds[0] === user.id) {
-                                            const recent = transactions?.slice(0, 3).map(t =>
-                                                `• ${t.action_type}: +${t.points}pts`
-                                            ).join('\n') || '';
-                                            Alert.alert(
-                                                'RLS Test - PASS ✅',
-                                                `Only your transactions are visible.\n\nUser ID: ${user.id}\nTransactions: ${transactions?.length || 0}\n\nRecent:\n${recent}\n\nRLS is working correctly!`
-                                            );
-                                        } else {
-                                            Alert.alert(
-                                                'RLS Test - FAIL ❌',
-                                                `Found transactions from ${uniqueUserIds.length} user(s):\n${uniqueUserIds.join(', ')}\n\nExpected only: ${user.id}\n\nRLS policy may not be working correctly!`
-                                            );
-                                        }
-                                    } catch (e: any) {
-                                        console.error('RLS Test exception:', e);
-                                        Alert.alert('RLS Test - ERROR', e.message);
-                                    }
-                                }}
-                            >
-                                <Text style={[styles.debugButtonText, dynamicStyles.text]}>Test RLS</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
-            </ScrollView>
-
-            {/* Sign Out Button */}
-            <TouchableOpacity style={[styles.signOutButton, dynamicStyles.signOut]} onPress={handleSignOut}>
-                <Ionicons name="log-out-outline" size={18} color={theme.subtext} />
-                <Text style={[styles.signOutText, dynamicStyles.subtext]}>Sign Out</Text>
-            </TouchableOpacity>
-        </SafeAreaView >
-    );
+      {/* Header Overlay */}
+      <HomeHeader hasUnreadNotifications={unreadCount > 0} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        // backgroundColor removed, handled dynamically
-    },
-    content: {
-        flex: 1,
-    },
-    scrollContent: {
-        padding: 20,
-    },
-    // ... items ...
-    signOutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        // backgroundColor removed
-        borderWidth: 1,
-        // borderColor removed
-        padding: 10,
-        borderRadius: 8,
-        marginHorizontal: 20,
-        marginBottom: 10,
-        gap: 6,
-    },
-    welcomeCard: {
-        backgroundColor: '#D35400', // Brand color, keep static
-        borderRadius: 16,
-        padding: 24,
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    welcomeText: {
-        color: 'rgba(255,255,255,0.8)',
-        fontSize: 16,
-    },
-    title: {
-        color: '#fff',
-        fontSize: 32,
-        fontWeight: 'bold',
-        marginVertical: 8,
-    },
-    email: {
-        color: 'rgba(255,255,255,0.9)',
-        fontSize: 14,
-    },
-    eventContainer: {
-        marginBottom: 8,
-    },
-    announcementCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 24,
-        borderWidth: 1,
-        gap: 16,
-    },
-    announcementIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: 'rgba(255, 165, 0, 0.1)', // Light orange tint
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    announcementEmoji: {
-        fontSize: 24,
-    },
-    announcementContent: {
-        flex: 1,
-        gap: 4,
-    },
-    announcementHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    announcementTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    announcementTime: {
-        fontSize: 12,
-    },
-    announcementText: {
-        fontSize: 14,
-        lineHeight: 20,
-    },
-    eventSection: {
-        marginBottom: 24,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 12,
-    },
-    seeAllText: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    actionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-        marginBottom: 24,
-    },
-    actionCard: {
-        // backgroundColor removed
-        borderRadius: 12,
-        padding: 16,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-        width: '48%', // Added this line based on "fix actionCard width"
-    },
-    actionIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        // backgroundColor removed
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    actionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        // color removed
-        marginBottom: 4,
-    },
-    actionDescription: {
-        fontSize: 12,
-        // color removed
-    },
-    debugCard: {
-        // backgroundColor removed
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        // borderColor removed
-        borderStyle: 'dashed',
-    },
-    announcementIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    debugExpandedCard: {
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 24,
-        borderWidth: 1,
-        borderStyle: 'dashed',
-    },
-    debugTitle: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#999',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-    },
-    debugText: {
-        fontSize: 12,
-        // color removed
-        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-        marginBottom: 4,
-    },
-    debugActions: {
-        marginTop: 12,
-        flexDirection: 'row',
-        gap: 8,
-        flexWrap: 'wrap',
-    },
-    debugButton: {
-        // backgroundColor removed
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 4,
-        borderWidth: 1,
-        // borderColor removed
-    },
-    debugButtonText: {
-        fontSize: 12,
-        // color removed
-        fontWeight: '500',
-    },
-    // signOutButton removed (duplicate)
-    signOutText: {
-        // color removed
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    emptyEventCard: {
-        borderRadius: 12,
-        padding: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderStyle: 'dashed',
-        borderWidth: 1,
-        borderColor: '#ccc',
-    },
-    emptyEventText: {
-        fontSize: 14,
-        fontStyle: 'italic',
-    },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    // Dynamic padding
+  },
 });
