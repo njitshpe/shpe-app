@@ -16,7 +16,8 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { formatTime, formatDateHeader } from '@/utils';
+import { formatTime, formatDateHeader, formatEventDetailDate } from '@/utils';
+
 import { useEvents } from '@/contexts/EventsContext';
 import { Event } from '@/types/events';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,17 +37,44 @@ import { AdminEventForm } from '@/components/admin/AdminEventForm';
 import { CreateEventData } from '@/services/adminEvents.service';
 import { FeedList } from '@/components/feed/FeedList';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { events, isCurrentUserAdmin, updateEventAdmin, deleteEventAdmin } = useEvents();
-  const { theme, isDark } = useTheme();
-
   // Find the event from context
   const event = events.find((evt) => evt.id === id);
+
+  const { theme, isDark } = useTheme();
+
+  // Determine image size dynamically to allow rounded corners + contain effect
+  const [imageDimensions, setImageDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (event?.coverImageUrl) {
+      Image.getSize(event.coverImageUrl, (width, height) => {
+        const aspectRatio = width / height;
+        const maxHeight = SCREEN_HEIGHT * 0.45;
+        const maxWidth = SCREEN_WIDTH - 48;
+
+        let finalWidth = maxHeight * aspectRatio;
+        let finalHeight = maxHeight;
+
+        if (finalWidth > maxWidth) {
+          finalWidth = maxWidth;
+          finalHeight = maxWidth / aspectRatio;
+        }
+
+        setImageDimensions({ width: finalWidth, height: finalHeight });
+      }, (error) => {
+        console.error("Failed to load image dimensions", error);
+      });
+    }
+  }, [event?.coverImageUrl]);
+
+
 
   // Registration state
   const { isRegistered, loading, register, cancel } = useEventRegistration(id || '');
@@ -315,27 +343,19 @@ export default function EventDetailScreen() {
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </Pressable>
 
-            <View style={styles.rightControls}>
-              {isCurrentUserAdmin && (
-                <>
-                  <Pressable style={styles.controlButton} onPress={handleEditEvent}>
-                    <Ionicons name="create-outline" size={22} color="#fff" />
-                  </Pressable>
-                  <Pressable style={styles.controlButton} onPress={handleDeleteEvent}>
-                    <Ionicons name="trash-outline" size={22} color="#EF4444" />
-                  </Pressable>
-                </>
-              )}
-              <Pressable style={styles.controlButton} onPress={handleShare}>
-                <Ionicons name="share-outline" size={22} color="#fff" />
-              </Pressable>
-            </View>
+
           </View>
 
           {/* Centered Poster */}
           <View style={styles.posterContainer}>
             {event.coverImageUrl && (
-              <Image source={{ uri: event.coverImageUrl }} style={styles.posterImage} />
+              <Image
+                source={{ uri: event.coverImageUrl }}
+                style={[
+                  styles.posterImage,
+                  imageDimensions && { width: imageDimensions.width, height: imageDimensions.height, resizeMode: 'cover' }
+                ]}
+              />
             )}
           </View>
 
@@ -345,7 +365,7 @@ export default function EventDetailScreen() {
 
             {/* Date & Time */}
             <Text style={styles.dateText}>
-              {formatDateHeader(event.startTimeISO)}, {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
+              {formatEventDetailDate(event.startTimeISO)}, {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
             </Text>
 
             {/* Attendance Status */}
@@ -393,17 +413,15 @@ export default function EventDetailScreen() {
                 <Text style={styles.glassButtonText}>Check-in</Text>
               </TouchableOpacity>
 
-              {/* Tertiary Action: Highlights (or Share fallback) */}
+
+
+              {/* Share Action */}
               <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  styles.glassButton,
-                  showHighlights && styles.activeGlassButton
-                ]}
-                onPress={() => setShowHighlights(!showHighlights)}
+                style={[styles.actionButton, styles.glassButton]}
+                onPress={handleShare}
               >
-                <Ionicons name="images-outline" size={22} color="#fff" />
-                <Text style={styles.glassButtonText}>Highlights</Text>
+                <Ionicons name="share-outline" size={22} color="#fff" />
+                <Text style={styles.glassButtonText}>Share</Text>
               </TouchableOpacity>
 
               {/* More Action */}
@@ -414,62 +432,107 @@ export default function EventDetailScreen() {
                 <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
                 <Text style={styles.glassButtonText}>More</Text>
               </TouchableOpacity>
+
             </View>
 
-            {/* Highlights View */}
-            {showHighlights && (
-              <View style={styles.highlightsSection}>
-                <FeedList eventId={event.uuid} scrollEnabled={false} />
+            {/* Admin Buttons Stack */}
+            {isCurrentUserAdmin && (
+              <View style={{ gap: 12, marginTop: 4 }}>
+                {/* Check In Guests */}
+                <TouchableOpacity
+                  style={styles.glassButtonFull}
+                  onPress={() => checkInState === 'active' ? setShowQRModal(true) : Alert.alert('Check-In Not Active', checkInButtonLabel)}
+                >
+                  <Ionicons name="scan-outline" size={20} color="#fff" />
+                  <Text style={styles.glassButtonText}>Check In Guests</Text>
+                </TouchableOpacity>
+
+                {/* Manage Event */}
+                <TouchableOpacity
+                  style={styles.glassButtonFull}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    Alert.alert(
+                      "Manage Event",
+                      "Choose an action",
+                      [
+                        { text: "Edit Event", onPress: handleEditEvent },
+                        { text: "Delete Event", onPress: handleDeleteEvent, style: "destructive" },
+                        { text: "Cancel", style: "cancel" }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="settings-outline" size={20} color="#fff" />
+                  <Text style={styles.glassButtonText}>Manage Event</Text>
+                </TouchableOpacity>
               </View>
             )}
 
+
+
             {/* About */}
             {event.description && (
-              <View style={{ marginTop: 24 }}>
+              <View style={{ marginTop: 12 }}>
                 <Text style={styles.sectionHeader}>About</Text>
+                <View style={styles.divider} />
                 <Text style={styles.descriptionText}>{event.description}</Text>
               </View>
             )}
 
             {/* Location */}
-            <Text style={styles.sectionHeader}>Location</Text>
-            <View style={styles.locationContainer}>
-              <View style={styles.locationRow}>
-                <Ionicons name="videocam" size={20} color="rgba(255,255,255,0.7)" style={{ marginRight: 8 }} />
-                <Text style={styles.locationText}>{event.locationName}</Text>
-              </View>
-              {event.address && (
-                <Text style={styles.addressText}>{event.address}</Text>
-              )}
-              <View style={styles.mapContainer}>
-                <MapPreview
-                  locationName={event.locationName}
-                  address={event.address}
-                  latitude={event.latitude}
-                  longitude={event.longitude}
-                />
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.sectionHeader}>Location</Text>
+              <View style={styles.divider} />
+              <View style={styles.locationContainer}>
+                <View style={styles.locationRow}>
+                  <Text style={styles.locationText}>{event.locationName}</Text>
+                </View>
+                {event.address && (
+                  <Text style={styles.addressText}>{event.address}</Text>
+                )}
+                <View style={styles.mapContainer}>
+                  <MapPreview
+                    locationName={event.locationName}
+                    address={event.address}
+                    latitude={event.latitude}
+                    longitude={event.longitude}
+                  />
+                </View>
               </View>
             </View>
 
             {/* Who's Going */}
             <View style={styles.hostsSection}>
-              <Text style={styles.sectionHeader}>Who's Going</Text>
-              <AttendeesPreview eventId={event.id} />
+              <AttendeesPreview eventId={event.id} previewCount={3} />
             </View>
 
-            {/* Admin QR Code */}
-            {isCurrentUserAdmin && (
-              <View style={styles.adminSection}>
-                <Text style={styles.sectionHeader}>Admin Tools</Text>
-                <TouchableOpacity
-                  style={[styles.glassButtonFull, { marginTop: 8 }]}
-                  onPress={() => checkInState === 'active' && setShowQRModal(true)}
-                >
-                  <Ionicons name="qr-code" size={20} color="#fff" />
-                  <Text style={styles.glassButtonText}>Show Check-in QR</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* Highlights Section (Moved) */}
+            <View style={{ marginTop: 12, marginBottom: 12 }}>
+              <TouchableOpacity
+                style={[styles.glassButtonFull, showHighlights && styles.activeGlassButton]}
+                onPress={() => setShowHighlights(!showHighlights)}
+              >
+                <Ionicons name="images-outline" size={20} color="#fff" />
+                <Text style={styles.glassButtonText}>
+                  {showHighlights ? "Hide Highlights" : "See Highlights"}
+                </Text>
+                <Ionicons
+                  name={showHighlights ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color="#fff"
+                  style={{ marginLeft: 'auto' }}
+                />
+              </TouchableOpacity>
+
+              {showHighlights && (
+                <View style={{ marginTop: 16 }}>
+                  <FeedList eventId={event.uuid} scrollEnabled={false} />
+                </View>
+              )}
+            </View>
+
+
 
           </View>
         </ScrollView>
@@ -545,7 +608,7 @@ const styles = StyleSheet.create({
   // POSTER
   posterContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
@@ -554,8 +617,9 @@ const styles = StyleSheet.create({
   },
   posterImage: {
     width: SCREEN_WIDTH - 48,
-    height: SCREEN_WIDTH - 48,
+    height: SCREEN_HEIGHT * 0.45,
     borderRadius: 24,
+    resizeMode: 'contain',
   },
 
   // CONTROLS
@@ -609,7 +673,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 24
+    marginBottom: 12
   },
   statusText: {
     color: '#4ADE80',
@@ -622,8 +686,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 16,
-    marginTop: 16,
+    marginBottom: 12,
+    marginTop: 8,
   },
   actionButton: {
     borderRadius: 16,
@@ -681,9 +745,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.5)',
-    marginBottom: 12,
+    marginBottom: 8,
     marginTop: 8,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   locationContainer: {
@@ -702,7 +765,6 @@ const styles = StyleSheet.create({
   addressText: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.6)',
-    marginLeft: 28,
     marginBottom: 16,
   },
   mapContainer: {
@@ -781,5 +843,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginTop: 6,
+    marginBottom: 10,
   },
 });
