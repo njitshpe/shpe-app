@@ -59,7 +59,7 @@ export default function WizardLayout({
           <View style={styles.progressContainer}>
             {progressType === 'segmented' ? (
               <View style={styles.segmentedProgress}>
-                {Array.from({ length: totalSteps }).map((_, index) => (
+                {Array.from({ length: Math.max(0, totalSteps) }).map((_, index) => (
                   <MotiView
                     key={index}
                     animate={{
@@ -105,6 +105,7 @@ export default function WizardLayout({
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
+    overflow: 'hidden', // Clip any stray absolute elements
   },
   safeArea: {
     flex: 1,
@@ -112,6 +113,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: SPACING.md,
+    backgroundColor: 'transparent', // Force transparency
   },
   progressContainer: {
     width: '100%',
@@ -157,5 +159,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     width: '100%',
+    backgroundColor: 'transparent', // Ensure no phantom background
   },
 });
