@@ -1,37 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet } from 'react-native';
+import { Alert, View, Text, StyleSheet, Keyboard } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics'; // <--- NEW: Tactile feedback
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import { SHADOWS } from '@/constants/colors';
+import { SHADOWS, SHPE_COLORS } from '@/constants/colors';
 import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
 import WizardLayout from '../components/WizardLayout.native';
 import IdentityStep from '../screens/shared/IdentityStep.native';
+import AcademicsStep from '../screens/student/AcademicsStep.native';
 import InterestsStep from '../screens/shared/InterestsStep.native';
+import BioStep from '../screens/student/BioStep.native';
 import AssetsStep from '../screens/student/AssetsStep.native';
 import ReviewStep from '../screens/student/ReviewStep.native';
 
 const DEFAULT_GRAD_YEAR = String(new Date().getFullYear());
 
-// Master FormData interface combining all step fields
+// Master FormData interface
 interface OnboardingFormData {
-  // Step 1: Identity
   firstName: string;
   lastName: string;
   ucid: string;
   major: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 2: Interests + Phone
   interests: string[];
   phoneNumber: string;
-  // Step 3: Assets
   resumeFile: DocumentPicker.DocumentPickerAsset | null;
   linkedinUrl: string;
   portfolioUrl: string;
@@ -40,25 +40,26 @@ interface OnboardingFormData {
 
 export default function OnboardingWizard() {
   const router = useRouter();
-  const { user, updateUserMetadata, loadProfile } = useAuth();
+  const { user, updateUserMetadata } = useAuth();
   const { theme, isDark } = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // NEW: Dynamic loading messages to build value
+  const [loadingMessage, setLoadingMessage] = useState('Saving...'); 
+  
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
   const [formData, setFormData] = useState<OnboardingFormData>({
-    // Step 1
     firstName: '',
     lastName: '',
     ucid: '',
     major: '',
     graduationYear: DEFAULT_GRAD_YEAR,
     profilePhoto: null,
-    // Step 2
     interests: [],
     phoneNumber: '',
-    // Step 3
     resumeFile: null,
     linkedinUrl: '',
     portfolioUrl: '',
@@ -73,147 +74,121 @@ export default function OnboardingWizard() {
       return;
     }
     if (userType !== 'student') {
-      const fallback =
-        userType === 'alumni'
-          ? '/alumni-onboarding'
-          : userType === 'guest'
-            ? '/guest-onboarding'
-            : '/role-selection';
+      const fallback = userType === 'alumni' ? '/alumni-onboarding' : userType === 'guest' ? '/guest-onboarding' : '/role-selection';
       router.replace(fallback);
     }
   }, [user, router]);
 
-  // Helper function to merge partial data into main state
   const updateFormData = (fields: Partial<OnboardingFormData>) => {
     setFormData((prev) => ({ ...prev, ...fields }));
   };
 
-  // Navigation helpers
+  // --- NAVIGATION HELPERS ---
+  // Total steps: 0=Identity, 1=Academics, 2=Interests, 3=Bio, 4=Assets, 5=Review
+  const TOTAL_STEPS = 6;
+
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 3)); // 4 steps now (0-3)
+    Keyboard.dismiss(); // Clean up UI
+    Haptics.selectionAsync(); // Tactile confirmation
+    setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
   };
 
   const prevStep = () => {
+    Keyboard.dismiss();
+    Haptics.selectionAsync();
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
-  // Handle back button press
   const handleBack = async () => {
     if (currentStep === 0) {
-      // Exit to role selection (clear user_type first)
-      try {
-        await updateUserMetadata({ user_type: null });
-        router.replace('/role-selection');
-      } catch (error) {
-        console.error('Failed to clear user type:', error);
-        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        'Exit Setup?',
+        'You need a profile to join events. Are you sure?',
+        [
+          { text: 'Stay', style: 'cancel' },
+          { 
+            text: 'Exit', 
+            style: 'destructive', 
+            onPress: async () => {
+              await updateUserMetadata({ user_type: null });
+              router.replace('/role-selection');
+            } 
+          }
+        ]
+      );
     } else {
-      // Go to previous step
       prevStep();
     }
   };
 
-  // Check if user has entered any data
   const hasFormData = () => {
     return (
       formData.firstName.trim() !== '' ||
       formData.lastName.trim() !== '' ||
-      formData.ucid.trim() !== '' ||
-      formData.major.trim() !== '' ||
-      (formData.graduationYear.trim() !== '' && formData.graduationYear !== DEFAULT_GRAD_YEAR) ||
-      formData.profilePhoto !== null
+      formData.ucid.trim() !== ''
     );
   };
 
-  // Handle badge celebration completion
   const handleBadgeCelebrationComplete = () => {
     setShowBadgeCelebration(false);
-    // Fire confetti
     confettiRef.current?.start();
-    // Redirect to dashboard/home
+    // Delay navigation slightly to let confetti fall
     setTimeout(() => {
       router.replace('/(tabs)/home');
-    }, 1500);
+    }, 2500);
   };
 
-  // Handle wizard completion
+  // --- THE "SMART" SAVE PROCESS ---
   const handleFinish = async () => {
-    if (!user) {
-      Alert.alert('Error', 'No user found. Please sign in again.');
-      return;
-    }
+    if (!user) return;
 
     setIsSaving(true);
+    setLoadingMessage("Minting your SHPE ID..."); // Step 1: Ego
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
+      // Artificial delay for psychology (800ms)
+      await new Promise(r => setTimeout(r, 800));
+
       let profilePictureUrl: string | undefined;
       let resumeUrl: string | undefined;
       let resumeName: string | undefined;
 
-      // Upload profile photo if provided
+      // Upload Photo
       if (formData.profilePhoto) {
-        const uploadResult = await storageService.uploadProfilePhoto(
-          user.id,
-          formData.profilePhoto
-        );
-
-        if (uploadResult.success) {
-          profilePictureUrl = uploadResult.data.url;
-        } else {
-          // Show warning but continue
-          Alert.alert(
-            'Photo Upload Failed',
-            'Your profile photo could not be uploaded. You can add it later in settings.',
-            [{ text: 'OK' }]
-          );
-        }
+        setLoadingMessage("Processing photo...");
+        const uploadResult = await storageService.uploadProfilePhoto(user.id, formData.profilePhoto);
+        if (uploadResult.success) profilePictureUrl = uploadResult.data.url;
       }
 
-      // Upload resume if provided
+      // Upload Resume
       if (formData.resumeFile) {
-        const uploadResult = await storageService.uploadResume(
-          user.id,
-          formData.resumeFile
-        );
-
+        setLoadingMessage("Securing resume..."); // Step 2: Security
+        const uploadResult = await storageService.uploadResume(user.id, formData.resumeFile);
         if (uploadResult.success) {
           resumeUrl = uploadResult.data.url;
           resumeName = uploadResult.data.originalName;
-        } else {
-          // Show warning but continue
-          Alert.alert(
-            'Resume Upload Failed',
-            'Your resume could not be uploaded. You can add it later in settings.',
-            [{ text: 'OK' }]
-          );
         }
       }
 
-      // Map interests from IDs to the format expected by the database
+      setLoadingMessage("Finalizing profile..."); // Step 3: Completion
+
+      // Map Interests
       const interestMap: Record<string, any> = {
-        'internships': 'career',
-        'scholarships': 'career',
-        'resume-help': 'career',
-        'mental-health': 'workshops',
-        'networking': 'networking',
-        'leadership': 'workshops',
-        'career-fairs': 'career',
-        'community-service': 'volunteering',
+        'internships': 'career', 'scholarships': 'career', 'resume-help': 'career',
+        'mental-health': 'workshops', 'networking': 'networking', 'leadership': 'workshops',
+        'career-fairs': 'career', 'community-service': 'volunteering',
       };
+      const mappedInterests = formData.interests.map(id => interestMap[id]).filter((val, idx, arr) => arr.indexOf(val) === idx);
 
-      const mappedInterests = formData.interests
-        .map(id => interestMap[id])
-        .filter((val, idx, arr) => arr.indexOf(val) === idx); // Remove duplicates
-
-      // Create profile data object
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         ucid: formData.ucid.trim().toLowerCase(),
         major: formData.major.trim(),
         graduation_year: parseInt(formData.graduationYear, 10),
-        university: 'NJIT', // Default university for NJIT students
+        university: 'NJIT',
         bio: formData.bio?.trim() || '',
         interests: mappedInterests,
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
@@ -225,66 +200,67 @@ export default function OnboardingWizard() {
         user_type: 'student' as const,
       };
 
-      // Try to create the profile (will fail if exists, then we update)
       let result = await profileService.createProfile(user.id, profileData);
+      if (!result.success) result = await profileService.updateProfile(user.id, profileData);
 
-      if (!result.success) {
-        // Profile might already exist, try updating instead
-        result = await profileService.updateProfile(user.id, profileData);
-      }
+      if (!result.success) throw new Error(result.error?.message);
 
-      if (!result.success) {
-        console.error('Profile save error:', result.error);
-        Alert.alert('Error', 'Failed to save profile. Please try again.');
-        setIsSaving(false);
-        return;
-      }
-
-      // Mark onboarding as complete in user metadata
-      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
 
       setIsSaving(false);
-
-      // Show badge celebration
-      setShowBadgeCelebration(true);
+      setShowBadgeCelebration(true); // Trigger the "Award" moment
     } catch (error) {
       console.error('Error completing onboarding:', error);
       setIsSaving(false);
-      Alert.alert('Unable to finish onboarding', 'Please try again.');
+      Alert.alert('Save Failed', 'Please try again.');
     }
+  };
+
+  // --- TRANSITION CONFIG ---
+  // A "Stacking" transition feels more premium than a simple slide
+  const transitionConfig = {
+    from: { opacity: 0, scale: 0.95, translateX: 20 },
+    animate: { opacity: 1, scale: 1, translateX: 0 },
+    exit: { opacity: 0, scale: 0.95, translateX: -20 },
+    transition: { type: 'timing' as const, duration: 350 },
   };
 
   return (
     <WizardLayout
       currentStep={currentStep}
-      totalSteps={4}
+      totalSteps={TOTAL_STEPS}
       onBack={handleBack}
       hasFormData={hasFormData()}
       showConfirmation={currentStep === 0}
       variant="student"
       progressType="segmented"
     >
-      {/* Step Rendering with AnimatePresence */}
       <View style={styles.stepsContainer}>
-        <AnimatePresence exitBeforeEnter>
+        {/* Remove exitBeforeEnter for a faster, snappier feel */}
+        <AnimatePresence>
+          {/* Step 0: Identity (Name/Photo) */}
           {currentStep === 0 && (
-            <MotiView
-              key="step-0"
-              from={{ translateX: 50, opacity: 0 }}
-              animate={{ translateX: 0, opacity: 1 }}
-              exit={{ translateX: -50, opacity: 0 }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={styles.stepWrapper}
-            >
+            <MotiView key="step-0" {...transitionConfig} style={styles.stepWrapper}>
               <IdentityStep
                 data={{
                   firstName: formData.firstName,
                   lastName: formData.lastName,
-                  ucid: formData.ucid,
+                  profilePhoto: formData.profilePhoto,
+                }}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
+
+          {/* Step 1: Academics (Major/Year/UCID) */}
+          {currentStep === 1 && (
+            <MotiView key="step-1" {...transitionConfig} style={styles.stepWrapper}>
+              <AcademicsStep
+                data={{
                   major: formData.major,
                   graduationYear: formData.graduationYear,
-                  profilePhoto: formData.profilePhoto,
+                  ucid: formData.ucid,
                 }}
                 update={updateFormData}
                 onNext={nextStep}
@@ -293,15 +269,9 @@ export default function OnboardingWizard() {
             </MotiView>
           )}
 
-          {currentStep === 1 && (
-            <MotiView
-              key="step-1"
-              from={{ translateX: 50, opacity: 0 }}
-              animate={{ translateX: 0, opacity: 1 }}
-              exit={{ translateX: -50, opacity: 0 }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={styles.stepWrapper}
-            >
+          {/* Step 2: Interests */}
+          {currentStep === 2 && (
+            <MotiView key="step-2" {...transitionConfig} style={styles.stepWrapper}>
               <InterestsStep
                 data={{
                   interests: formData.interests,
@@ -313,20 +283,11 @@ export default function OnboardingWizard() {
             </MotiView>
           )}
 
-          {currentStep === 2 && (
-            <MotiView
-              key="step-2"
-              from={{ translateX: 50, opacity: 0 }}
-              animate={{ translateX: 0, opacity: 1 }}
-              exit={{ translateX: -50, opacity: 0 }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={styles.stepWrapper}
-            >
-              <AssetsStep
+          {/* Step 3: Bio/Pitch */}
+          {currentStep === 3 && (
+            <MotiView key="step-3" {...transitionConfig} style={styles.stepWrapper}>
+              <BioStep
                 data={{
-                  resumeFile: formData.resumeFile,
-                  linkedinUrl: formData.linkedinUrl,
-                  portfolioUrl: formData.portfolioUrl,
                   bio: formData.bio,
                 }}
                 update={updateFormData}
@@ -335,15 +296,24 @@ export default function OnboardingWizard() {
             </MotiView>
           )}
 
-          {currentStep === 3 && (
-            <MotiView
-              key="step-3"
-              from={{ translateX: 50, opacity: 0 }}
-              animate={{ translateX: 0, opacity: 1 }}
-              exit={{ translateX: -50, opacity: 0 }}
-              transition={{ type: 'timing', duration: 300 }}
-              style={styles.stepWrapper}
-            >
+          {/* Step 4: Assets (Resume/Links) */}
+          {currentStep === 4 && (
+            <MotiView key="step-4" {...transitionConfig} style={styles.stepWrapper}>
+              <AssetsStep
+                data={{
+                  resumeFile: formData.resumeFile,
+                  linkedinUrl: formData.linkedinUrl,
+                  portfolioUrl: formData.portfolioUrl,
+                }}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
+
+          {/* Step 5: Review */}
+          {currentStep === 5 && (
+            <MotiView key="step-5" {...transitionConfig} style={styles.stepWrapper}>
               <ReviewStep
                 data={formData}
                 onNext={handleFinish}
@@ -353,26 +323,22 @@ export default function OnboardingWizard() {
         </AnimatePresence>
       </View>
 
-      {/* Loading Overlay */}
+      {/* ENHANCED LOADING OVERLAY */}
       {isSaving && (
-        <View
-          style={[
-            styles.loadingOverlay,
-            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
-          ]}
-        >
-          <View style={[styles.loadingCard, { backgroundColor: theme.card }]}>
+        <View style={[styles.loadingOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)' }]}>
+          <View style={[styles.loadingCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            {/* Simple Pulse Animation can be added here later */}
+            <Text style={[styles.loadingEmoji]}>✨</Text>
             <Text style={[styles.loadingText, { color: theme.text }]}>
-              Saving your profile...
+              {loadingMessage}
             </Text>
             <Text style={[styles.loadingSubtext, { color: theme.subtext }]}>
-              This may take a moment
+              Do not close the app
             </Text>
           </View>
         </View>
       )}
 
-      {/* Confetti Cannon */}
       <ConfettiCannon
         ref={confettiRef}
         count={200}
@@ -381,12 +347,11 @@ export default function OnboardingWizard() {
         fadeOut
       />
 
-      {/* Badge Unlock Celebration */}
       <BadgeUnlockOverlay
         visible={showBadgeCelebration}
         badgeType="student"
         onComplete={handleBadgeCelebrationComplete}
-        autoCompleteDelay={0} // Manual completion only
+        autoCompleteDelay={0}
       />
     </WizardLayout>
   );
@@ -400,29 +365,34 @@ const styles = StyleSheet.create({
   stepWrapper: {
     flex: 1,
     width: '100%',
+    position: 'absolute', // Allows cross-fading without layout jumps
   },
   loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
   },
   loadingCard: {
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 32,
     alignItems: 'center',
+    borderWidth: 1,
+    minWidth: 250,
     ...SHADOWS.large,
   },
+  loadingEmoji: {
+    fontSize: 40,
+    marginBottom: 16,
+  },
   loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 8,
+    textAlign: 'center',
   },
   loadingSubtext: {
     fontSize: 14,
+    opacity: 0.7,
   },
 });

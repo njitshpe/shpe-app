@@ -1,350 +1,321 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  useColorScheme,
   Pressable,
-  Animated,
+  useColorScheme,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
-import { LEGAL_URLS } from '@/constants/legal';
+import { SHPE_COLORS } from '@/constants/colors';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  FadeInDown,
+  FadeOut,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur'; // Ensure you have expo-blur installed
+import { AnimatedGridBackground } from '@/components/auth/AnimatedGridBackground'; // Import your grid
 
-type Role = 'student' | 'alumni' | 'guest' | null;
+const { width } = Dimensions.get('window');
 
-export default function RoleSelectionScreen() {
-  const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const { user, updateUserMetadata } = useAuth();
-  const [selectedRole, setSelectedRole] = useState<Role>(null);
+type Role = 'student' | 'alumni' | 'guest';
 
-  // Animated scale values for cards
-  const [studentScale] = useState(new Animated.Value(1));
-  const [alumniScale] = useState(new Animated.Value(1));
-  const [guestScale] = useState(new Animated.Value(1));
+const SELECTION_DELAY = 1000;
 
-  const handleCardPress = (role: 'student' | 'alumni' | 'guest', scaleValue: Animated.Value) => {
-    // Trigger haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+interface RoleOptionProps {
+  id: Role;
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accentColor: string;
+  isSelected: boolean;
+  isAnySelected: boolean;
+  onSelect: (role: Role) => void;
+  index: number;
+}
 
-    // Animate scale down
-    Animated.sequence([
-      Animated.timing(scaleValue, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleValue, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+// --- GLASS CARD COMPONENT ---
+const RoleCard = ({
+  id,
+  title,
+  subtitle,
+  icon,
+  accentColor,
+  isSelected,
+  isAnySelected,
+  onSelect,
+  index,
+}: RoleOptionProps) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
 
-    // Set selection and navigate after animation
-    setSelectedRole(role);
+  const animatedStyle = useAnimatedStyle(() => {
+    // Focus Logic: If selected, grow. If not selected but something else is, shrink & fade.
+    const targetScale = isSelected ? 1.05 : isAnySelected ? 0.95 : 1;
+    const targetOpacity = isAnySelected && !isSelected ? 0.3 : 1;
 
-    setTimeout(async () => {
-      // Update user metadata with selected role
-      if (user) {
-        await updateUserMetadata({ user_type: role });
-      }
+    return {
+      transform: [{ scale: withSpring(scale.value * targetScale) }],
+      opacity: withTiming(targetOpacity, { duration: 400 }),
+    };
+  });
 
-      // Navigate to appropriate onboarding flow
-      if (role === 'student') {
-        router.replace('/onboarding');
-      } else if (role === 'alumni') {
-        router.replace('/alumni-onboarding');
-      } else if (role === 'guest') {
-        router.replace('/guest-onboarding');
-      }
-    }, 200);
+  const handlePressIn = () => {
+    if (isAnySelected) return;
+    Haptics.selectionAsync();
+    scale.value = 0.97;
   };
 
-  // Dynamic colors
-  const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
-    cardBackground: isDark ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)',
-    cardBorder: isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(229, 231, 235, 0.5)',
-    studentAccent: SHPE_COLORS.sunsetOrange,
-    alumniAccent: isDark ? '#14B8A6' : '#0D9488', // Teal
-    guestAccent: isDark ? '#8B5CF6' : '#7C3AED', // Purple
+  const handlePressOut = () => {
+    if (isAnySelected) return;
+    scale.value = 1;
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
-        {/* Header Section - Upper 1/3 */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Welcome to the Familia!
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            To give you the best experience, tell us which path describes you.
-          </Text>
-        </View>
-
-        {/* Cards Section - Lower 2/3 */}
-        <View style={styles.cardsContainer}>
-          {/* Student Card */}
-          <Animated.View
-            style={[
-              { transform: [{ scale: studentScale }] },
-              selectedRole && selectedRole !== 'student' && styles.dimmedCard,
-            ]}
-          >
-            <Pressable
-              onPress={() => handleCardPress('student', studentScale)}
-              style={styles.cardWrapper}
-              accessibilityLabel="Select Current Student"
-              accessibilityRole="button"
-            >
+    <Animated.View
+      entering={FadeInDown.delay(300 + index * 100).springify()}
+      style={[styles.cardContainer, animatedStyle]}
+    >
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={() => !isAnySelected && onSelect(id)}
+        style={styles.pressable}
+      >
+        {/* Glass Effect Background */}
+        <View style={[styles.glassBackground, isSelected && { borderColor: accentColor, borderWidth: 1 }]}>
+          {/* If selected, fill with gradient */}
+          {isSelected && (
+            <Animated.View entering={FadeInDown} style={StyleSheet.absoluteFill}>
               <LinearGradient
-                colors={
-                  selectedRole === 'student'
-                    ? [`${colors.studentAccent}18`, 'transparent']
-                    : [`${colors.studentAccent}08`, 'transparent']
-                }
+                colors={[accentColor, 'transparent']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.gradientGlow}
-              >
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: colors.cardBackground,
-                      borderColor: selectedRole === 'student' ? colors.studentAccent : colors.cardBorder,
-                      borderWidth: 2,
-                    },
-                    selectedRole === 'student' && SHADOWS.medium,
-                  ]}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.studentAccent}20` }]}>
-                    <Ionicons name="school" size={32} color={colors.studentAccent} />
-                  </View>
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>Current Student</Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      I am an undergrad or grad student at NJIT.
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+                style={StyleSheet.absoluteFill}
+                opacity={0.2}
+              />
+            </Animated.View>
+          )}
 
-          {/* Alumni Card */}
-          <Animated.View
-            style={[
-              { transform: [{ scale: alumniScale }] },
-              selectedRole && selectedRole !== 'alumni' && styles.dimmedCard,
-            ]}
-          >
-            <Pressable
-              onPress={() => handleCardPress('alumni', alumniScale)}
-              style={styles.cardWrapper}
-              accessibilityLabel="Select Professional or Alumni"
-              accessibilityRole="button"
-            >
-              <LinearGradient
-                colors={
-                  selectedRole === 'alumni'
-                    ? [`${colors.alumniAccent}18`, 'transparent']
-                    : [`${colors.alumniAccent}08`, 'transparent']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientGlow}
-              >
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                      borderColor: selectedRole === 'alumni' ? colors.alumniAccent : 'rgba(148, 163, 184, 0.2)',
-                      borderWidth: 1,
-                    },
-                  ]}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.alumniAccent}20` }]}>
-                    <Ionicons name="briefcase" size={32} color={colors.alumniAccent} />
-                  </View>
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>Professional / Alumni</Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      I am a working professional or SHPE graduate.
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+          <View style={[styles.iconContainer, { backgroundColor: isSelected ? accentColor : 'rgba(255,255,255,0.08)' }]}>
+            <Ionicons 
+              name={icon} 
+              size={28} 
+              color={isSelected ? '#FFF' : accentColor} 
+            />
+          </View>
 
-          {/* External Guest Card */}
-          <Animated.View
-            style={[
-              { transform: [{ scale: guestScale }] },
-              selectedRole && selectedRole !== 'guest' && styles.dimmedCard,
-            ]}
-          >
-            <Pressable
-              onPress={() => handleCardPress('guest', guestScale)}
-              style={styles.cardWrapper}
-              accessibilityLabel="Select External Guest or Visiting Student"
-              accessibilityRole="button"
-            >
-              <LinearGradient
-                colors={
-                  selectedRole === 'guest'
-                    ? [`${colors.guestAccent}18`, 'transparent']
-                    : [`${colors.guestAccent}08`, 'transparent']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientGlow}
-              >
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                      borderColor: selectedRole === 'guest' ? colors.guestAccent : 'rgba(148, 163, 184, 0.2)',
-                      borderWidth: 1,
-                    },
-                  ]}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.guestAccent}20` }]}>
-                    <Ionicons name="globe-outline" size={32} color={colors.guestAccent} />
-                  </View>
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>
-                      External Guest / Visiting Student
-                    </Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      I'm visiting from another university or organization.
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+          <View style={styles.textContainer}>
+            <Text style={styles.cardTitle}>{title}</Text>
+            <Text style={styles.cardSubtitle}>{subtitle}</Text>
+          </View>
+
+          {/* Minimal Arrow or Check */}
+          <View style={styles.actionIcon}>
+             {isSelected ? (
+                <Ionicons name="checkmark-circle" size={24} color={accentColor} />
+             ) : (
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+             )}
+          </View>
         </View>
+      </Pressable>
+    </Animated.View>
+  );
+};
 
-        {/* Legal Text Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.legalText, { color: colors.textSecondary }]}>
-            By continuing, you agree to our{' '}
-            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}>
-              Terms of Use
-            </Text>
-            {' '}and{' '}
-            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}>
-              Privacy Policy
-            </Text>
-          </Text>
-        </View>
+export default function RoleSelectionScreen() {
+  const router = useRouter();
+  const { user, updateUserMetadata } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+
+  // Modern Dark Theme Palette
+  const colors = {
+    student: SHPE_COLORS.sunsetOrange, // #FF5733
+    alumni: '#0D9488', // Teal
+    guest: '#7C3AED',  // Purple
+  };
+
+  const handleSelect = useCallback((role: Role) => {
+    setSelectedRole(role);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    setTimeout(async () => {
+      if (user) await updateUserMetadata({ user_type: role });
+      
+      if (role === 'student') router.replace('/onboarding');
+      else if (role === 'alumni') router.replace('/alumni-onboarding');
+      else if (role === 'guest') router.replace('/guest-onboarding');
+    }, SELECTION_DELAY);
+  }, [user, updateUserMetadata, router]);
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      
+      {/* 1. IMMERSIVE BACKGROUND */}
+      <View style={styles.backgroundLayer}>
+        <AnimatedGridBackground />
+        {/* Dark overlay to ensure text legibility */}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000']}
+          style={StyleSheet.absoluteFill}
+        />
       </View>
-    </SafeAreaView>
+
+      {/* 2. CONTENT LAYER */}
+      <View style={styles.contentContainer}>
+        
+        {/* HEADER */}
+        <View style={styles.header}>
+          <Animated.Text 
+            entering={FadeInDown.delay(100).springify()}
+            style={styles.superTitle}
+          >
+            WHO ARE YOU?
+          </Animated.Text>
+          <Animated.Text 
+            entering={FadeInDown.delay(200).springify()}
+            style={styles.subTitle}
+          >
+            Choose your path to customize your experience.
+          </Animated.Text>
+        </View>
+
+        {/* CARDS LIST */}
+        <View style={styles.listContainer}>
+          <RoleCard
+            id="student"
+            index={0}
+            title="Student"
+            subtitle="Undergrad or Graduate at NJIT"
+            icon="school-outline"
+            accentColor={colors.student}
+            isSelected={selectedRole === 'student'}
+            isAnySelected={selectedRole !== null}
+            onSelect={handleSelect}
+          />
+
+          <RoleCard
+            id="alumni"
+            index={1}
+            title="Alumni / Pro"
+            subtitle="Working professional or graduate"
+            icon="briefcase-outline"
+            accentColor={colors.alumni}
+            isSelected={selectedRole === 'alumni'}
+            isAnySelected={selectedRole !== null}
+            onSelect={handleSelect}
+          />
+
+          <RoleCard
+            id="guest"
+            index={2}
+            title="Guest"
+            subtitle="Visiting from another org"
+            icon="earth-outline"
+            accentColor={colors.guest}
+            isSelected={selectedRole === 'guest'}
+            isAnySelected={selectedRole !== null}
+            onSelect={handleSelect}
+          />
+        </View>
+
+        {/* SPACER */}
+        <View style={{ height: 40 }} />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   container: {
     flex: 1,
+    backgroundColor: '#000', // Deep black base
+  },
+  backgroundLayer: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.6, // Dim the grid slightly so it doesn't fight the text
+  },
+  contentContainer: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    justifyContent: 'center',
+    zIndex: 10,
   },
   header: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 40,
+    marginBottom: 40,
+    marginTop: 60,
   },
-  title: {
+  superTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: 'rgba(255,255,255,0.5)',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  subTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    color: '#FFF',
+    letterSpacing: -0.5,
+    lineHeight: 38,
   },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 16,
+  listContainer: {
+    gap: 16,
   },
-  cardsContainer: {
-    flex: 2,
-    justifyContent: 'center',
-    gap: 20,
-  },
-  cardWrapper: {
+  // CARD STYLES
+  cardContainer: {
     width: '100%',
   },
-  gradientGlow: {
-    borderRadius: 16,
-    padding: 2,
+  pressable: {
+    borderRadius: 24,
+    overflow: 'hidden',
   },
-  card: {
+  glassBackground: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  dimmedCard: {
-    opacity: 0.5,
+    backgroundColor: 'rgba(30, 30, 30, 0.6)', // Glassy dark
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 24,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 20, // Squircle
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  cardContent: {
+  textContainer: {
     flex: 1,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 6,
+    color: '#FFF',
+    marginBottom: 4,
   },
   cardSubtitle: {
     fontSize: 14,
-    lineHeight: 20,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '500',
   },
-  footer: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  legalText: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  linkText: {
-    fontWeight: '600',
+  actionIcon: {
+    marginLeft: 12,
   },
 });

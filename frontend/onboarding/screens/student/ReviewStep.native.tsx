@@ -1,13 +1,33 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  Image,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
-import ResumePreview from '@/components/shared/ResumePreview';
+import { GRADIENTS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const HOLD_DURATION = 1500; // 1.5 seconds
 
 export interface FormData {
   firstName: string;
@@ -28,363 +48,264 @@ interface ReviewStepProps {
   onNext: () => void;
 }
 
-const INTEREST_LABELS: Record<string, string> = {
-  'internships': 'Internships 💼',
-  'scholarships': 'Scholarships 🎓',
-  'resume-help': 'Resume Help 📄',
-  'mental-health': 'Mental Health 💙',
-  'networking': 'Networking 🤝',
-  'leadership': 'Leadership 🌟',
-  'career-fairs': 'Career Fairs 🧭',
-  'community-service': 'Community Service 🤲',
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Interest Bubble Component (Monochrome)
+// ─────────────────────────────────────────────────────────────────────────────
+function InterestBubble({ label }: { label: string }) {
+  return (
+    <View style={bubbleStyles.container}>
+      <Text style={bubbleStyles.label}>{label}</Text>
+    </View>
+  );
+}
 
+const bubbleStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginRight: 8,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E2E8F0',
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hold-to-Confirm Button (The "Ignition")
+// ─────────────────────────────────────────────────────────────────────────────
+function HoldToConfirmButton({ onComplete }: { onComplete: () => void }) {
+  const progress = useSharedValue(0);
+  const isHolding = useSharedValue(false);
+  const scale = useSharedValue(1);
+  const hapticInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const triggerHaptic = useCallback((intensity: 'light' | 'medium' | 'heavy') => {
+    if (intensity === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    else if (intensity === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  }, []);
+
+  const startHapticFeedback = useCallback(() => {
+    triggerHaptic('light');
+    let count = 0;
+    hapticInterval.current = setInterval(() => {
+      count++;
+      triggerHaptic(count < 5 ? 'light' : count < 10 ? 'medium' : 'heavy');
+    }, 150);
+  }, [triggerHaptic]);
+
+  const stopHapticFeedback = useCallback(() => {
+    if (hapticInterval.current) {
+      clearInterval(hapticInterval.current);
+      hapticInterval.current = null;
+    }
+  }, []);
+
+  const handleComplete = useCallback(() => {
+    stopHapticFeedback();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onComplete();
+  }, [onComplete, stopHapticFeedback]);
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(0)
+    .onStart(() => {
+      'worklet';
+      isHolding.value = true;
+      scale.value = withTiming(0.95, { duration: 120 });
+      runOnJS(startHapticFeedback)();
+      progress.value = withTiming(1, { duration: HOLD_DURATION }, (finished) => {
+        if (finished && isHolding.value) runOnJS(handleComplete)();
+      });
+    })
+    .onFinalize(() => {
+      'worklet';
+      isHolding.value = false;
+      scale.value = withTiming(1, { duration: 160 });
+      runOnJS(stopHapticFeedback)();
+      if (progress.value < 1) progress.value = withTiming(0, { duration: 200 });
+    });
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const animatedFillStyle = useAnimatedStyle(() => ({ width: `${interpolate(progress.value, [0, 1], [0, 100], Extrapolate.CLAMP)}%` }));
+  
+  return (
+    <GestureDetector gesture={longPressGesture}>
+      <Animated.View style={[holdButtonStyles.wrapper, animatedContainerStyle]}>
+        {/* Track */}
+        <View style={holdButtonStyles.track}>
+          <Animated.View style={[holdButtonStyles.fillWrapper, animatedFillStyle]}>
+            {/* White Fill */}
+            <View style={holdButtonStyles.fill} />
+          </Animated.View>
+
+          <View style={holdButtonStyles.content}>
+            <Ionicons name="rocket" size={20} color="#000" style={holdButtonStyles.icon} />
+            <Text style={holdButtonStyles.text}>HOLD TO LAUNCH</Text>
+          </View>
+        </View>
+        <Text style={holdButtonStyles.hint}>Hold for 1.5s to confirm</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+const holdButtonStyles = StyleSheet.create({
+  wrapper: { width: '100%', alignItems: 'center' },
+  track: {
+    width: '100%', borderRadius: RADIUS.full, height: 56,
+    backgroundColor: '#FFFFFF', overflow: 'hidden', position: 'relative',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  fillWrapper: {
+    position: 'absolute', top: 0, left: 0, bottom: 0,
+    backgroundColor: '#E2E8F0', // Slightly darker white for contrast if needed, or invert logic
+    zIndex: 0,
+  },
+  fill: { flex: 1, backgroundColor: '#000000' }, // Actually, let's fill with BLACK for high contrast against white bg
+  content: { flexDirection: 'row', alignItems: 'center', zIndex: 1 },
+  icon: { marginRight: 8 },
+  text: { fontSize: 16, fontWeight: '800', color: '#000000', letterSpacing: 1 },
+  hint: { fontSize: 11, color: '#64748B', marginTop: 8, fontWeight: '600' },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main ReviewStep Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function ReviewStep({ data, onNext }: ReviewStepProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  
+  const profileSource = data.profilePhoto?.uri
+    ? { uri: data.profilePhoto.uri }
+    : require('../../../assets/app-logo-transparent.png'); // Fallback
 
-  const formatPhoneDisplay = (phone: string) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
+  const detailsLine = [data.major, data.graduationYear ? `Class of ${data.graduationYear}` : null].filter(Boolean).join(' • ');
 
   return (
     <View style={styles.outerContainer}>
       <MotiView
-        from={{ translateX: 50, opacity: 0 }}
-        animate={{ translateX: 0, opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 500 }}
         style={styles.container}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-        >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Almost there!</Text>
-          <Text style={[styles.subtitle, { color: theme.subtext }]}>
-            Review your information before we launch 🚀
-          </Text>
-        </View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          
+          <View style={styles.header}>
+            <Text style={styles.title}>READY TO LAUNCH</Text>
+            <Text style={styles.subtitle}>Review your profile card.</Text>
+          </View>
 
-        {/* Hero ID Badge Card */}
-        <MotiView
-          from={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', damping: 15 }}
-        >
-          <LinearGradient
-            colors={isDark ? GRADIENTS.darkCard : GRADIENTS.lightCard}
-            style={[styles.heroCard, { borderColor: SHPE_COLORS.accentBlueBright }]}
+          {/* HERO CARD */}
+          <MotiView
+            from={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 15 }}
+            style={styles.cardContainer}
           >
-            {/* Profile Photo with Gradient Ring */}
-            <View style={styles.photoContainer}>
-              <LinearGradient
-                colors={GRADIENTS.accentButton}
-                style={styles.photoRing}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {data.profilePhoto ? (
-                  <Image source={{ uri: data.profilePhoto.uri }} style={styles.profileImage} />
-                ) : (
-                  <View
-                    style={[
-                      styles.placeholderImage,
-                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(11, 22, 48, 0.08)' },
-                    ]}
-                  >
-                    <Text style={[styles.placeholderText, { color: isDark ? '#F5F8FF' : '#0B1630' }]}>
-                      {data.firstName?.charAt(0)}{data.lastName?.charAt(0)}
-                    </Text>
-                  </View>
-                )}
-              </LinearGradient>
-            </View>
-
-            {/* Name & Class Year */}
-            <View style={styles.identitySection}>
-              <Text style={[styles.fullName, { color: theme.text }]}>
-                {data.firstName} {data.lastName}
-              </Text>
-              <Text style={[styles.major, { color: theme.subtext }]}>
-                {data.major}
-              </Text>
-              <Text style={[styles.classYear, { color: SHPE_COLORS.accentBlueBright }]}>
-                Class of {data.graduationYear}
-              </Text>
-            </View>
-
-            {/* Divider */}
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-            {/* Interests Pills */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Interests</Text>
-              <View style={styles.interestsContainer}>
-                {data.interests.map((id) => (
-                  <View key={id} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.2)' : 'rgba(92, 141, 255, 0.12)' }]}>
-                    <Text style={[styles.interestText, { color: SHPE_COLORS.accentBlueBright }]}>
-                      {INTEREST_LABELS[id] || id}
-                    </Text>
-                  </View>
-                ))}
+            <View style={styles.summaryCard}>
+              <View style={styles.profileHalo}>
+                <Image source={profileSource} style={styles.profileImage} />
               </View>
+              
+              <Text style={styles.summaryName}>{data.firstName} {data.lastName}</Text>
+              <Text style={styles.summaryDetails}>{detailsLine}</Text>
+
+              {/* BIO SECTION (NEW) */}
+              {data.bio ? (
+                <Text style={styles.summaryBio} numberOfLines={3}>
+                  "{data.bio}"
+                </Text>
+              ) : null}
             </View>
+          </MotiView>
 
-            {/* Additional Info */}
-            {(data.resumeFile || data.linkedinUrl || data.bio || data.phoneNumber) && (
-              <>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Additional Info</Text>
-                  {(data.linkedinUrl || data.portfolioUrl) && (
-                    <View style={styles.linksRow}>
-                      {data.linkedinUrl && (
-                        <View style={[styles.linkChip, { backgroundColor: isDark ? 'rgba(14, 118, 168, 0.2)' : 'rgba(14, 118, 168, 0.12)' }]}>
-                          <Text style={[styles.linkChipText, { color: '#0E76A8' }]}>LinkedIn 🔗</Text>
-                        </View>
-                      )}
-                      {data.portfolioUrl && (
-                        <View style={[styles.linkChip, { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.2)' : 'rgba(92, 141, 255, 0.12)' }]}>
-                          <Text style={[styles.linkChipText, { color: SHPE_COLORS.accentBlueBright }]}>Portfolio 🌐</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  {data.resumeFile && (
-                    <View style={styles.resumePreview}>
-                      <Text style={[styles.sectionSubtitle, { color: theme.subtext }]}>Resume Preview</Text>
-                      <ResumePreview file={data.resumeFile} />
-                    </View>
-                  )}
-                  {data.phoneNumber && (
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailIcon}>📱</Text>
-                      <Text style={[styles.detail, { color: theme.subtext }]}>
-                        {formatPhoneDisplay(data.phoneNumber)}
-                      </Text>
-                    </View>
-                  )}
-                  {data.bio && (
-                    <Text style={[styles.bioPreview, { color: theme.subtext }]} numberOfLines={2}>
-                      {data.bio}
-                    </Text>
-                  )}
-                </View>
-              </>
-            )}
-          </LinearGradient>
-        </MotiView>
+          {/* INTERESTS */}
+          {data.interests && data.interests.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>INTERESTS</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
+                {data.interests.map((id) => (
+                  <InterestBubble key={id} label={id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
-        <Text style={[styles.helperText, { color: theme.subtext }]}>
-          You can update this information anytime in your profile settings.
-        </Text>
+          {/* STATS */}
+          <View style={styles.statsRow}>
+            {data.resumeFile && <View style={styles.statChip}><Ionicons name="document-text" size={14} color="#FFF" /><Text style={styles.statText}>Resume Added</Text></View>}
+            {data.linkedinUrl && <View style={styles.statChip}><Ionicons name="logo-linkedin" size={14} color="#FFF" /><Text style={styles.statText}>LinkedIn</Text></View>}
+            {data.portfolioUrl && <View style={styles.statChip}><Ionicons name="globe" size={14} color="#FFF" /><Text style={styles.statText}>Portfolio</Text></View>}
+          </View>
+
         </ScrollView>
       </MotiView>
 
-      {/* Fixed Navigation Button - Outside MotiView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
-        <TouchableOpacity onPress={onNext} activeOpacity={0.8} style={styles.buttonWrapper}>
-          <LinearGradient
-            colors={GRADIENTS.accentButton}
-            style={styles.confirmButton}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      {/* FOOTER */}
+      <MotiView
+        from={{ translateY: 50, opacity: 0 }}
+        animate={{ translateY: 0, opacity: 1 }}
+        transition={{ delay: 300 }}
+        style={[styles.buttonContainer, { paddingBottom: insets.bottom + SPACING.md }]}
+      >
+        <HoldToConfirmButton onComplete={onNext} />
+      </MotiView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    flex: 1,
+  outerContainer: { flex: 1 },
+  container: { flex: 1, width: '100%', maxWidth: 448, alignSelf: 'center' },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: SPACING.lg, paddingBottom: 60 },
+  
+  header: { marginBottom: SPACING.xl, alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+  subtitle: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
+
+  cardContainer: { alignItems: 'center', marginBottom: SPACING.xl },
+  summaryCard: {
+    width: '100%', alignItems: 'center', padding: 24,
+    borderRadius: RADIUS.xl, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(30, 41, 59, 0.3)', // Very subtle glass
   },
-  container: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
+  profileHalo: {
+    width: 100, height: 100, borderRadius: 50,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    borderWidth: 2, borderColor: '#FFFFFF', // White Halo
+    shadowColor: '#FFFFFF', shadowOpacity: 0.3, shadowRadius: 15, elevation: 10,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  buttonContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    backgroundColor: 'transparent',
-  },
-  buttonWrapper: {
-    width: '100%',
-  },
-  header: {
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    ...TYPOGRAPHY.title,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
-  // Hero digital ID badge card
-  heroCard: {
-    borderWidth: 2,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginBottom: SPACING.lg,
-    alignItems: 'center',
-    ...SHADOWS.large,
-  },
-  // Profile photo with gradient ring
-  photoContainer: {
-    marginBottom: SPACING.lg,
-  },
-  photoRing: {
-    width: 120,
-    height: 120,
-    borderRadius: RADIUS.full,
-    padding: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileImage: {
-    width: 112,
-    height: 112,
-    borderRadius: RADIUS.full,
-  },
-  placeholderImage: {
-    width: 112,
-    height: 112,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  // Identity section
-  identitySection: {
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  fullName: {
-    ...TYPOGRAPHY.headline,
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
-  },
-  major: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: SPACING.xs / 2,
-    textAlign: 'center',
-  },
-  classYear: {
-    fontSize: 15,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginVertical: SPACING.md,
-  },
-  section: {
-    width: '100%',
-    marginBottom: SPACING.sm,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  resumePreview: {
-    marginBottom: SPACING.md,
-  },
-  // Interest chips (small pills)
-  interestsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  interestChip: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-  },
-  interestText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  linksRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  linkChip: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-  },
-  linkChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  // Additional info rows
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.xs,
-  },
-  detailIcon: {
-    fontSize: 16,
-    marginRight: SPACING.sm,
-  },
-  detail: {
-    fontSize: 14,
-    flex: 1,
-  },
-  bioPreview: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: SPACING.xs,
+  profileImage: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#000' },
+  summaryName: { fontSize: 22, fontWeight: '700', color: '#FFF', marginBottom: 4 },
+  summaryDetails: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
+  summaryBio: { 
+    fontSize: 14, 
+    color: 'rgba(255, 255, 255, 0.8)', 
+    marginTop: 12, 
+    textAlign: 'center', 
     fontStyle: 'italic',
+    lineHeight: 20
   },
-  // Buttons
-  confirmButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
-    alignItems: 'center',
+
+  section: { marginBottom: SPACING.lg },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', letterSpacing: 1, marginBottom: 12 },
+  
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  statChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  helperText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+  statText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
+
+  buttonContainer: { paddingHorizontal: SPACING.lg },
 });

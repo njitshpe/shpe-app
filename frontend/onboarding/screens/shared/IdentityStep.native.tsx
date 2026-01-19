@@ -4,13 +4,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
   Image,
-  Alert,
-  useColorScheme,
+  useWindowDimensions,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,51 +17,31 @@ import { z } from 'zod';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SearchableSelectionModal from '../../components/SearchableSelectionModal';
-import { NJIT_MAJORS } from '@/constants/majors';
-import { UNIVERSITIES } from '@/constants/universities';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { SPACING, RADIUS } from '@/constants/colors';
 import { useProfilePhoto } from '@/hooks/media/useProfilePhoto';
 
-const CURRENT_YEAR = new Date().getFullYear();
-const MAX_GRAD_YEAR = CURRENT_YEAR + 8;
-const YEAR_ITEM_HEIGHT = 36;
-const YEAR_WHEEL_VISIBLE_ITEMS = 3;
+// --- SCHEMAS (Unchanged) ---
+const studentIdentitySchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required'),
+  lastName: z.string().trim().min(1, 'Last name is required'),
+});
 
-const getIdentitySchema = (options: { isGuestMode: boolean }) => {
-  const majorSchema = options.isGuestMode
-    ? z.string().trim().min(2, 'Major is required')
-    : z
-        .string()
-        .trim()
-        .refine((value) => NJIT_MAJORS.includes(value as any), {
-          message: 'Select a major from the list',
-        });
-
-  const shape: Record<string, z.ZodTypeAny> = {
+const getGuestIdentitySchema = () => {
+  return z.object({
     firstName: z.string().trim().min(1, 'First name is required'),
     lastName: z.string().trim().min(1, 'Last name is required'),
-    major: majorSchema,
-    graduationYear: z
-      .string()
-      .trim()
-      .regex(/^\d{4}$/, 'Graduation year must be 4 digits')
-      .refine(
-        (year) => {
-          const numYear = parseInt(year, 10);
-          return numYear >= CURRENT_YEAR && numYear <= MAX_GRAD_YEAR;
-        },
-        { message: `Graduation year must be between ${CURRENT_YEAR} and ${MAX_GRAD_YEAR}` }
-      ),
-    // Base schema doesn't strictly require UCID yet, we refine it conditionally
-    ucid: z.string().optional(),
-  };
-
-  if (options.isGuestMode) {
-    shape.university = z.string().trim().min(2, 'University or organization is required');
-  }
-
-  return z.object(shape);
+    university: z.string().trim().min(2, 'University is required'),
+    major: z.string().trim().min(2, 'Major is required'),
+    graduationYear: z.string().trim().regex(/^\d{4}$/),
+  });
 };
 
 export interface FormData {
@@ -70,8 +49,8 @@ export interface FormData {
   lastName: string;
   university?: string;
   ucid?: string;
-  major: string;
-  graduationYear: string;
+  major?: string;
+  graduationYear?: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
 }
 
@@ -79,594 +58,372 @@ interface IdentityStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  showUcid?: boolean;
   isGuestMode?: boolean;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UI COMPONENT: Styled Input (White/Grey Accent)
+// ─────────────────────────────────────────────────────────────────────────────
+const StyledInput = ({ icon, ...props }: any) => {
+  const [isFocused, setIsFocused] = useState(false);
+  
+  return (
+    <View style={[
+      inputStyles.container,
+      isFocused && inputStyles.focused,
+      props.error && inputStyles.error
+    ]}>
+      {/* Icon Box: Turns White with Black Icon on Focus */}
+      <View style={[inputStyles.iconContainer, isFocused && { backgroundColor: '#FFFFFF' }]}>
+        <Ionicons 
+          name={icon} 
+          size={18} 
+          color={isFocused ? '#000000' : '#94A3B8'} 
+        />
+      </View>
+      <TextInput
+        {...props}
+        style={[inputStyles.input, props.style]}
+        placeholderTextColor="rgba(255, 255, 255, 0.4)"
+        onFocus={(e) => {
+          setIsFocused(true);
+          Haptics.selectionAsync();
+          props.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setIsFocused(false);
+          props.onBlur?.(e);
+        }}
+      />
+    </View>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export default function IdentityStep({
   data,
   update,
   onNext,
-  showUcid = false,
   isGuestMode = false,
 }: IdentityStepProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-
+  const { height: windowHeight } = useWindowDimensions();
+  const [error, setError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
-  const ucidRef = useRef<TextInput>(null);
-  const majorRef = useRef<TextInput>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const yearScrollRef = useRef<ScrollView>(null);
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
-  const [isMajorModalVisible, setIsMajorModalVisible] = useState(false);
-  const [isUniversityModalVisible, setIsUniversityModalVisible] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const availableYears = Array.from(
-    { length: MAX_GRAD_YEAR - CURRENT_YEAR + 1 },
-    (_, index) => String(CURRENT_YEAR + index)
-  );
-
-  const scrollToYear = (index: number, animated = false) => {
-    yearScrollRef.current?.scrollTo({
-      y: index * YEAR_ITEM_HEIGHT,
-      animated,
-    });
-  };
-
-  const handleYearScrollEnd = (offsetY: number) => {
-    // Clear any pending scroll updates to prevent glitches during fast scrolling
-    if (scrollTimeout.current) {
-      clearTimeout(scrollTimeout.current);
-    }
-
-    // Debounce the year update to ensure smooth scrolling
-    scrollTimeout.current = setTimeout(() => {
-      const index = Math.round(offsetY / YEAR_ITEM_HEIGHT);
-      const selectedYear = availableYears[index];
-      if (selectedYear && selectedYear !== data.graduationYear) {
-        update({ graduationYear: selectedYear });
-        setError(null);
-      }
-    }, 50);
-  };
+  const keyboardOpen = useSharedValue(0);
 
   useEffect(() => {
-    // Auto-focus first input on mount
-    setTimeout(() => firstNameRef.current?.focus(), 100);
-
-    // Cleanup timeout on unmount
-    return () => {
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-    };
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', 
+      () => { keyboardOpen.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }); }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', 
+      () => { keyboardOpen.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) }); }
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
-  useEffect(() => {
-    if (!data.graduationYear || !availableYears.includes(data.graduationYear)) {
-      update({ graduationYear: availableYears[0] });
-      return;
-    }
-
-    const selectedIndex = availableYears.indexOf(data.graduationYear);
-    if (selectedIndex >= 0) {
-      setTimeout(() => scrollToYear(selectedIndex, false), 0);
-    }
-  }, [availableYears, data.graduationYear, update]);
+  // ANIMATIONS
+  const avatarStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(keyboardOpen.value, [0, 1], [1, 0.7]) }],
+    opacity: interpolate(keyboardOpen.value, [0, 1], [1, 0.8]),
+    marginTop: interpolate(keyboardOpen.value, [0, 1], [windowHeight * 0.1, windowHeight * 0.05]),
+  }));
 
   const { pickPhoto } = useProfilePhoto();
 
-  const handleMajorSelect = (major: string) => {
-    update({ major });
-    setError(null);
-  };
-
-  const handleUniversitySelect = (university: string) => {
-    update({ university });
-    setError(null);
-  };
-
   const handlePhotoOptions = () => {
     pickPhoto((uri) => {
-      // Create a minimal asset object since the hook provides the URI
-      // In a real app we might want to get dimensions etc but URI is enough for now
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       update({
-        profilePhoto: {
-          uri,
-          width: 500,
-          height: 500,
-          type: 'image',
-          fileName: 'profile.jpg',
-        } as ImagePicker.ImagePickerAsset
+        profilePhoto: { uri, width: 500, height: 500, type: 'image', fileName: 'profile.jpg' } as ImagePicker.ImagePickerAsset
       });
     });
   };
 
   const handleNext = () => {
-    const payload: Record<string, any> = {
-      firstName: data.firstName?.trim() ?? '',
-      lastName: data.lastName?.trim() ?? '',
-      ucid: data.ucid?.trim() ?? '',
-      major: data.major?.trim() ?? '',
-      graduationYear: data.graduationYear?.trim() ?? '',
-    };
+    if (isNavigating) return;
 
-    // 1. Basic Schema Check
-    if (isGuestMode) {
-      payload.university = data.university?.trim() ?? '';
-    }
+    const schema = isGuestMode ? getGuestIdentitySchema() : studentIdentitySchema;
+    const result = schema.safeParse(data);
 
-    const result = getIdentitySchema({ isGuestMode }).safeParse(payload);
     if (!result.success) {
-      setError(result.error.issues[0]?.message ?? 'Please complete all fields.');
+      setError(result.error.issues[0]?.message || 'Please fill in all fields.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
 
-    // 2. Conditional UCID Check
-    if (showUcid) {
-      const ucid = payload.ucid;
-      // UCID Regex: Alphanumeric, at least 2 chars. Not strictly forcing 4 digits anymore.
-      // e.g., "abc", "abc1234", "a1" are valid. "a" is too short.
-      const ucidRegex = /^[a-zA-Z0-9]{2,}$/;
-      if (!ucid || !ucidRegex.test(ucid)) {
-        setError('Please enter a valid UCID (e.g., abc1234).');
-        return;
-      }
-
-      // Limit to 5 numbers max
-      const digitCount = (ucid.match(/\d/g) || []).length;
-      if (digitCount > 5) {
-        setError('UCID cannot have more than 5 numbers.');
-        return;
-      }
-    }
-
-    update(payload);
-    setError(null);
+    setIsNavigating(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onNext();
+
+    // Safety release in case component doesn't unmount immediately
+    setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  const isNextDisabled =
-    !data.firstName?.trim() ||
-    !data.lastName?.trim() ||
-    (showUcid && !data.ucid?.trim()) ||
-    (isGuestMode && !data.university?.trim()) ||
-    !data.major?.trim() ||
-    !data.graduationYear?.trim();
-
-  // Dynamic colors based on theme
-  const colors = {
-    background: isDark ? '#001339' : '#F7FAFF',
-    surface: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.75)',
-    text: isDark ? '#F5F8FF' : '#0B1630',
-    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
-    border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
-    borderGlow: SHPE_COLORS.accentBlueBright,
-    primary: SHPE_COLORS.accentBlueBright,
-    error: '#DC2626',
-  };
+  const isNextDisabled = !data.firstName?.trim() || !data.lastName?.trim();
 
   return (
     <View style={styles.outerContainer}>
-      <MotiView
-        from={{ translateX: 50, opacity: 0 }}
-        animate={{ translateX: 0, opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
-        style={styles.container}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-          style={styles.keyboardView}
-        >
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
+        <View style={styles.content}>
+          {/* HEADER */}
+          <MotiView 
+            from={{ opacity: 0, translateY: -20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            style={styles.headerContainer}
           >
-            {/* Profile Photo Picker */}
-            <View style={styles.photoContainer}>
-              <TouchableOpacity onPress={handlePhotoOptions} style={styles.photoButton}>
+            <Text style={styles.headerTitle}>
+              {isGuestMode ? 'Welcome Guest' : 'Who are you?'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              Let's get your profile set up.
+            </Text>
+          </MotiView>
+
+          {/* AVATAR CENTERPIECE */}
+          <Animated.View style={[styles.avatarContainer, avatarStyle]}>
+            <TouchableOpacity onPress={handlePhotoOptions} activeOpacity={0.8}>
+              <View style={[styles.avatarCircle, data.profilePhoto && styles.avatarFilled]}>
                 {data.profilePhoto ? (
-                  <Image source={{ uri: data.profilePhoto.uri }} style={styles.profileImage} />
+                  <Image source={{ uri: data.profilePhoto.uri }} style={styles.avatarImage} />
                 ) : (
-                  <View style={[styles.photoPlaceholder, { borderColor: colors.borderGlow, backgroundColor: colors.surface }]}>
-                    <Text style={styles.photoIcon}>📸</Text>
-                    <Text style={[styles.photoText, { color: colors.textSecondary }]}>Add Photo</Text>
-                  </View>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                    style={styles.avatarGradient}
+                  >
+                    <Ionicons name="camera" size={40} color="rgba(255,255,255,0.5)" />
+                    <Text style={styles.addPhotoText}>Add Photo</Text>
+                  </LinearGradient>
                 )}
-              </TouchableOpacity>
-            </View>
+                <View style={styles.editBadge}>
+                  <Ionicons name="pencil" size={12} color="#000" />
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
 
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.text }]}>Let's get you set up.</Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Tell us a bit about yourself.</Text>
-            </View>
-
-            {/* Error Message */}
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-            {/* Name Inputs */}
-            <View style={styles.nameRow}>
-              <View style={styles.nameInputContainer}>
-                <TextInput
+          {/* INPUTS */}
+          <View style={styles.formContainer}>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+            
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>FIRST NAME</Text>
+                <StyledInput
                   ref={firstNameRef}
-                  value={data.firstName ?? ''}
-                  onChangeText={(text) => {
-                    update({ firstName: text });
-                    setError(null);
-                  }}
-                  placeholder="First Name"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  icon="person"
+                  value={data.firstName}
+                  onChangeText={(t: string) => { update({ firstName: t }); setError(null); }}
+                  placeholder="First"
                   returnKeyType="next"
                   onSubmitEditing={() => lastNameRef.current?.focus()}
-                  blurOnSubmit={false}
                 />
               </View>
-              <View style={styles.nameInputContainer}>
-                <TextInput
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>LAST NAME</Text>
+                <StyledInput
                   ref={lastNameRef}
-                  value={data.lastName ?? ''}
-                  onChangeText={(text) => {
-                    update({ lastName: text });
-                    setError(null);
-                  }}
-                  placeholder="Last Name"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  icon="person"
+                  value={data.lastName}
+                  onChangeText={(t: string) => { update({ lastName: t }); setError(null); }}
+                  placeholder="Last"
                   returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (showUcid) {
-                      ucidRef.current?.focus();
-                      return;
-                    }
-                    if (isGuestMode) {
-                      majorRef.current?.focus();
-                    }
-                  }}
-                  blurOnSubmit={false}
+                  onSubmitEditing={() => !isNextDisabled && handleNext()}
                 />
               </View>
             </View>
+          </View>
+        </View>
 
-            {/* University/Organization (Guest) */}
-            {isGuestMode && (
-              <View style={styles.fieldContainer}>
-                <Text style={[styles.label, { color: colors.text }]}>University or Organization</Text>
-                <TouchableOpacity
-                  onPress={() => setIsUniversityModalVisible(true)}
-                  style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                >
-                  <Text
-                    style={[
-                      styles.selectInputText,
-                      { color: data.university ? colors.text : colors.textSecondary },
-                    ]}
-                  >
-                    {data.university || 'Select university or organization'}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* University Selection Modal */}
-            {isGuestMode && (
-              <SearchableSelectionModal
-                visible={isUniversityModalVisible}
-                onClose={() => setIsUniversityModalVisible(false)}
-                onSelect={handleUniversitySelect}
-                options={UNIVERSITIES}
-                selectedValue={data.university}
-                title="Select University or Organization"
-                placeholder="Search universities (e.g., Rutgers)"
-                emptyMessage="No universities found"
-              />
-            )}
-
-            {/* UCID Input */}
-            {showUcid && (
-              <View style={styles.fieldContainer}>
-                <Text style={[styles.label, { color: colors.text }]}>NJIT UCID</Text>
-                <TextInput
-                  ref={ucidRef}
-                  value={data.ucid ?? ''}
-                  onChangeText={(text) => {
-                    update({ ucid: text.toLowerCase() });
-                    setError(null);
-                  }}
-                  placeholder="e.g. abc1234"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                />
-                <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                  Your UCID (not your ID number)
-                </Text>
-              </View>
-            )}
-
-            {/* Major Selection */}
-            <View style={styles.fieldContainer}>
-              <Text style={[styles.label, { color: colors.text }]}>Major</Text>
-              {isGuestMode ? (
-                <TextInput
-                  ref={majorRef}
-                  value={data.major ?? ''}
-                  onChangeText={(text) => {
-                    update({ major: text });
-                    setError(null);
-                  }}
-                  placeholder="e.g., Computer Science"
-                  placeholderTextColor={colors.textSecondary}
-                  style={[
-                    styles.input,
-                    { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text },
-                  ]}
-                  returnKeyType="done"
-                />
-              ) : (
-                <TouchableOpacity
-                  onPress={() => setIsMajorModalVisible(true)}
-                  style={[styles.selectInput, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                >
-                  <Text
-                    style={[
-                      styles.selectInputText,
-                      { color: data.major ? colors.text : colors.textSecondary },
-                    ]}
-                  >
-                    {data.major || 'Select your major'}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Major Selection Modal */}
-            {!isGuestMode && (
-              <SearchableSelectionModal
-                visible={isMajorModalVisible}
-                onClose={() => setIsMajorModalVisible(false)}
-                onSelect={handleMajorSelect}
-                options={NJIT_MAJORS}
-                selectedValue={data.major}
-                title="Select Your Major"
-                placeholder="Search majors (e.g., Comp Sci)"
-                emptyMessage="No majors found"
-              />
-            )}
-
-            {/* Graduation Year */}
-            <View style={styles.fieldContainer}>
-              <Text style={[styles.label, { color: colors.text }]}>Graduation Year</Text>
-              <View style={[styles.yearWheel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <ScrollView
-                  ref={yearScrollRef}
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={YEAR_ITEM_HEIGHT}
-                  decelerationRate="fast"
-                  contentContainerStyle={{
-                    paddingVertical: YEAR_ITEM_HEIGHT * ((YEAR_WHEEL_VISIBLE_ITEMS - 1) / 2),
-                  }}
-                  onMomentumScrollEnd={(event) => handleYearScrollEnd(event.nativeEvent.contentOffset.y)}
-                  onScrollEndDrag={(event) => handleYearScrollEnd(event.nativeEvent.contentOffset.y)}
-                  nestedScrollEnabled
-                >
-                  {availableYears.map((item) => {
-                    const isSelected = item === data.graduationYear;
-                    return (
-                      <View key={item} style={styles.yearItem}>
-                        <Text
-                          style={[
-                            styles.yearText,
-                            { color: isSelected ? colors.text : colors.textSecondary },
-                            isSelected && styles.yearTextSelected,
-                          ]}
-                        >
-                          {item}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-                <View pointerEvents="none" style={styles.yearHighlight} />
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </MotiView>
-
-      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
-        <TouchableOpacity
-          onPress={handleNext}
-          disabled={isNextDisabled}
-          activeOpacity={0.8}
-          style={styles.buttonWrapper}
+        {/* FOOTER */}
+        <MotiView 
+          from={{ translateY: 50, opacity: 0 }}
+          animate={{ translateY: 0, opacity: 1 }}
+          style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}
         >
-          <LinearGradient
-            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
-            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <TouchableOpacity
+            onPress={handleNext}
+            disabled={isNextDisabled || isNavigating}
+            activeOpacity={0.8}
+            style={[styles.button, (isNextDisabled || isNavigating) && styles.buttonDisabled]}
           >
-            <Text style={styles.nextButtonText}>Next</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            <LinearGradient
+              // NEW: White Gradient for Active, Dark Grey for Disabled
+              colors={isNextDisabled ? ['#333333', '#1A1A1A'] : ['#FFFFFF', '#E2E8F0']}
+              style={styles.gradientButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={[styles.buttonText, isNextDisabled && { color: '#666666' }]}>
+                Next Step
+              </Text>
+              <Ionicons 
+                name="arrow-forward" 
+                size={20} 
+                color={isNextDisabled ? '#666666' : '#000000'} // Black arrow on white button
+              />
+            </LinearGradient>
+          </TouchableOpacity>
+        </MotiView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 16,
-    flexGrow: 1,
-  },
-  buttonContainer: {
-    paddingHorizontal: 16,
-    paddingTop: SPACING.md,
-    backgroundColor: 'transparent',
-  },
-  buttonWrapper: {
-    width: '100%',
-  },
-  photoContainer: {
+  outerContainer: { flex: 1 },
+  keyboardView: { flex: 1 },
+  content: { flex: 1, alignItems: 'center' },
+  
+  headerContainer: {
+    marginTop: SPACING.xl,
     alignItems: 'center',
-    marginBottom: 24,
   },
-  photoButton: {
-    width: 120,
-    height: 120,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: -0.5,
   },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: SHPE_COLORS.accentBlueBright,
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#94A3B8',
+    marginTop: 8,
   },
-  photoPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+
+  avatarContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.xl,
+  },
+  avatarCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     borderWidth: 2,
-    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  avatarFilled: {
+    borderColor: '#FFFFFF', // White border when filled
+    borderWidth: 3,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarGradient: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoIcon: {
-    fontSize: 32,
-    marginBottom: 4,
-  },
-  photoText: {
+  addPhotoText: {
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 12,
-    fontWeight: '500',
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
     fontWeight: '600',
-    marginBottom: 4,
+    marginTop: 8,
   },
-  subtitle: {
-    fontSize: 14,
+  editBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 20,
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF', // White badge
+    borderRadius: 12,
+    padding: 4,
+  },
+
+  formContainer: {
+    width: '100%',
+    paddingHorizontal: SPACING.lg,
+  },
+  row: { flexDirection: 'row', gap: SPACING.md },
+  label: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8', // Grey label
+    marginBottom: 8,
+    letterSpacing: 1,
   },
   errorText: {
-    fontSize: 14,
-    color: '#DC2626',
-    marginBottom: 16,
+    color: '#FF6B6B',
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+    fontSize: 13,
   },
-  nameRow: {
+
+  footer: {
+    width: '100%',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+  },
+  button: {
+    borderRadius: RADIUS.full,
+    shadowColor: '#FFFFFF', // White glow
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  buttonDisabled: { shadowOpacity: 0, elevation: 0 },
+  gradientButton: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  nameInputContainer: {
-    flex: 1,
-  },
-  input: {
-    borderWidth: 0,
-    borderBottomWidth: 0,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    fontSize: 16,
-  },
-  fieldContainer: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  selectInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 0,
-    borderBottomWidth: 0,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
-  selectInputText: {
-    fontSize: 16,
-    flex: 1,
-  },
-  yearWheel: {
-    borderWidth: 0,
-    borderBottomWidth: 0,
-    borderRadius: RADIUS.md,
-    height: YEAR_ITEM_HEIGHT * YEAR_WHEEL_VISIBLE_ITEMS,
-    overflow: 'hidden',
-  },
-  yearItem: {
-    height: YEAR_ITEM_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+    borderRadius: RADIUS.full,
   },
-  yearText: {
-    fontSize: 18,
-    fontWeight: '500',
-  },
-  yearTextSelected: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  yearHighlight: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: (YEAR_ITEM_HEIGHT * (YEAR_WHEEL_VISIBLE_ITEMS - 1)) / 2,
-    height: YEAR_ITEM_HEIGHT,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(127, 179, 255, 0.4)',
-    backgroundColor: 'rgba(127, 179, 255, 0.08)',
-  },
-  nextButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
-    alignItems: 'center',
-  },
-  nextButtonText: {
+  buttonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#000000', // Black text
+    letterSpacing: 0.5,
+  },
+});
+
+const inputStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: RADIUS.lg,
+    height: 56,
+    overflow: 'hidden',
+  },
+  focused: {
+    borderColor: '#FFFFFF', // White border on focus
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+  },
+  error: { borderColor: '#FF6B6B' },
+  iconContainer: {
+    width: 40,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
     color: '#FFFFFF',
+    height: '100%',
+    paddingHorizontal: 12,
+    fontWeight: '500',
   },
 });
