@@ -234,9 +234,10 @@ export default function PublicProfileScreen() {
                             displayName={profileDisplay.displayName}
                             subtitle={profileDisplay.subtitle}
                             secondarySubtitle={profileDisplay.secondarySubtitle}
-                            isDark={isDark}
-                            themeText={theme.text}
-                            themeSubtext={theme.subtext}
+                            rankColor={profileDisplay.rankColor}
+                            pointsTotal={rankData.points_total}
+                            pointsToNextTier={rankData.points_to_next_tier}
+                            isMentor={profile.mentorship_available ?? false}
                         />
 
                         <ProfileSocialLinks

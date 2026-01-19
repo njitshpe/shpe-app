@@ -97,7 +97,7 @@ export function useProfileDisplay({ profile, user, pointsTotal = 0, tier = 'Chic
             return '#C0C0C0';
         }
         if (tierLower.includes('bronze') || tierLower.includes('bronce')) {
-            return '#CD7F32';
+            return '#B08D55';
         }
         // Default color for other tiers (Chick, Pollito, etc.)
         return '#8E8E93';

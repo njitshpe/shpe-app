@@ -1,33 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, Alert, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { EditProfileScreen } from '@/components/profile';
-import { Link } from 'expo-router';
+import React, { useState, useMemo } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    Modal,
+    Alert,
+    ActivityIndicator,
+    ScrollView,
+    RefreshControl,
+    Platform,
+    Pressable,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
+
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { EditProfileScreen } from '@/components/profile';
 import { useSecureResume } from '@/hooks/profile/useSecureResume';
 import ResumeViewerModal from '@/components/shared/ResumeViewerModal';
-
 import { useProfileDisplay } from '@/hooks/profile/useProfileDisplay';
 import { useRank } from '@/hooks/profile/useRank';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSocialLinks } from '@/components/profile/ProfileSocialLinks';
-import { fetchUserPosts, deletePost } from '@/lib/feedService';
+import { RankProgressCard } from '@/components/profile/RankProgressCard';
+import { BadgeGrid, Badge } from '@/components/profile/BadgeGrid';
 import { FeedList } from '@/components/feed/FeedList';
-import type { FeedPostUI } from '@/types/feed';
-import { useRouter } from 'expo-router';
 import { ProfileSkeleton } from '@/components/profile/ProfileSkeleton';
+import { INTEREST_OPTIONS, InterestType } from '@/types/userProfile';
 
 export default function ProfileScreen() {
     const { user, profile, loadProfile, profileLoading } = useAuth();
     const { theme, isDark } = useTheme();
-    const router = useRouter();
+    const insets = useSafeAreaInsets();
 
-    // Fetch points/tier from points_balances
-    const { tier, pointsTotal, refreshRank } = useRank();
+    const { tier, pointsTotal, pointsToNextTier, refreshRank } = useRank();
 
-    // Load profile on mount if missing and not already loading
     React.useEffect(() => {
         if (user?.id && !profile && !profileLoading) {
             loadProfile(user.id);
@@ -38,29 +51,99 @@ export default function ProfileScreen() {
     const [showResumeViewer, setShowResumeViewer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
-    // --- SECURE RESUME HOOK ---
-    // This converts the storage path (e.g. "123/resume.pdf") into a viewable link
     const { signedUrl, loading: resumeLoading } = useSecureResume(profile?.resume_url || null);
 
-    // --- PROFILE DISPLAY HOOK ---
-    // Extract all display-related helper functions, passing points data from useRank
     const profileDisplay = useProfileDisplay({ profile, user, pointsTotal, tier });
+
+    // Calculate graduation progress for students
+    const graduationProgress = useMemo(() => {
+        if (profile?.user_type !== 'student' || !profile?.graduation_year) {
+            return null;
+        }
+        const currentYear = new Date().getFullYear();
+        const graduationYear = profile.graduation_year;
+        const startYear = graduationYear - 4;
+        const totalYears = 4;
+        const yearsCompleted = currentYear - startYear;
+        const progress = Math.min(Math.max(yearsCompleted / totalYears, 0), 1);
+        return {
+            progress,
+            yearsRemaining: Math.max(graduationYear - currentYear, 0),
+            graduationYear,
+        };
+    }, [profile?.user_type, profile?.graduation_year]);
+
+    // Get user interests with labels
+    const userInterests = useMemo(() => {
+        if (!profile?.interests || !Array.isArray(profile.interests)) {
+            return [];
+        }
+        return profile.interests
+            .map((interest: InterestType) => {
+                const option = INTEREST_OPTIONS.find((opt) => opt.value === interest);
+                return option ? option.label : null;
+            })
+            .filter(Boolean);
+    }, [profile?.interests]);
+
+    // Build badges array
+    const badges = useMemo((): Badge[] => {
+        const result: Badge[] = [];
+
+        // Rank Badge
+        if (tier) {
+            result.push({
+                id: 'rank',
+                icon: 'trophy',
+                label: tier,
+                color: profileDisplay.rankColor,
+            });
+        }
+
+        // Member Badge
+        result.push({
+            id: 'member',
+            icon: 'shield-checkmark',
+            label: 'Member',
+            color: theme.text,
+        });
+
+        // Mentor Badge (only if mentorship_available)
+        if (profile?.mentorship_available) {
+            result.push({
+                id: 'mentor',
+                icon: 'school',
+                label: 'Mentor',
+                color: '#FFD700',
+            });
+        }
+
+        // Alumni Badge (only if user_type is alumni)
+        if (profile?.user_type === 'alumni') {
+            result.push({
+                id: 'alumni',
+                icon: 'time',
+                label: 'Alumni',
+                color: '#C0C0C0',
+            });
+        }
+
+        return result;
+    }, [tier, profileDisplay.rankColor, profile?.mentorship_available, profile?.user_type, theme.text]);
 
     const handleOpenResume = () => {
         if (!signedUrl) {
             if (resumeLoading) {
-                Alert.alert("Please wait", "Secure link is generating...");
+                Alert.alert('Please wait', 'Secure link is generating...');
             } else {
-                Alert.alert("No Resume", "We couldn't find a link to your resume.");
+                Alert.alert('No Resume', "We couldn't find a link to your resume.");
             }
             return;
         }
-
-        // Open the in-app PDF viewer modal
         setShowResumeViewer(true);
     };
 
-    const handleProfileUpdate = async (updatedProfile: any) => {
+    const handleProfileUpdate = async () => {
         if (user?.id) {
             await loadProfile(user.id);
         }
@@ -69,35 +152,73 @@ export default function ProfileScreen() {
     const onRefresh = async () => {
         if (user?.id) {
             setRefreshing(true);
-            await Promise.all([
-                loadProfile(user.id),
-                refreshRank()
-            ]);
+            await Promise.all([loadProfile(user.id), refreshRank()]);
             setRefreshing(false);
         }
     };
 
+    // Theme-based colors
+    const gradientColors = isDark
+        ? (['#1a1a1a', '#000000'] as const)
+        : (['#FFFFFF', '#F5F5F5'] as const);
 
-    const dynamicStyles = {
-        container: { backgroundColor: theme.background },
-        text: { color: theme.text },
-        subtext: { color: theme.subtext },
-        card: { backgroundColor: theme.card },
-        cardBorder: { borderColor: theme.border },
-        primaryButton: { backgroundColor: theme.primary },
+    const glassCardBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+    const glassCardBorder = 'rgba(255,255,255,0.08)';
+    const stickyHeaderBg = isDark ? 'rgba(0, 0, 0, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+
+    // Floating settings button component (Visuals Only)
+    const SettingsButton = () => {
+        // Use a lighter glass effect for dark mode instead of solid grey
+        const fallbackBg = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.8)';
+
+        if (Platform.OS === 'ios') {
+            return (
+                <Link href="/settings" asChild>
+                    <Pressable style={styles.settingsButtonVisual}>
+                        <BlurView
+                            intensity={40}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={styles.settingsBlur}
+                        >
+                            <Ionicons name="settings-outline" size={22} color={theme.text} />
+                        </BlurView>
+                    </Pressable>
+                </Link>
+            );
+        }
+        return (
+            <Link href="/settings" asChild>
+                <Pressable style={styles.settingsButtonVisual}>
+                    <View
+                        style={[
+                            styles.settingsBlur,
+                            styles.settingsAndroid,
+                            { backgroundColor: fallbackBg },
+                        ]}
+                    >
+                        <Ionicons name="settings-outline" size={22} color={theme.text} />
+                    </View>
+                </Pressable>
+            </Link>
+        );
     };
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
-            {profileLoading ? (
-                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+        <View style={[styles.root, { backgroundColor: theme.background }]}>
+            <StatusBar style="light" translucent />
+            
+            {/* 1. Background Layer */}
+            <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+            
+            {/* 2. Content Layer (SafeAreaView for padding only) */}
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                {profileLoading ? (
                     <ProfileSkeleton />
-                </View>
-            ) : (
-                <View style={[styles.gradient, { backgroundColor: theme.background }]}>
+                ) : (
                     <ScrollView
                         style={styles.scrollView}
                         showsVerticalScrollIndicator={false}
+                        stickyHeaderIndices={[1]}
                         refreshControl={
                             <RefreshControl
                                 refreshing={refreshing}
@@ -107,120 +228,207 @@ export default function ProfileScreen() {
                             />
                         }
                     >
+                        {/* Index 0: Profile Header */}
+                        <View style={styles.headerSection}>
+                            {profile && (
+                                <ProfileHeader
+                                    profilePictureUrl={profile.profile_picture_url ?? undefined}
+                                    initials={profileDisplay.initials}
+                                    userTypeBadge={profileDisplay.userTypeBadge}
+                                    displayName={profileDisplay.displayName}
+                                    subtitle={profileDisplay.subtitle}
+                                    secondarySubtitle={profileDisplay.secondarySubtitle}
+                                    rankColor={profileDisplay.rankColor}
+                                    pointsTotal={pointsTotal}
+                                    pointsToNextTier={pointsToNextTier}
+                                    isMentor={profile.mentorship_available ?? false}
+                                />
+                            )}
+                        </View>
 
-                        {/* Settings Icon - Top Right */}
-                        <Link href="/settings" asChild>
-                            <TouchableOpacity style={styles.settingsButton}>
-                                <Ionicons name="settings-outline" size={28} color={theme.text} />
-                            </TouchableOpacity>
-                        </Link>
-
-                        {/* Profile Header */}
-                        {profile && (
-                            <ProfileHeader
-                                profilePictureUrl={profile.profile_picture_url ?? undefined}
-                                initials={profileDisplay.initials}
-                                userTypeBadge={profileDisplay.userTypeBadge}
-                                displayName={profileDisplay.displayName}
-                                subtitle={profileDisplay.subtitle}
-                                secondarySubtitle={profileDisplay.secondarySubtitle}
-                                isDark={isDark}
-                                themeText={theme.text}
-                                themeSubtext={theme.subtext}
-                            />
-                        )}
-
-                        {/* Social Links */}
-                        {profile && (
-                            <ProfileSocialLinks
-                                profile={profile}
-                                displayName={profileDisplay.displayName}
-                                themeText={theme.text}
-                                themeSubtext={theme.subtext}
-                                isDark={isDark}
-                                onOpenResume={handleOpenResume}
-                                onMentorshipUpdate={async () => {
-                                    if (user?.id) await loadProfile(user.id);
-                                }}
-                            />
-                        )}
-
-                        {/* Bio - Centered with Background */}
-                        {profile?.bio && (
-                            <View style={[styles.bioSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                                <Text style={[styles.bioText, { color: theme.text }]}>{profile.bio}</Text>
-                            </View>
-                        )}
-
-                        {/* Edit Profile Button */}
-                        <TouchableOpacity
-                            style={[styles.editProfileButton, { backgroundColor: isDark ? 'rgba(60,60,80,1)' : 'rgba(200,200,220,1)' }]}
-                            onPress={() => setShowEditProfile(true)}
+                        {/* Index 1: Sticky Rank Card Container */}
+                        <View
+                            style={[
+                                styles.stickyRankContainer,
+                                { backgroundColor: stickyHeaderBg },
+                            ]}
                         >
-                            <Text style={[styles.editProfileButtonText, { color: theme.text }]}>Edit Profile</Text>
-                        </TouchableOpacity>
+                            <View style={styles.rankCardWrapper}>
+                                <RankProgressCard
+                                    pointsTotal={pointsTotal}
+                                    tier={tier}
+                                    rankColor={profileDisplay.rankColor}
+                                    pointsToNextTier={pointsToNextTier}
+                                />
+                            </View>
 
-                        {/* Badges Section */}
-                        <View style={styles.badgesSection}>
-                            <Text style={[styles.badgesSectionTitle, { color: theme.text }]}>Badges</Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.badgesScrollContent}
-                            >
-                                {/* Points / Rank Badge */}
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: profileDisplay.rankColor }]}>
-                                        <Text style={{ color: '#000000ff', fontWeight: 'bold', fontSize: 14 }}>
-                                            {profileDisplay.points}
+                            {/* Academic Path Progress Bar (Students Only) */}
+                            {graduationProgress && (
+                                <View style={styles.academicPathContainer}>
+                                    <View style={styles.academicPathHeader}>
+                                        <Text
+                                            style={[styles.academicPathLabel, { color: theme.subtext }]}
+                                        >
+                                            ACADEMIC PATH
+                                        </Text>
+                                        <Text
+                                            style={[styles.academicPathYear, { color: theme.text }]}
+                                        >
+                                            Class of {graduationProgress.graduationYear}
                                         </Text>
                                     </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>
-                                        {profileDisplay.rank}
-                                    </Text>
-                                </View>
-
-                                {/* Placeholder badges - replace with real data when available */}
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="trophy" size={24} color="#FFD700" />
+                                    <View
+                                        style={[
+                                            styles.progressBarTrack,
+                                            {
+                                                backgroundColor: isDark
+                                                    ? '#000000'
+                                                    : 'rgba(0,0,0,0.08)',
+                                            },
+                                        ]}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.progressBarFill,
+                                                {
+                                                    width: `${graduationProgress.progress * 100}%`,
+                                                    backgroundColor: '#D22630',
+                                                },
+                                            ]}
+                                        />
                                     </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>First Event</Text>
                                 </View>
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="star" size={24} color="#FF9500" />
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Top Contributor</Text>
-                                </View>
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="people" size={24} color="#00A3E0" />
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Networker</Text>
-                                </View>
-                                <View style={styles.badgeItem}>
-                                    <View style={[styles.badgeIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]}>
-                                        <Ionicons name="ribbon" size={24} color="#AF52DE" />
-                                    </View>
-                                    <Text style={[styles.badgeLabel, { color: theme.subtext }]}>Early Adopter</Text>
-                                </View>
-                            </ScrollView>
+                            )}
                         </View>
 
-                        {/* Posts Section */}
-                        <View style={styles.postsSection}>
-                            <View style={styles.postsSectionHeader}>
-                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>Posts</Text>
+                        {/* Content Cards (Glass Stack) */}
+                        <View style={styles.contentContainer}>
+                            {/* Social Links */}
+                            {profile && (
+                                <ProfileSocialLinks
+                                    profile={profile}
+                                    displayName={profileDisplay.displayName}
+                                    themeText={theme.text}
+                                    themeSubtext={theme.subtext}
+                                    isDark={isDark}
+                                    onOpenResume={handleOpenResume}
+                                    onMentorshipUpdate={async () => {
+                                        if (user?.id) await loadProfile(user.id);
+                                    }}
+                                />
+                            )}
+
+                            {/* About Card */}
+                            <View
+                                style={[
+                                    styles.glassCard,
+                                    {
+                                        backgroundColor: glassCardBg,
+                                        borderColor: glassCardBorder,
+                                    },
+                                ]}
+                            >
+                                <Text style={[styles.cardTitle, { color: theme.text }]}>About</Text>
+                                {profile?.bio ? (
+                                    <Text style={[styles.bioText, { color: theme.subtext }]}>
+                                        {profile.bio}
+                                    </Text>
+                                ) : (
+                                    <Text style={[styles.emptyText, { color: theme.subtext }]}>
+                                        Add a bio to tell others about yourself
+                                    </Text>
+                                )}
+
+                                {/* Edit Profile Button (Luxury Style) */}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.editProfileButton,
+                                        {
+                                            backgroundColor: isDark ? '#FFFFFF' : '#000000',
+                                        },
+                                    ]}
+                                    onPress={() => setShowEditProfile(true)}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.editProfileButtonText,
+                                            { color: isDark ? '#000000' : '#FFFFFF' },
+                                        ]}
+                                    >
+                                        Edit Profile
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
 
-                            {/* Post List */}
-                            {user?.id && <FeedList userId={user.id} scrollEnabled={false} />}
-                        </View>
+                            {/* Interests Card */}
+                            {userInterests.length > 0 && (
+                                <View
+                                    style={[
+                                        styles.glassCard,
+                                        {
+                                            backgroundColor: glassCardBg,
+                                            borderColor: glassCardBorder,
+                                        },
+                                    ]}
+                                >
+                                    <Text style={[styles.cardTitle, { color: theme.text }]}>
+                                        Interests
+                                    </Text>
+                                    <View style={styles.interestsContainer}>
+                                        {userInterests.map((interest, index) => (
+                                            <View
+                                                key={index}
+                                                style={[
+                                                    styles.interestChip,
+                                                    {
+                                                        backgroundColor: isDark
+                                                            ? 'rgba(255,255,255,0.08)'
+                                                            : 'rgba(0,0,0,0.05)',
+                                                    },
+                                                ]}
+                                            >
+                                                <Text
+                                                    style={[styles.interestText, { color: theme.text }]}
+                                                >
+                                                    {interest}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
 
+                            {/* Badges Card (Bento Grid) */}
+                            <View
+                                style={[
+                                    styles.glassCard,
+                                    {
+                                        backgroundColor: glassCardBg,
+                                        borderColor: glassCardBorder,
+                                    },
+                                ]}
+                            >
+                                <Text style={[styles.cardTitle, { color: theme.text }]}>Badges</Text>
+                                <BadgeGrid badges={badges} />
+                            </View>
+
+                            {/* Posts Section */}
+                            <View style={styles.postsSection}>
+                                <Text style={[styles.postsSectionTitle, { color: theme.text }]}>
+                                    Posts
+                                </Text>
+                                {user?.id && <FeedList userId={user.id} scrollEnabled={false} />}
+                            </View>
+                        </View>
                     </ScrollView>
-                </View>
-            )}
+                )}
+            </SafeAreaView>
+
+            {/* 3. Floating UI Layer (Settings Button) */}
+            {/* Placed here to ensure it sits ON TOP of everything */}
+            <View style={[styles.settingsPositioner, { top: insets.top + 10 }]}>
+                <SettingsButton />
+            </View>
 
             {/* Edit Profile Modal */}
             <Modal visible={showEditProfile} animationType="slide" presentationStyle="pageSheet">
@@ -231,123 +439,160 @@ export default function ProfileScreen() {
                         onSave={handleProfileUpdate}
                     />
                 ) : (
-                    <View style={[styles.loadingContainer, dynamicStyles.container]}>
+                    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
                         <ActivityIndicator size="large" color={theme.primary} />
                     </View>
                 )}
             </Modal>
 
             {/* Resume Viewer Modal */}
-            {
-                signedUrl && (
-                    <ResumeViewerModal
-                        visible={showResumeViewer}
-                        onClose={() => setShowResumeViewer(false)}
-                        resumeUrl={signedUrl}
-                    />
-                )
-            }
-
-        </SafeAreaView >
+            {signedUrl && (
+                <ResumeViewerModal
+                    visible={showResumeViewer}
+                    onClose={() => setShowResumeViewer(false)}
+                    resumeUrl={signedUrl}
+                />
+            )}
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    root: {
         flex: 1,
     },
-    gradient: {
+    safeArea: {
         flex: 1,
+        backgroundColor: 'transparent',
     },
     scrollView: {
         flex: 1,
     },
-    settingsButton: {
-        position: 'absolute',
-        top: 20,
-        right: 20,
-        zIndex: 10,
-        padding: 8,
+    headerSection: {
+        paddingBottom: 24,
     },
-    bioSection: {
-        marginHorizontal: 20,
-        marginBottom: 24,
-        padding: 16,
-        borderRadius: 16,
+    stickyRankContainer: {
+        marginTop: -20,
+        paddingTop: 20,
+        paddingBottom: 16,
+        paddingHorizontal: 20,
+    },
+    rankCardWrapper: {
+        marginBottom: 12,
+    },
+    academicPathContainer: {
+        marginTop: 8,
+    },
+    academicPathHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    academicPathLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        letterSpacing: 2.5,
+    },
+    academicPathYear: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    progressBarTrack: {
+        height: 4,
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    contentContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 8,
+    },
+    glassCard: {
+        borderRadius: 24,
         borderWidth: 1,
+        padding: 24,
+        marginBottom: 16,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 16,
+        letterSpacing: 0.5,
     },
     bioText: {
         fontSize: 15,
-        textAlign: 'center',
         lineHeight: 22,
+        marginBottom: 20,
+    },
+    emptyText: {
+        fontSize: 15,
+        lineHeight: 22,
+        fontStyle: 'italic',
+        marginBottom: 20,
     },
     editProfileButton: {
-        marginHorizontal: 40,
         paddingVertical: 14,
-        borderRadius: 24,
+        borderRadius: 12,
         alignItems: 'center',
-        marginBottom: 32,
     },
     editProfileButtonText: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
-    badgesSection: {
-        paddingTop: 8,
-        paddingBottom: 12,
+    interestsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
     },
-    badgesSectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 12,
-        paddingHorizontal: 20,
+    interestChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 16,
     },
-    badgesScrollContent: {
-        paddingHorizontal: 20,
-        gap: 12,
-    },
-    badgeItem: {
-        alignItems: 'center',
-        width: 60,
-    },
-    badgeIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    badgeLabel: {
-        fontSize: 10,
-        textAlign: 'center',
+    interestText: {
+        fontSize: 14,
         fontWeight: '500',
     },
     postsSection: {
-        paddingTop: 24,
+        paddingTop: 8,
         paddingBottom: 40,
-        paddingHorizontal: 20,
-    },
-    postsSectionHeader: {
-        marginBottom: 20,
     },
     postsSectionTitle: {
-        fontSize: 22,
+        fontSize: 18,
         fontWeight: '700',
+        marginBottom: 20,
+        letterSpacing: 0.5,
     },
-    postsList: {
-        gap: 16,
+    // Positioner for the absolute settings button
+    settingsPositioner: {
+        position: 'absolute',
+        right: 20,
+        zIndex: 999,
     },
-    noPostsText: {
-        textAlign: 'center',
-        fontStyle: 'italic',
-        marginTop: 20,
-        marginBottom: 40,
+    // Visual styling for the button itself (no positioning here)
+    settingsButtonVisual: {
+        // Just container logic if needed
+    },
+    settingsBlur: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    settingsAndroid: {
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-
 });

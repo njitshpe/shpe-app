@@ -13,9 +13,14 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
   const { theme, isDark } = useTheme();
 
   const dynamicStyles = {
+    inputContainer: {
+      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.08)',
+    },
     label: { color: theme.subtext },
-    input: { color: theme.text, borderBottomColor: theme.border },
-    multilineInput: { borderColor: theme.border, color: theme.text },
+    input: { color: theme.text },
+    multilineInput: { color: theme.text },
     limit: { color: theme.subtext },
   };
 
@@ -43,7 +48,7 @@ export function ProfileForm({ profile, onChange }: ProfileFormProps) {
     };
 
     return (
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
         <View style={styles.rowLabel}>
           <Text style={[styles.label, dynamicStyles.label]}>{label}</Text>
           {maxLength && <Text style={[styles.limit, dynamicStyles.limit]}>{value.length}/{maxLength}</Text>}
@@ -104,31 +109,33 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 15,
+    borderRadius: 16,
+    padding: 16,
   },
   rowLabel: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 8,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   limit: {
-    fontSize: 12,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   input: {
-    borderBottomWidth: 1,
     fontSize: 16,
-    paddingVertical: 8,
+    paddingVertical: 0,
   },
   multilineInput: {
     height: 80,
     textAlignVertical: 'top',
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: 8,
-    borderBottomWidth: 1, // Reset override
+    paddingVertical: 4,
   }
 });
