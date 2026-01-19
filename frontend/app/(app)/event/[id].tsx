@@ -7,12 +7,15 @@ import {
   Pressable,
   TouchableOpacity,
   Image,
+  ImageBackground,
   Dimensions,
   Alert,
   Modal,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { formatTime, formatDateHeader } from '@/utils';
 import { useEvents } from '@/contexts/EventsContext';
 import { Event } from '@/types/events';
@@ -21,8 +24,6 @@ import { MapPreview } from '@/components/shared';
 import RegistrationFormModal from '@/components/events/RegistrationFormModal';
 import {
   AttendeesPreview,
-  EventActionBar,
-  ACTION_BAR_BASE_HEIGHT,
   RegistrationSuccessModal,
   EventMoreMenu,
 } from '@/components/events';
@@ -76,7 +77,6 @@ export default function EventDetailScreen() {
   const checkInCloses = event?.endTimeISO || '';
 
   // Calculate check-in state for admin button
-  // useMemo with refreshTrigger dependency causes re-calculation every 60 seconds
   const checkInState = useMemo((): 'not_open' | 'active' | 'closed' => {
     if (!checkInOpens || !checkInCloses) return 'not_open';
     const now = new Date();
@@ -104,32 +104,12 @@ export default function EventDetailScreen() {
     return 'Show Check-In QR Code';
   }, [checkInState, checkInOpens, refreshTrigger]);
 
-  const dynamicStyles = {
-    container: { backgroundColor: theme.background },
-    text: { color: theme.text },
-    subtext: { color: theme.subtext },
-    heroBackground: { backgroundColor: theme.card },
-    buttonBackground: { backgroundColor: theme.card },
-    iconColor: theme.text,
-    tagBackground: { backgroundColor: theme.card, borderColor: theme.border },
-    tagText: { color: theme.subtext },
-    infoLabel: { color: theme.subtext },
-    divider: { borderBottomColor: theme.border },
-    capacityWarning: {
-      backgroundColor: isDark ? 'rgba(217, 119, 6, 0.1)' : '#FFF4E6',
-      borderColor: isDark ? 'rgba(217, 119, 6, 0.3)' : '#FFE4B8'
-    },
-    errorContainer: { backgroundColor: theme.background },
-    hostAvatar: { backgroundColor: theme.text },
-    hostAvatarText: { color: theme.background },
-  };
-
   /**
    * Handle Register button press
    */
-    const handleRegister = async () => {
+  const handleRegister = async () => {
+    if (!event) return;
 
-    console.log('Current Questions:', event?.registration_questions);
     if (hasEventPassed) {
       Alert.alert('Event Has Ended', 'Registration is no longer available.');
       return;
@@ -150,39 +130,23 @@ export default function EventDetailScreen() {
   };
 
   const executeRegistration = async (answers: Record<string, string>) => {
-  try {
-    // 1. Trigger Haptics for physical feedback
-    console.log('Final Answers being sent to DB:', answers); // <--- ADD THIS
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    await register(answers);
-    // 2. Perform the actual registration
-    // We pass the answers object we collected from the Modal
-    const result = await register(answers); 
+      await register(answers);
+      // Success Flow
+      setShowRegistrationForm(false);
+      setShowSuccessModal(true);
 
-    // 3. Success Flow
-    setShowRegistrationForm(false); // Close the question box
-    setShowSuccessModal(true);      // Show the "Thank You" screen
-    
-  } catch (error: any) {
-    // 4. Error Flow - Handle based on type if possible
-    console.error('Registration error:', error);
-
-    let errorMessage = 'Unable to register for this event. Please check your internet connection and try again.';
-    
-    // If your hook returns specific error messages (like "Event Full"), 
-    // we can show those specifically.
-    if (error?.message?.includes('full')) {
-      errorMessage = 'Sorry, this event has reached its capacity.';
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      let errorMessage = 'Unable to register for this event. Please check your internet connection and try again.';
+      if (error?.message?.includes('full')) {
+        errorMessage = 'Sorry, this event has reached its capacity.';
+      }
+      Alert.alert('Registration Issue', errorMessage, [{ text: 'Try Again' }]);
     }
-
-    Alert.alert(
-      'Registration Issue',
-      errorMessage,
-      [{ text: 'Try Again' }]
-    );
-  }
-};
+  };
 
   /**
    * Handle Check-In button press
@@ -226,7 +190,6 @@ export default function EventDetailScreen() {
       locationName: event.locationName,
       address: event.address,
       description: event.description,
-      // deepLink: `shpe-app://event/${event.id}`, // Add when deep linking is implemented
     });
   };
 
@@ -252,17 +215,9 @@ export default function EventDetailScreen() {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       await cancel();
-      Alert.alert(
-        'Registration Cancelled',
-        'Your registration has been cancelled.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Registration Cancelled', 'Your registration has been cancelled.', [{ text: 'OK' }]);
     } catch (error) {
-      Alert.alert(
-        'Cancellation Failed',
-        'Unable to cancel registration. Please try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Cancellation Failed', 'Unable to cancel registration. Please try again.', [{ text: 'OK' }]);
     }
   };
 
@@ -293,9 +248,7 @@ export default function EventDetailScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             const success = await deleteEventAdmin(event.id);
             if (success) {
-              // Navigate back immediately to prevent rendering issues
               router.back();
-              // Show success message after navigation
               setTimeout(() => {
                 Alert.alert('Event Deleted', 'The event has been deleted successfully.');
               }, 300);
@@ -322,9 +275,9 @@ export default function EventDetailScreen() {
 
   if (!event) {
     return (
-      <View style={[styles.container, dynamicStyles.container]}>
-        <View style={[styles.errorContainer, dynamicStyles.errorContainer]}>
-          <Text style={[styles.errorText, dynamicStyles.text]}>Event not found</Text>
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Event not found</Text>
           <Pressable style={styles.errorBackButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
@@ -334,197 +287,205 @@ export default function EventDetailScreen() {
   }
 
   return (
-    <View style={[styles.container, dynamicStyles.container]}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: ACTION_BAR_BASE_HEIGHT + (insets.bottom || 16) + 16 },
-        ]}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.container}>
+      {/* FULL SCREEN GLASS BACKGROUND */}
+      <ImageBackground
+        source={{ uri: event.coverImageUrl }}
+        style={StyleSheet.absoluteFill}
+        blurRadius={Platform.OS === 'android' ? 40 : 50}
       >
-        {/* Hero Cover Image - Square 1:1 with rounded bottom corners */}
-        <View style={[styles.heroContainer, dynamicStyles.heroBackground]}>
-          {event.coverImageUrl && (
-            <Image source={{ uri: event.coverImageUrl }} style={[styles.coverImage, dynamicStyles.heroBackground]} />
-          )}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.3)' }]} />
 
-          {/* Floating Top Controls */}
-          <View style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
-            <Pressable style={[styles.backButton, dynamicStyles.buttonBackground]} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={24} color={theme.text} />
+        {/* iOS Native Blur */}
+        {Platform.OS === 'ios' && (
+          <BlurView intensity={70} style={StyleSheet.absoluteFill} tint="dark" />
+        )}
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 32, paddingTop: insets.top + 60 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top Controls */}
+          <View style={[styles.topControls, { top: insets.top + 10 }]}>
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
             </Pressable>
 
             <View style={styles.rightControls}>
               {isCurrentUserAdmin && (
                 <>
-                  <Pressable style={[styles.adminButton, dynamicStyles.buttonBackground]} onPress={handleEditEvent}>
-                    <Ionicons name="create-outline" size={22} color={theme.primary} />
+                  <Pressable style={styles.controlButton} onPress={handleEditEvent}>
+                    <Ionicons name="create-outline" size={22} color="#fff" />
                   </Pressable>
-                  <Pressable style={[styles.adminButton, dynamicStyles.buttonBackground]} onPress={handleDeleteEvent}>
+                  <Pressable style={styles.controlButton} onPress={handleDeleteEvent}>
                     <Ionicons name="trash-outline" size={22} color="#EF4444" />
                   </Pressable>
                 </>
               )}
-              <Pressable style={[styles.shareButton, dynamicStyles.buttonBackground]} onPress={handleShare}>
-                <Ionicons name="share-outline" size={22} color={theme.text} />
+              <Pressable style={styles.controlButton} onPress={handleShare}>
+                <Ionicons name="share-outline" size={22} color="#fff" />
               </Pressable>
             </View>
           </View>
-        </View>
 
-        {/* Event Content */}
-        <View style={styles.content}>
-
-          {/* Title - High-end Typography */}
-          <Text style={[styles.title, dynamicStyles.text]}>{event.title}</Text>
-
-          {/* Date & Time */}
-          <View style={[styles.infoBlock, dynamicStyles.divider]}>
-            <Text style={[styles.infoLabel, dynamicStyles.infoLabel]}>DATE & TIME</Text>
-            <Text style={[styles.infoValue, dynamicStyles.text]}>{formatDateHeader(event.startTimeISO)}</Text>
-            <Text style={[styles.infoValue, dynamicStyles.text]}>
-              {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
-            </Text>
-          </View>
-
-          {/* About Event Section */}
-          {event.description && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, dynamicStyles.text]}>About Event</Text>
-              <Text style={[styles.description, dynamicStyles.text]}>{event.description}</Text>
-            </View>
-          )}
-
-          {/* Location Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Location</Text>
-            <View style={styles.locationRow}>
-              <Ionicons name="location" size={20} color={theme.text} style={styles.locationIcon} />
-              <View style={styles.locationInfo}>
-                <Text style={[styles.locationName, dynamicStyles.text]}>{event.locationName}</Text>
-                {event.address && <Text style={[styles.locationAddress, dynamicStyles.subtext]}>{event.address}</Text>}
-              </View>
-            </View>
-
-            {/* Map Preview Card */}
-            <MapPreview
-              locationName={event.locationName}
-              address={event.address}
-              latitude={event.latitude}
-              longitude={event.longitude}
-            />
-          </View>
-
-          {/* Attendees Preview Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Who&apos;s Going</Text>
-            <AttendeesPreview eventId={event.id} />
-          </View>
-
-          {/* Admin QR Code Section */}
-          {isCurrentUserAdmin && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, dynamicStyles.text]}>Admin Tools</Text>
-              <TouchableOpacity
-                style={[
-                  styles.adminCheckInButton,
-                  checkInState === 'not_open' && styles.adminButtonDisabled,
-                  checkInState === 'active' && { backgroundColor: '#28a745' },
-                  checkInState === 'closed' && styles.adminButtonExpired,
-                ]}
-                onPress={() => checkInState === 'active' && setShowQRModal(true)}
-                disabled={checkInState !== 'active'}
-              >
-                <Ionicons
-                  name="qr-code-outline"
-                  size={24}
-                  color={checkInState === 'active' ? '#fff' : '#adb5bd'}
-                />
-                <Text
-                  style={[
-                    styles.adminButtonText,
-                    checkInState !== 'active' && { color: '#adb5bd' },
-                  ]}
-                >
-                  {checkInButtonLabel}
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.adminHint, dynamicStyles.subtext]}>
-                {checkInState === 'not_open' && 'Check-in window has not opened yet'}
-                {checkInState === 'active' && 'Display a QR code for students to check in'}
-                {checkInState === 'closed' && 'Check-in window has closed'}
-              </Text>
-            </View>
-          )}
-
-          {/* Tags */}
-          {event.tags.length > 0 && (
-            <View style={styles.tagsRow}>
-              {event.tags.map((tag) => (
-                <View key={tag} style={[styles.tag, dynamicStyles.tagBackground]}>
-                  <Text style={[styles.tagText, dynamicStyles.tagText]}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Highlights Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, dynamicStyles.text]}>Highlights</Text>
-            {!showHighlights ? (
-              <TouchableOpacity
-                style={[styles.highlightsButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => setShowHighlights(true)}
-              >
-                <Ionicons name="images-outline" size={24} color={theme.primary} />
-                <Text style={[styles.highlightsButtonText, { color: theme.text }]}>View Event Highlights</Text>
-                <Ionicons name="chevron-down" size={20} color={theme.subtext} />
-              </TouchableOpacity>
-            ) : (
-              <View>
-                <FeedList eventId={event.uuid} scrollEnabled={false} />
-                <TouchableOpacity
-                  style={styles.hideHighlightsButton}
-                  onPress={() => setShowHighlights(false)}
-                >
-                  <Text style={{ color: theme.subtext }}>Hide Highlights</Text>
-                </TouchableOpacity>
-              </View>
+          {/* Centered Poster */}
+          <View style={styles.posterContainer}>
+            {event.coverImageUrl && (
+              <Image source={{ uri: event.coverImageUrl }} style={styles.posterImage} />
             )}
           </View>
 
+          <View style={styles.content}>
+            {/* Title */}
+            <Text style={styles.title}>{event.title}</Text>
 
-        </View>
-      </ScrollView>
+            {/* Date & Time */}
+            <Text style={styles.dateText}>
+              {formatDateHeader(event.startTimeISO)}, {formatTime(event.startTimeISO)} - {formatTime(event.endTimeISO)}
+            </Text>
 
+            {/* Attendance Status */}
+            {isRegistered && (
+              <View style={styles.statusRow}>
+                <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
+                <Text style={styles.statusText}>You're Going</Text>
+              </View>
+            )}
 
-      {/* Sticky Action Bar */}
-      <EventActionBar
-        onRegisterPress={handleRegister}
-        onCheckInPress={handleCheckIn}
-        onMorePress={handleMorePress}
-        isRegistered={isRegistered}
-        isCheckInAvailable={!hasEventPassed}
-        isLoading={loading}
-        isRegisterAvailable={!hasEventPassed}
-      />
+            {/* ACTION ROW (SQUIRCLE STYLE) */}
+            <View style={styles.actionRow}>
 
-      {/* Registration Questionnaire Modal */}
+              {/* Primary Action: Join/Register */}
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.primaryButton,
+                  hasEventPassed && styles.disabledButton
+                ]}
+                onPress={handleRegister}
+                disabled={hasEventPassed || loading}
+              >
+                <Ionicons
+                  name={isRegistered ? "checkmark-circle" : "ticket-outline"}
+                  size={24}
+                  color="#000"
+                />
+                <Text style={styles.primaryButtonText}>
+                  {loading ? "..." : (isRegistered ? "Registered" : "Register")}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Secondary Action: Check-In */}
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.glassButton,
+                  checkInState !== 'active' && !isCurrentUserAdmin && styles.disabledButton
+                ]}
+                onPress={handleCheckIn}
+                disabled={checkInState !== 'active' && !isCurrentUserAdmin}
+              >
+                <Ionicons name="qr-code-outline" size={22} color="#fff" />
+                <Text style={styles.glassButtonText}>Check-in</Text>
+              </TouchableOpacity>
+
+              {/* Tertiary Action: Highlights (or Share fallback) */}
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  styles.glassButton,
+                  showHighlights && styles.activeGlassButton
+                ]}
+                onPress={() => setShowHighlights(!showHighlights)}
+              >
+                <Ionicons name="images-outline" size={22} color="#fff" />
+                <Text style={styles.glassButtonText}>Highlights</Text>
+              </TouchableOpacity>
+
+              {/* More Action */}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.glassButton]}
+                onPress={handleMorePress}
+              >
+                <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
+                <Text style={styles.glassButtonText}>More</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Highlights View */}
+            {showHighlights && (
+              <View style={styles.highlightsSection}>
+                <FeedList eventId={event.uuid} scrollEnabled={false} />
+              </View>
+            )}
+
+            {/* About */}
+            {event.description && (
+              <View style={{ marginTop: 24 }}>
+                <Text style={styles.sectionHeader}>About</Text>
+                <Text style={styles.descriptionText}>{event.description}</Text>
+              </View>
+            )}
+
+            {/* Location */}
+            <Text style={styles.sectionHeader}>Location</Text>
+            <View style={styles.locationContainer}>
+              <View style={styles.locationRow}>
+                <Ionicons name="videocam" size={20} color="rgba(255,255,255,0.7)" style={{ marginRight: 8 }} />
+                <Text style={styles.locationText}>{event.locationName}</Text>
+              </View>
+              {event.address && (
+                <Text style={styles.addressText}>{event.address}</Text>
+              )}
+              <View style={styles.mapContainer}>
+                <MapPreview
+                  locationName={event.locationName}
+                  address={event.address}
+                  latitude={event.latitude}
+                  longitude={event.longitude}
+                />
+              </View>
+            </View>
+
+            {/* Who's Going */}
+            <View style={styles.hostsSection}>
+              <Text style={styles.sectionHeader}>Who's Going</Text>
+              <AttendeesPreview eventId={event.id} />
+            </View>
+
+            {/* Admin QR Code */}
+            {isCurrentUserAdmin && (
+              <View style={styles.adminSection}>
+                <Text style={styles.sectionHeader}>Admin Tools</Text>
+                <TouchableOpacity
+                  style={[styles.glassButtonFull, { marginTop: 8 }]}
+                  onPress={() => checkInState === 'active' && setShowQRModal(true)}
+                >
+                  <Ionicons name="qr-code" size={20} color="#fff" />
+                  <Text style={styles.glassButtonText}>Show Check-in QR</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+          </View>
+        </ScrollView>
+      </ImageBackground>
+
+      {/* MODALS */}
       <RegistrationFormModal
         isVisible={showRegistrationForm}
         questions={event.registration_questions || []}
         onClose={() => setShowRegistrationForm(false)}
         onSubmit={executeRegistration}
       />
-
-      {/* Registration Success Modal */}
       <RegistrationSuccessModal
         visible={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
       />
-
-      {/* More Menu */}
       <EventMoreMenu
         visible={showMoreMenu}
         onClose={() => setShowMoreMenu(false)}
@@ -532,8 +493,6 @@ export default function EventDetailScreen() {
         onAddToCalendar={handleAddToCalendar}
         onCancelRegistration={handleCancelRegistration}
       />
-
-      {/* Admin Check-In QR Code Modal */}
       {isCurrentUserAdmin && event && (
         <CheckInQRModal
           visible={showQRModal}
@@ -544,8 +503,6 @@ export default function EventDetailScreen() {
           checkInCloses={checkInCloses}
         />
       )}
-
-      {/* Edit Event Modal (Admin only) */}
       {isCurrentUserAdmin && (
         <Modal
           visible={showEditModal}
@@ -570,328 +527,259 @@ export default function EventDetailScreen() {
         </Modal>
       )}
     </View >
-
   );
 }
 
 const styles = StyleSheet.create({
-  // GALLERY THEME - Warm Paper Background
   container: {
     flex: 1,
+    backgroundColor: '#000',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    // paddingBottom is set dynamically in component
+    // paddingBottom handled dynamically
   },
 
-  // HERO IMAGE - Square 1:1 with rounded bottom corners (Tab feel)
-  heroContainer: {
-    position: 'relative',
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH, // Square 1:1 aspect ratio
+  // POSTER
+  posterContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  coverImage: {
-    width: '100%',
-    height: '100%',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+  posterImage: {
+    width: SCREEN_WIDTH - 48,
+    height: SCREEN_WIDTH - 48,
+    borderRadius: 24,
   },
 
-  // FLOATING CONTROLS - Light mode with shadows
+  // CONTROLS
   topControls: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    zIndex: 20,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
   },
   rightControls: {
     flexDirection: 'row',
     gap: 8,
   },
-  adminButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  shareButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
   },
 
-  // CONTENT AREA
+  // CONTENT
   content: {
-    padding: 24,
+    paddingHorizontal: 24,
   },
-  // HOST LINE
-  hostLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  hostAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1C1C1E',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  hostAvatarText: {
-    color: '#FDFBF7',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  hostLineText: {
-    fontSize: 15,
-    color: '#6e6e73',
-    fontWeight: '500',
-    flex: 1,
-  },
-
-  // TITLE - HIGH-END TYPOGRAPHY
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
-    marginBottom: 20,
-    lineHeight: 38,
-    letterSpacing: -0.5,
-  },
-
-  // TAGS
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 24,
-  },
-  tag: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  tagText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // INFO BLOCKS
-  infoBlock: {
-    marginBottom: 24,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-  },
-  infoLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 10,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  priceValue: {
-    fontSize: 22,
-    color: '#1C1C1E',
-    fontWeight: '700',
-  },
-
-  // SECTIONS
-  section: {
-    marginBottom: 36,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 18,
-    letterSpacing: -0.4,
-  },
-  // LOCATION
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  locationIcon: {
-    marginTop: 2,
-    marginRight: 12,
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  locationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  locationAddress: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  // HOST SECTION
-  hostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  hostAvatarLarge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hostAvatarLargeText: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  hostInfo: {
-    flex: 1,
-  },
-  hostNameLarge: {
-    fontSize: 17,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  hostMeta: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-
-  // DESCRIPTION
-  description: {
-    fontSize: 16,
-    lineHeight: 26,
-    fontWeight: '400',
-  },
-  // CAPACITY WARNING
-  capacityWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-  },
-  warningIcon: {
-    marginRight: 10,
-  },
-  capacityText: {
-    color: '#D97706',
-    fontSize: 15,
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 22,
-  },
-
-  // ADMIN BUTTONS
-  adminCheckInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF', // Default blue, overridden by dynamic check-in state
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 10,
+    color: '#fff',
     marginBottom: 8,
-    gap: 8,
+    lineHeight: 34,
   },
-  adminButtonDisabled: {
-    backgroundColor: '#F2F2F7', // Light gray
-  },
-  adminButtonExpired: {
-    backgroundColor: '#E5E5EA', // Darker gray
-  },
-  adminButtonText: {
-    color: '#FFFFFF',
+  dateText: {
     fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 24
+  },
+  statusText: {
+    color: '#4ADE80',
+    fontWeight: '600',
+    fontSize: 14
+  },
+
+  // ACTION ROW (Updated)
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 16,
+    marginTop: 16,
+  },
+  actionButton: {
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    aspectRatio: 1.5,
+    flex: 1,
+    height: 'auto', // Allow aspect ratio to control height
+  },
+  primaryButton: {
+    backgroundColor: '#fff',
+    flexDirection: 'column',
+  },
+  glassButton: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  activeGlassButton: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderColor: '#fff',
+    borderWidth: 1,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  primaryButtonText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  glassButtonText: {
+    color: '#fff',
+    fontSize: 11,
     fontWeight: '600',
   },
-  adminHint: {
-    textAlign: 'center',
-    fontSize: 13,
-    marginBottom: 24,
+  glassButtonFull: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
 
   // HIGHLIGHTS
-  highlightsButton: {
+  highlightsSection: {
+    marginBottom: 24,
+    paddingHorizontal: 0,
+  },
+
+  // SECTIONS
+  sectionHeader: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 12,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  locationContainer: {
+    marginBottom: 24,
+  },
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 12,
+    marginBottom: 4,
   },
-  highlightsButtonText: {
+  locationText: {
     fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
+    color: '#fff',
+    fontWeight: '500'
   },
-  hideHighlightsButton: {
-    alignItems: 'center',
-    padding: 16,
+  addressText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    marginLeft: 28,
+    marginBottom: 16,
+  },
+  mapContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
     marginTop: 8,
   },
 
-  // ERROR STATE
+  // HOSTS
+  hostsSection: {
+    marginBottom: 24,
+  },
+  hostsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  contactText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  hostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  hostAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hostName: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+
+  // DESCRIPTION
+  descriptionText: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.85)',
+    lineHeight: 24,
+  },
+
+  // ADMIN
+  adminSection: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+
+  // ERRORS
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    backgroundColor: '#000',
   },
   errorText: {
-    fontSize: 18,
-    marginBottom: 24,
-    fontWeight: '600',
+    color: '#fff',
+    fontSize: 16,
+    marginBottom: 16,
   },
   errorBackButton: {
-    backgroundColor: '#1C1C1E',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
   },
   backButtonText: {
-    color: '#FDFBF7',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-
-
 });
