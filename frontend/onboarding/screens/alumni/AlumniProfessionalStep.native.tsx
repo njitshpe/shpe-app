@@ -37,24 +37,10 @@ const INDUSTRIES = [
   'Other',
 ] as const;
 
-// --- VALIDATION ---
-const linkedinUrlSchema = z
-  .string()
-  .optional()
-  .refine(
-    (val) => {
-      if (!val || val.trim() === '') return true;
-      const urlPattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+\/?$/i;
-      return urlPattern.test(val);
-    },
-    { message: 'Enter a valid LinkedIn profile URL' }
-  );
-
 const professionalSchema = z.object({
   company: z.string().trim().min(1, 'Company is required'),
   jobTitle: z.string().trim().min(1, 'Job title is required'),
   industry: z.string().trim().min(1, 'Industry is required'),
-  linkedinUrl: linkedinUrlSchema,
 });
 
 // --- INDUSTRY SELECTION MODAL ---
@@ -189,14 +175,12 @@ interface AlumniProfessionalStepProps {
     company: string;
     jobTitle: string;
     industry: string;
-    linkedinUrl: string;
   };
   update: (
     fields: Partial<{
       company: string;
       jobTitle: string;
       industry: string;
-      linkedinUrl: string;
     }>
   ) => void;
   onNext: () => void;
@@ -287,17 +271,6 @@ export default function AlumniProfessionalStep({
                 icon="layers-outline"
                 readOnly
                 onPress={() => setIsIndustryModalVisible(true)}
-              />
-
-              {/* LINKEDIN INPUT */}
-              <GlassInput
-                label="LINKEDIN (OPTIONAL)"
-                value={data.linkedinUrl}
-                placeholder="linkedin.com/in/yourprofile"
-                icon="logo-linkedin"
-                keyboardType="url"
-                autoCapitalize="none"
-                onChangeText={(t) => update({ linkedinUrl: t })}
               />
             </MotiView>
           </ScrollView>
