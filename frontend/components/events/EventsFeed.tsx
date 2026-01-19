@@ -3,9 +3,8 @@ import {
     View,
     Text,
     StyleSheet,
-    SectionList,
     RefreshControl,
-    Pressable,
+    SectionList,
     SectionListData,
 } from 'react-native';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
@@ -15,6 +14,11 @@ import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from './CompactEventCard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MotiView } from 'moti';
+import Animated, { AnimatedProps } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureType } from 'react-native-gesture-handler';
+
+// Reanimated SectionList
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
 
 interface EventsFeedProps {
     events: Event[];
@@ -22,20 +26,30 @@ interface EventsFeedProps {
     onRefresh?: () => void;
     ListHeaderComponent?: React.ReactElement;
     selectedDate?: Date | null;
-    currentMonth?: Date; // New prop to scope the default view
+    currentMonth?: Date;
     onSelectEvent?: (event: Event) => void;
     contentContainerStyle?: any;
+    onScroll?: any;
+    bounces?: boolean;
+    listGesture?: GestureType; // Optional: Allow parent to coordinate gestures
+    animatedProps?: any; // Optional: Pass animated props (e.g. scrollEnabled)
 }
 
 interface EventSection {
-    key: string; // 'ongoing' or date string 'yyyy-MM-dd'
+    key: string;
     title: string;
     mainTitle?: string;
     subTitle?: string;
     data: Event[];
 }
 
-export const EventsFeed: React.FC<EventsFeedProps> = ({
+export type EventsFeedHandle = {
+    scrollToTop: () => void;
+    gesture: GestureType;
+    nativeGestureRef: React.RefObject<any>;
+};
+
+export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
     events,
     isRefreshing = false,
     onRefresh,
@@ -44,19 +58,32 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     currentMonth,
     onSelectEvent,
     contentContainerStyle,
-}) => {
+    onScroll,
+    bounces = true,
+    listGesture,
+    animatedProps,
+}, ref) => {
     const router = useRouter();
-    const { theme, isDark } = useTheme();
+    const { theme } = useTheme();
+    const listRef = React.useRef<any>(null);
 
-    // Default grouping logic
-    const { ongoingEvents, upcomingEvents, pastEvents } = useOngoingEvents(events);
+    // Use provided gesture or create default
+    const nativeGesture = useMemo(() => {
+        return listGesture || Gesture.Native();
+    }, [listGesture]);
 
-    // Filtered logic for specific date selection OR current month scope
+    React.useImperativeHandle(ref, () => ({
+        scrollToTop: () => {
+            listRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, animated: true });
+        },
+        gesture: nativeGesture,
+        nativeGestureRef: listRef,
+    }));
+
+    const { pastEvents } = useOngoingEvents(events);
+
     const filteredSections = useMemo(() => {
         if (!selectedDate) {
-            // No specific day selected -> Show Monthly View (Scoped) using DATE HEADERS
-
-            // 1. Filter events to the current month (if provided)
             let scopedEvents = events;
 
             if (currentMonth) {
@@ -69,13 +96,8 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                 });
             }
 
-            // 2. Group All Events by DATE (Happening Now + Upcoming + Past)
-            // No need to separate ongoing events anymore, just sort by time and group by date.
-
-            // Sort by time
             scopedEvents.sort((a, b) => new Date(a.startTimeISO).getTime() - new Date(b.startTimeISO).getTime());
 
-            // Grouping Map
             const grouped: { [key: string]: Event[] } = {};
 
             scopedEvents.forEach(event => {
@@ -86,7 +108,6 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                 grouped[dateKey].push(event);
             });
 
-            // Convert to Sections
             const finalSections: EventSection[] = Object.keys(grouped).map(dateKey => {
                 const dateObj = parseISO(dateKey);
                 let mainTitle = '';
@@ -115,7 +136,6 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
             return finalSections;
 
         } else {
-            // Specific Date View (Unchanged)
             const startOfSelected = new Date(selectedDate);
             startOfSelected.setHours(0, 0, 0, 0);
 
@@ -171,7 +191,7 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
                 transition={{
                     type: 'timing',
                     duration: 350,
-                    delay: index * 50, // Slight stagger for a cascading effect
+                    delay: index * 50,
                 }}
             >
                 <CompactEventCard
@@ -214,35 +234,42 @@ export const EventsFeed: React.FC<EventsFeedProps> = ({
     };
 
     return (
-        <SectionList
-            sections={filteredSections}
-            renderItem={renderEvent}
-            renderSectionHeader={renderSectionHeader}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.listContent, contentContainerStyle]}
-            showsVerticalScrollIndicator={false}
-            stickySectionHeadersEnabled={false} // Disabled due to layout issues with absolute header
-            ListHeaderComponent={ListHeaderComponent}
-            ListEmptyComponent={renderEmptyComponent}
-            refreshControl={
-                onRefresh ? (
-                    <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={onRefresh}
-                        tintColor={theme.primary}
-                        progressViewOffset={150} // Push spinner down further to be visible below header
-                    />
-                ) : undefined
-            }
-        />
+        <GestureDetector gesture={nativeGesture}>
+            <AnimatedSectionList
+                ref={listRef}
+                sections={filteredSections}
+                renderItem={renderEvent as any}
+                renderSectionHeader={renderSectionHeader as any}
+                keyExtractor={(item: any) => item.id}
+                contentContainerStyle={[styles.listContent, contentContainerStyle]}
+                showsVerticalScrollIndicator={false}
+                stickySectionHeadersEnabled={false}
+                ListHeaderComponent={ListHeaderComponent}
+                ListEmptyComponent={renderEmptyComponent}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+                bounces={bounces}
+                animatedProps={animatedProps}
+                refreshControl={
+                    onRefresh ? (
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={onRefresh}
+                            tintColor={theme.primary}
+                            progressViewOffset={150}
+                        />
+                    ) : undefined
+                }
+            />
+        </GestureDetector>
     );
-};
+});
 
 const styles = StyleSheet.create({
     listContent: {
         paddingHorizontal: 20,
         paddingTop: 12,
-        paddingBottom: 100, // Extra padding for FAB
+        paddingBottom: 100,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -256,37 +283,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
     },
-    ongoingBadge: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    pulseDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        letterSpacing: -0.5,
-    },
     dateHeaderTitle: {
         fontSize: 20,
         fontWeight: '700',
         marginTop: 8,
         letterSpacing: -0.5,
-    },
-    sectionCount: {
-        fontSize: 14,
-        fontWeight: '600',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        overflow: 'hidden',
     },
     emptyContainer: {
         alignItems: 'center',
