@@ -6,11 +6,11 @@ interface UseProfileDisplayProps {
     user: User | null;
     /** Points total from points_balances (optional, defaults to 0) */
     pointsTotal?: number;
-    /** Tier name from rank_tiers (optional, defaults to 'Chick') */
+    /** Tier name from rank_tiers (optional, defaults to '---') */
     tier?: string;
 }
 
-export function useProfileDisplay({ profile, user, pointsTotal = 0, tier = 'Chick' }: UseProfileDisplayProps) {
+export function useProfileDisplay({ profile, user, pointsTotal = 0, tier = '---' }: UseProfileDisplayProps) {
     const getDisplayName = () => {
         if (profile?.first_name && profile?.last_name) {
             return `${profile.first_name} ${profile.last_name}`;
@@ -99,7 +99,7 @@ export function useProfileDisplay({ profile, user, pointsTotal = 0, tier = 'Chic
         if (tierLower.includes('bronze') || tierLower.includes('bronce')) {
             return '#B08D55';
         }
-        // Default color for other tiers (Chick, Pollito, etc.)
+        // Default color for other tiers (---, ---, etc.)
         return '#8E8E93';
     };
 
