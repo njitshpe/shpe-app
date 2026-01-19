@@ -8,7 +8,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
-const HEADER_HEIGHT = height * 0.60; // Percent of screen height
+const HEADER_HEIGHT = height * 0.55; // Percent of screen height
 
 interface MonthHeroHeaderProps {
     currentMonth: Date;

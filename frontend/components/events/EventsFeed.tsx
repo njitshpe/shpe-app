@@ -255,7 +255,7 @@ export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
                         refreshing={isRefreshing}
                         onRefresh={onRefresh}
                         tintColor={theme.primary}
-                        progressViewOffset={150}
+                        progressViewOffset={60}
                     />
                 ) : undefined
             }
