@@ -61,7 +61,7 @@ export function ProfileSocialLinks({
                 <Ionicons
                     name="logo-linkedin"
                     size={22}
-                    color={profile.linkedin_url ? "#0077B5" : "#8E8E93"}
+                    color={profile.linkedin_url ? "#E5E5E5" : "#8E8E93"}
                 />
                 <Text style={[styles.socialLinkText, { color: themeText }, !profile.linkedin_url && { color: themeSubtext }]}>
                     LinkedIn
