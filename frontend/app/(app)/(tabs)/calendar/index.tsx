@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import {
     View,
@@ -38,6 +39,7 @@ export default function EventsScreen() {
     const feedRef = useRef<any>(null);
 
     const handleQRScanPress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push('/check-in');
     };
 
@@ -51,11 +53,13 @@ export default function EventsScreen() {
 
     // Handlers
     const handleMonthChange = (date: Date) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCurrentMonth(date);
         setSelectedDate(null);
     };
 
     const handleDateSelect = useCallback((date: Date) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedDate((prev) => {
             if (prev && isSameDay(date, prev)) {
                 return null;
@@ -77,6 +81,7 @@ export default function EventsScreen() {
     };
 
     const toggleCalendar = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setShowCalendar(!showCalendar);
     };
 
@@ -99,6 +104,7 @@ export default function EventsScreen() {
                 ref={feedRef}
                 events={events}
                 isRefreshing={isLoading}
+                onRefresh={refetchEvents}
                 selectedDate={selectedDate}
                 currentMonth={currentMonth}
                 onSelectEvent={(event) => router.push(`/event/${event.id}`)}
@@ -170,6 +176,7 @@ export default function EventsScreen() {
                 >
                     <Pressable
                         onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             const now = new Date();
                             setCurrentMonth(now);
                             setSelectedDate(null);
