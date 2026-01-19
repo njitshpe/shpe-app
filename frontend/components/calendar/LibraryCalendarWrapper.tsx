@@ -38,9 +38,10 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
 
 
 
-    // Transform events into markedDates for react-native-calendars lib
+    // Transform events into markedDates for react-native-calendars
     const markedDates = useMemo(() => {
         const marks: { [key: string]: any } = {};
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
 
         events.forEach(event => {
             const dateStr = format(new Date(event.startTimeISO), 'yyyy-MM-dd');
@@ -53,9 +54,14 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
             } else {
                 marks[dateStr].marked = true;
             }
+
+            // If event is today, tint the number color
+            if (dateStr === todayStr) {
+                marks[dateStr].textColor = color;
+            }
         });
 
-        // 2. Mark selected date
+        // Mark selected date
         if (selectedDate) {
             const selectedStr = format(selectedDate, 'yyyy-MM-dd');
 
@@ -78,9 +84,6 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
                 selectedTextColor: '#ffffff',
             };
         }
-
-        // 3. Mark today? Calendar handles today specially visually usually, 
-        // but we can override if needed. 
 
         return marks;
     }, [events, selectedDate, theme]);
@@ -120,9 +123,8 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
                 theme={{
                     calendarBackground: 'transparent', // Important for Glass
                     textSectionTitleColor: theme.subtext, // Mon, Tue...
-                    selectedDayBackgroundColor: theme.primary,
                     selectedDayTextColor: '#ffffff',
-                    todayTextColor: theme.primary,
+                    // todayTextColor: theme.primary, // Commented out to allow individual events to override
                     dayTextColor: theme.text,
                     textDisabledColor: theme.subtext, // Faded days
                     dotColor: theme.primary,
