@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
+import { PendingCheckInService } from '@/services/pendingCheckIn.service';
+import { CheckInTokenService } from '@/services/checkInToken.service';
 import { SHADOWS, RADIUS } from '@/constants/colors';
 import { InterestType } from '@/types/userProfile';
 import WizardLayout from '../components/WizardLayout.native';
@@ -81,13 +83,13 @@ export default function GuestOnboardingWizard() {
         'You need a profile to continue.',
         [
           { text: 'Stay', style: 'cancel' },
-          { 
-            text: 'Exit', 
-            style: 'destructive', 
+          {
+            text: 'Exit',
+            style: 'destructive',
             onPress: async () => {
               await updateUserMetadata({ user_type: null });
               router.replace('/role-selection');
-            } 
+            }
           }
         ]
       );
@@ -105,7 +107,7 @@ export default function GuestOnboardingWizard() {
 
     try {
       let profilePictureUrl: string | undefined;
-      
+
       if (formData.profilePhoto) {
         setLoadingMessage("Uploading photo...");
         const uploadResult = await storageService.uploadProfilePhoto(user.id, formData.profilePhoto);
@@ -145,6 +147,23 @@ export default function GuestOnboardingWizard() {
 
       await updateUserMetadata({ onboarding_completed: true });
 
+      // Process pending check-in
+      const pending = await PendingCheckInService.get();
+      if (pending) {
+        setLoadingMessage(`Checking in to ${pending.eventName}...`);
+        try {
+          const result = await CheckInTokenService.validateCheckIn(pending.token);
+          if (result.success) {
+            Alert.alert('Check-in Successful! 🎟️', `You are now checked in to ${pending.eventName}!`);
+          } else {
+            Alert.alert('Check-in Failed', result.error || 'Could not verify check-in.');
+          }
+        } catch (err) {
+          console.error('Pending check-in failed', err);
+        }
+        await PendingCheckInService.clear();
+      }
+
       setIsSaving(false);
       confettiRef.current?.start();
 
@@ -178,7 +197,7 @@ export default function GuestOnboardingWizard() {
     >
       <View style={styles.stepsContainer}>
         <AnimatePresence>
-          
+
           {/* Step 0: Identity */}
           {currentStep === 0 && (
             <MotiView key="step-0" {...transitionConfig} style={styles.stepWrapper}>
