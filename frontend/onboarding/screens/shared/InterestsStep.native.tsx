@@ -30,30 +30,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
+import { INTERESTS_LIST } from '@/constants/interests';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Data: Split into 3 distinct rows for the "Stream" effect
-const ROW_1 = [
-  { id: 'professional-dev', label: 'Professional Dev' },
-  { id: 'academic-support', label: 'Academic Support' },
-  { id: 'mental-health', label: 'Mental Health' },
-  { id: 'social-events', label: 'Social Events' },
-];
-
-const ROW_2 = [
-  { id: 'tech-workshops', label: 'Tech Workshops' },
-  { id: 'community-service', label: 'Community Service' },
-  { id: 'networking', label: 'Networking' },
-  { id: 'career-fairs', label: 'Career Fairs' },
-];
-
-const ROW_3 = [
-  { id: 'leadership', label: 'Leadership' },
-  { id: 'hackathons', label: 'Hackathons' },
-  { id: 'research', label: 'Research' },
-  { id: 'entrepreneurship', label: 'Startup / Biz' },
-];
+// Derive rows dynamically from the Single Source of Truth
+const ROW_1 = INTERESTS_LIST.slice(0, 4);
+const ROW_2 = INTERESTS_LIST.slice(4, 8);
+const ROW_3 = INTERESTS_LIST.slice(8, 12);
 
 const interestsSchema = z.object({
   interests: z.array(z.string()).min(1, 'Select at least 1 interest'),
@@ -229,6 +213,14 @@ export default function InterestsStep({ data, update, onNext }: InterestsStepPro
 
     setIsNavigating(true);
     setError(null);
+
+    // Request notification permissions (OS will show prompt if not yet determined)
+    try {
+      await Notifications.requestPermissionsAsync();
+    } catch {
+      // Permission request failed or was dismissed - continue anyway
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onNext();
     setTimeout(() => setIsNavigating(false), 2000);
