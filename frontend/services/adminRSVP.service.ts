@@ -1,54 +1,52 @@
-import { supabase } from '../lib/supabase';
-import { ServiceResponse, createError, mapSupabaseError } from '../types/errors';
+import { supabase } from '@/lib/supabase';
+import { ServiceResponse, mapSupabaseError } from '../types/errors';
 import { rankService, PointsSummary } from './rank.service';
 import { EventDB } from '../types/events';
-import { UserProfile } from '../types/userProfile';
+import { normalizeProfileData, UserProfile } from '@/types/userProfile';
 
-// Type for the "Card" used in the Swipe UI
 export interface RSVPCardData {
   attendance_id: string;
   user_id: string;
-  user_profile: UserProfile;
-  registration_answers: Record<string, any>; // The answers to the questions
+  user_profile: UserProfile & { 
+    linkedin_url?: string | null; 
+    resume_url?: string | null; 
+  };
+  registration_answers: Record<string, any>;
   rank_data: PointsSummary;
   applied_at: string;
 }
 
-// Type for the Event Selector list
 export interface PendingEventSummary {
   event: EventDB;
   pending_count: number;
 }
 
+const calculateTierFromPoints = (points: number): string => {
+  if (points >= 1000) return 'Diamond';
+  if (points >= 500) return 'Platinum';
+  if (points >= 300) return 'Gold';
+  if (points >= 100) return 'Silver';
+  return 'Bronze';
+};
+
 class AdminRSVPService {
-  /**
-   * 1. GET PENDING EVENTS
-   * Fetches only events that have at least one pending RSVP.
-   * Used for the "Choose Event" screen.
-   */
+  // 1. GET PENDING EVENTS (Unchanged)
   async getEventsWithPendingRequests(): Promise<ServiceResponse<PendingEventSummary[]>> {
     try {
-      // Step 1: Get all pending attendance records
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('event_attendance')
         .select('event_id')
         .eq('status', 'pending');
 
       if (attendanceError) throw attendanceError;
+      if (!attendanceData || attendanceData.length === 0) return { success: true, data: [] };
 
-      if (!attendanceData || attendanceData.length === 0) {
-        return { success: true, data: [] };
-      }
-
-      // Step 2: Calculate counts per event
       const countsByEvent: Record<string, number> = {};
       attendanceData.forEach((row) => {
         countsByEvent[row.event_id] = (countsByEvent[row.event_id] || 0) + 1;
       });
 
       const eventIds = Object.keys(countsByEvent);
-
-      // Step 3: Fetch details for these specific events
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('*')
@@ -57,168 +55,152 @@ class AdminRSVPService {
 
       if (eventsError) throw eventsError;
 
-      // Step 4: Merge event data with counts
       const result: PendingEventSummary[] = (events as any[]).map((event) => ({
-        event: {
-            ...event,
-            // 💡 HELPFUL HINT: 
-            // If your UI expects "title", but DB has "name", we can polyfill it here:
-            title: event.name, 
-        },
-        pending_count: countsByEvent[event.id], // changed from event.event_id to event.id
+        event: { ...event, title: event.name },
+        pending_count: countsByEvent[event.id],
       }));
-
       return { success: true, data: result };
-
     } catch (error) {
-      return {
-        success: false,
-        error: mapSupabaseError(error),
-      };
+      return { success: false, error: mapSupabaseError(error) };
     }
   }
 
-  /**
-   * 2. GET THE "SWIPE DECK"
-   * Fetches all pending users for a specific event, including their profile and rank.
-   */
-  /**
-   * 2. GET THE "SWIPE DECK" (MANUAL JOIN VERSION)
-   * Fetches attendance and profiles separately to avoid Foreign Key errors.
-   */
+  // 2. GET THE "SWIPE DECK"
   async getPendingRSVPsForEvent(eventId: string): Promise<ServiceResponse<RSVPCardData[]>> {
     try {
       console.log("------------------------------------------------");
       console.log("🔍 FETCHING RSVPS FOR EVENT ID:", eventId);
 
       let actualUUID = eventId;
-
-      // 1️⃣ TRANSLATION STEP (Slug -> UUID)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+      
       if (!isUUID) {
         const { data: eventData } = await supabase
           .from('events')
           .select('id, event_id')
           .or(`event_id.eq.${eventId}, id.eq.${eventId}`)
           .single();
-
-        if (eventData) {
-          actualUUID = eventData.id;
-        } else {
-          return { success: true, data: [] };
-        }
+        if (eventData) actualUUID = eventData.id;
+        else return { success: true, data: [] };
       }
 
-      // 2️⃣ FETCH ATTENDANCE (No Join yet)
+      // --- FETCH ATTENDANCE ---
       const { data: attendanceData, error } = await supabase
         .from('event_attendance')
-        .select('*') // Just get raw attendance data
+        .select('*')
         .eq('event_id', actualUUID)
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      
-      if (!attendanceData || attendanceData.length === 0) {
-        return { success: true, data: [] };
-      }
+      if (!attendanceData || attendanceData.length === 0) return { success: true, data: [] };
 
-      // 3️⃣ FETCH PROFILES MANUALLY
-      // Extract all user IDs from the attendance list
       const userIds = attendanceData.map((row) => row.user_id);
+      
+      // --- DEBUG LOGS ---
+      console.log("👥 User IDs found:", userIds);
 
-      // Fetch all profiles that match these IDs
+      // --- FETCH PROFILES ---
       const { data: profilesData } = await supabase
         .from('user_profiles')
         .select('*')
-        .in('user_id', userIds); // Assuming 'user_id' is the column name in profiles table
+        .in('id', userIds);
 
-      // Create a quick lookup map (ID -> Profile)
       const profileMap: Record<string, any> = {};
       if (profilesData) {
-        profilesData.forEach((p) => {
-          profileMap[p.user_id] = p;
+        profilesData.forEach((p) => { profileMap[p.id] = p; });
+      }
+
+      // --- FETCH POINTS (Directly from points_balances) ---
+      const { data: pointsData, error: pointsError } = await supabase
+        .from('points_balances')
+        .select('user_id, points_total')
+        .in('user_id', userIds);
+
+      // 🔥 LOGGING THE RESULT TO CHECK RLS 🔥
+      if (pointsError) console.error("❌ Points Fetch Error:", pointsError);
+      console.log("💰 POINTS DATA FROM DB:", pointsData);
+
+      const pointsMap: Record<string, number> = {};
+      if (pointsData) {
+        pointsData.forEach((row) => {
+          // If user has multiple rows, take the largest points_total
+          const currentMax = pointsMap[row.user_id] || 0;
+          if (row.points_total > currentMax) {
+            pointsMap[row.user_id] = row.points_total;
+          }
         });
       }
 
-      // 4️⃣ MERGE & FETCH RANK
-      const cards: RSVPCardData[] = await Promise.all(
-        attendanceData.map(async (row: any) => {
-          const rankResponse = await rankService.getUserRank(row.user_id);
-          
-          const defaultRank: PointsSummary = {
-            season_id: '',
-            points_total: 0,
-            tier: 'Unranked',
+      // --- ASSEMBLE CARDS ---
+      const cards: RSVPCardData[] = attendanceData.map((row: any) => {
+        const rawProfile = profileMap[row.user_id] || { 
+          first_name: "Unknown", last_name: "User", email: "No Profile Found" 
+        };
+
+        const normalizedData = normalizeProfileData(rawProfile.profile_data);
+        const linkedin = normalizedData.linkedin_url || rawProfile.linkedin_url || null;
+        const resume = normalizedData.resume_url || rawProfile.resume_url || null;
+
+        // Points Logic
+        const realPoints = pointsMap[row.user_id] || 0;
+        const calculatedTier = calculateTierFromPoints(realPoints);
+
+        const rankData: PointsSummary = {
+            season_id: 'current',
+            points_total: realPoints,
+            tier: calculatedTier,
             points_to_next_tier: 0
-          };
+        };
 
-          // Grab profile from our manual map, or use fallback
-          const userProfile = profileMap[row.user_id] || { 
-            first_name: "Unknown", 
-            last_name: "User", 
-            email: "No Profile Found" 
-          };
+        // Answer Logic (Handle string or JSON)
+        let finalAnswers = row.answers || row.registration_answers || {};
+        if (typeof finalAnswers === 'string') {
+          try { finalAnswers = JSON.parse(finalAnswers); } 
+          catch (e) { finalAnswers = {}; }
+        }
 
-          return {
-            attendance_id: row.id,
-            user_id: row.user_id,
-            user_profile: userProfile, 
-            registration_answers: row.registration_answers || {},
-            rank_data: rankResponse.success && rankResponse.data ? rankResponse.data : defaultRank,
-            applied_at: row.created_at,
-          };
-        })
-      );
+        return {
+          attendance_id: row.id,
+          user_id: row.user_id,
+          user_profile: { ...rawProfile, linkedin_url: linkedin, resume_url: resume },
+          registration_answers: finalAnswers,
+          rank_data: rankData,
+          applied_at: row.created_at,
+        };
+      });
 
       return { success: true, data: cards };
 
     } catch (error) {
-      console.error("💥 CRASH IN SERVICE:", error);
-      return {
-        success: false,
-        error: mapSupabaseError(error),
-      };
+      console.error("💥 SERVICE ERROR:", error);
+      return { success: false, error: mapSupabaseError(error) };
     }
   }
 
-  /**
-   * 3. PROCESS SWIPE (APPROVE/REJECT)
-   * Updates the status of a specific attendance record.
-   */
+  // 3. PROCESS SWIPE (Unchanged)
   async processRSVP(attendanceId: string, action: 'approve' | 'reject'): Promise<ServiceResponse<boolean>> {
     try {
       const newStatus = action === 'approve' ? 'confirmed' : 'rejected';
-
       const { error } = await supabase
         .from('event_attendance')
         .update({ status: newStatus })
         .eq('id', attendanceId);
-
       if (error) throw error;
-
       return { success: true, data: true };
     } catch (error) {
-      return {
-        success: false,
-        error: mapSupabaseError(error),
-      };
+      return { success: false, error: mapSupabaseError(error) };
     }
   }
 
-  /**
-   * 4. GET GLOBAL COUNT (FOR RED DOT)
-   * Returns the total number of pending requests across all events.
-   */
+  // 4. GLOBAL COUNT (Unchanged)
   async getTotalPendingCount(): Promise<ServiceResponse<number>> {
     try {
       const { count, error } = await supabase
         .from('event_attendance')
-        .select('*', { count: 'exact', head: true }) // head: true means don't return data, just count
+        .select('*', { count: 'exact', head: true }) 
         .eq('status', 'pending');
-
       if (error) throw error;
-
       return { success: true, data: count || 0 };
     } catch (error) {
       return { success: false, error: mapSupabaseError(error) };

@@ -1,9 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { 
+  View, Text, StyleSheet, Dimensions, TouchableOpacity, 
+  ActivityIndicator, Alert, ScrollView, Linking 
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { supabase } from '@/lib/supabase';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -12,10 +16,11 @@ import Animated, {
   interpolate, 
   Extrapolation 
 } from 'react-native-reanimated';
+import * as WebBrowser from 'expo-web-browser';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { adminRSVPService, RSVPCardData } from '@/services/adminRSVP.service';
-import { ProfileHeader } from '@/components/profile/ProfileHeader'; // Reusing your component!
+import { ProfileHeader } from '@/components/profile/ProfileHeader';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -32,7 +37,17 @@ export default function ReviewRSVPScreen() {
 
   // Animation Values
   const translateX = useSharedValue(0);
-  const cardScale = useSharedValue(1);
+
+  // ✅ CRITICAL FIX: The "Ghost" Prevention Timer
+  // We wait 10ms to ensure React has physically removed the old card 
+  // from the screen before we snap the position back to 0.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      translateX.value = 0;
+    }, 10);
+    
+    return () => clearTimeout(timer);
+  }, [currentIndex]);
 
   useEffect(() => {
     loadData();
@@ -52,44 +67,85 @@ export default function ReviewRSVPScreen() {
     }
   };
 
+  const openLink = async (url?: string | null) => {
+    if (!url) {
+        Alert.alert('Unavailable', 'This user has not provided this link.');
+        return;
+    }
+    const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+    try {
+        const canOpen = await Linking.canOpenURL(fullUrl);
+        if (canOpen) await Linking.openURL(fullUrl);
+        else Alert.alert('Error', 'Cannot open this link.');
+    } catch (e) {
+        Alert.alert('Error', 'Invalid URL format.');
+    }
+  };
+
+  const handleOpenResume = async (path?: string | null) => {
+    if (!path) {
+      Alert.alert('Unavailable', 'No resume provided.');
+      return;
+    }
+    try {
+      let finalUrl = path;
+      if (!path.startsWith('http')) {
+        const { data, error } = await supabase
+          .storage
+          .from('resumes') 
+          .createSignedUrl(path, 60);
+
+        if (error || !data?.signedUrl) {
+          Alert.alert('Error', 'Could not locate this file in the database.');
+          return;
+        }
+        finalUrl = data.signedUrl;
+      }
+      await WebBrowser.openBrowserAsync(finalUrl, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        controlsColor: theme.primary,
+        toolbarColor: theme.background,
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Could not preview resume.');
+    }
+  };
+
   const handleSwipeComplete = async (direction: 'left' | 'right') => {
     const currentCard = cards[currentIndex];
     if (!currentCard) return;
 
-    // 1. Optimistic Update: Move to next card immediately
     const nextIndex = currentIndex + 1;
+    
+    // ✅ 1. Update Index (Triggers the useEffect above)
     setCurrentIndex(nextIndex);
-    translateX.value = 0; // Reset position for the "next" card
 
-    // 2. DETERMINE ACTION
-    const action = direction === 'right' ? 'approve' : 'accept';
+    // ❌ DO NOT reset translateX here manually. The useEffect handles it.
 
-    // 3. Send API Request in background
-    try {
-      await adminRSVPService.processRSVP(currentCard.attendance_id, action);
-    } catch (error) {
-      console.error("Swipe failed:", error);
-      Alert.alert('Error', 'Failed to update RSVP status.');
-    }
+    // 2. API Call
+    const action = direction === 'right' ? 'approve' : 'reject';
+    adminRSVPService.processRSVP(currentCard.attendance_id, action).catch(err => {
+      console.error("Failed to process RSVP:", err);
+    });
 
-    // 4. If finished, go back
     if (nextIndex >= cards.length) {
-      Alert.alert('All Done!', 'You have reviewed all pending requests.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      setTimeout(() => {
+        Alert.alert('All Done!', 'You have reviewed all pending requests.', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      }, 300);
     }
   };
 
-  // Gesture Definition
+  // Gesture Setup
   const gesture = Gesture.Pan()
     .onChange((event) => {
       translateX.value = event.translationX;
     })
     .onEnd((event) => {
       if (Math.abs(event.translationX) > SWIPE_THRESHOLD) {
-        // Swipe detected
         const direction = event.translationX > 0 ? 'right' : 'left';
-        // Animate off screen
+        // Swipe off screen
         translateX.value = withSpring(
           direction === 'right' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5,
           {},
@@ -101,50 +157,21 @@ export default function ReviewRSVPScreen() {
       }
     });
 
-  // Animated Styles
+  // Animations
   const cardStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
-      {
-        rotate: `${interpolate(
-          translateX.value,
-          [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-          [-10, 0, 10],
-          Extrapolation.CLAMP
-        )}deg`,
-      },
+      { rotate: `${interpolate(translateX.value, [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2], [-10, 0, 10], Extrapolation.CLAMP)}deg` },
     ],
   }));
 
   const nextCardStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: interpolate(
-          Math.abs(translateX.value),
-          [0, SCREEN_WIDTH],
-          [0.9, 1],
-          Extrapolation.CLAMP
-        ),
-      },
-    ],
-    opacity: interpolate(
-      Math.abs(translateX.value),
-      [0, SCREEN_WIDTH / 2],
-      [0.6, 1],
-      Extrapolation.CLAMP
-    ),
+    transform: [{ scale: interpolate(Math.abs(translateX.value), [0, SCREEN_WIDTH], [0.9, 1], Extrapolation.CLAMP) }],
+    opacity: interpolate(Math.abs(translateX.value), [0, SCREEN_WIDTH / 2], [0.6, 1], Extrapolation.CLAMP),
   }));
 
-  // Render Overlay (Like/Nope text)
   const LikeBadge = () => {
-    const style = useAnimatedStyle(() => ({
-      opacity: interpolate(
-        translateX.value,
-        [0, 60],        // When dragging from 0 to 60 (RIGHT)
-        [0, 1],         // Opacity goes from Invisible to Visible
-        Extrapolation.CLAMP
-      ),
-    }));
+    const style = useAnimatedStyle(() => ({ opacity: interpolate(translateX.value, [0, 60], [0, 1], Extrapolation.CLAMP) }));
     return (
       <Animated.View style={[styles.overlayBadge, { left: 40, borderColor: '#4CD964', transform: [{ rotate: '-15deg' }] }, style]}>
         <Text style={[styles.overlayText, { color: '#4CD964' }]}>APPROVE</Text>
@@ -153,14 +180,7 @@ export default function ReviewRSVPScreen() {
   };
 
   const NopeBadge = () => {
-    const style = useAnimatedStyle(() => ({
-      opacity: interpolate(
-        translateX.value,
-        [-60, 0],       // When dragging from -60 to 0 (LEFT)
-        [1, 0],         // Opacity goes from Visible to Invisible
-        Extrapolation.CLAMP
-      ),
-    }));
+    const style = useAnimatedStyle(() => ({ opacity: interpolate(translateX.value, [-60, 0], [1, 0], Extrapolation.CLAMP) }));
     return (
       <Animated.View style={[styles.overlayBadge, { right: 40, borderColor: '#FF3B30', transform: [{ rotate: '15deg' }] }, style]}>
         <Text style={[styles.overlayText, { color: '#FF3B30' }]}>DECLINE</Text>
@@ -169,32 +189,37 @@ export default function ReviewRSVPScreen() {
   };
 
   const renderCard = (card: RSVPCardData, index: number) => {
+    // ✅ Strict Clean-up: If index is smaller than current, it is GONE.
+    if (index < currentIndex) return null;
+
     const isFront = index === currentIndex;
     const isNext = index === currentIndex + 1;
-
+    
+    // ✅ Strict Future Check: Only render top 2 cards to stop shadow darkening
     if (!isFront && !isNext) return null;
 
-    // Rank Logic for display
-    const rankColor = card.rank_data.tier === 'Gold' ? '#FFD700' : 
-                      card.rank_data.tier === 'Silver' ? '#C0C0C0' : '#CD7F32';
+    let tier = card.rank_data?.tier || 'Unranked';
+    if (tier.toLowerCase().includes('diamond')) {
+        tier = 'Gold'; 
+    }
+    const rankColor = tier.includes('Gold') ? '#FFD700' : tier.includes('Silver') ? '#C0C0C0' : '#CD7F32';
 
     return (
       <Animated.View
         key={card.attendance_id}
         style={[
-          styles.cardContainer,
-          { zIndex: cards.length - index }, // Stack order
-          isFront ? cardStyle : nextCardStyle,
+          styles.cardContainer, 
+          { zIndex: cards.length - index }, 
+          isFront ? cardStyle : nextCardStyle
         ]}
       >
         <GestureDetector gesture={isFront ? gesture : Gesture.Tap()}>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            {/* Overlay Badges */}
             {isFront && <LikeBadge />}
             {isFront && <NopeBadge />}
 
             <ScrollView contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-              {/* Header Reuse */}
+              
               <View style={{ marginTop: 16 }}>
                  <ProfileHeader
                     profilePictureUrl={card.user_profile.profile_picture_url || undefined}
@@ -205,29 +230,45 @@ export default function ReviewRSVPScreen() {
                     isDark={isDark}
                     themeText={theme.text}
                     themeSubtext={theme.subtext}
-                    userTypeBadge={card.rank_data.tier} // Showing Rank as badge
+                    userTypeBadge={tier}
                   />
               </View>
-             
-
-              {/* Points Summary */}
+              
               <View style={[styles.statsRow, { borderColor: theme.border }]}>
                  <View style={styles.statItem}>
                     <Text style={[styles.statValue, { color: theme.primary }]}>{card.rank_data.points_total}</Text>
                     <Text style={[styles.statLabel, { color: theme.subtext }]}>Points</Text>
                  </View>
                  <View style={[styles.statItem, { borderLeftWidth: 1, borderLeftColor: theme.border }]}>
-                    <Text style={[styles.statValue, { color: rankColor }]}>{card.rank_data.tier}</Text>
-                    <Text style={[styles.statLabel, { color: theme.subtext }]}>Current Tier</Text>
+                    <Text style={[styles.statValue, { color: rankColor }]}>{tier}</Text>
+                    <Text style={[styles.statLabel, { color: theme.subtext }]}>Status</Text>
                  </View>
+              </View>
+
+              <View style={styles.linksContainer}>
+                 <TouchableOpacity 
+                   style={[styles.linkButton, { backgroundColor: '#0077B5', opacity: card.user_profile.linkedin_url ? 1 : 0.4 }]}
+                   onPress={() => openLink(card.user_profile.linkedin_url)}
+                   disabled={!card.user_profile.linkedin_url}
+                 >
+                   <FontAwesome5 name="linkedin" size={18} color="#FFF" />
+                   <Text style={styles.linkText}>LinkedIn</Text>
+                 </TouchableOpacity>
+
+                 <TouchableOpacity 
+                   style={[styles.linkButton, { backgroundColor: theme.primary, opacity: card.user_profile.resume_url ? 1 : 0.4 }]}
+                   onPress={() => handleOpenResume(card.user_profile.resume_url)}
+                   disabled={!card.user_profile.resume_url}
+                 >
+                   <MaterialCommunityIcons name="file-document-outline" size={20} color="#FFF" />
+                   <Text style={styles.linkText}>Resume</Text>
+                 </TouchableOpacity>
               </View>
 
               <View style={styles.divider} />
 
-              {/* Registration Answers */}
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Application Answers</Text>
-              
-              {Object.entries(card.registration_answers).length > 0 ? (
+              {card.registration_answers && Object.keys(card.registration_answers).length > 0 ? (
                 Object.entries(card.registration_answers).map(([question, answer], i) => (
                   <View key={i} style={[styles.answerBox, { backgroundColor: theme.background }]}>
                     <Text style={[styles.questionText, { color: theme.subtext }]}>{question}</Text>
@@ -235,11 +276,10 @@ export default function ReviewRSVPScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={{ color: theme.subtext, fontStyle: 'italic', textAlign: 'center' }}>
+                <Text style={{ color: theme.subtext, fontStyle: 'italic', textAlign: 'center', marginTop: 10 }}>
                   No questions were asked for this event.
                 </Text>
               )}
-
             </ScrollView>
           </View>
         </GestureDetector>
@@ -261,10 +301,7 @@ export default function ReviewRSVPScreen() {
         <Ionicons name="checkmark-done-circle" size={80} color={theme.primary} />
         <Text style={[styles.finishedTitle, { color: theme.text }]}>All Done!</Text>
         <Text style={[styles.finishedSub, { color: theme.subtext }]}>No more pending requests.</Text>
-        <TouchableOpacity 
-          style={[styles.backButton, { backgroundColor: theme.card }]}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.card }]} onPress={() => router.back()}>
           <Text style={{ color: theme.text }}>Back to List</Text>
         </TouchableOpacity>
       </View>
@@ -274,7 +311,6 @@ export default function ReviewRSVPScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
             <Ionicons name="close" size={28} color={theme.text} />
@@ -283,12 +319,10 @@ export default function ReviewRSVPScreen() {
           <View style={{ width: 44 }} />
         </View>
 
-        {/* Card Stack */}
         <View style={styles.cardStack}>
           {cards.map((card, index) => renderCard(card, index))}
         </View>
 
-        {/* Buttons (Alternative to swipe) */}
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]} 
@@ -300,9 +334,9 @@ export default function ReviewRSVPScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.actionBtn, { backgroundColor: '#4CD964' }]}
+            style={[styles.actionBtn, { backgroundColor: '#4CD964' }]} 
             onPress={() => {
-               translateX.value = withSpring(SCREEN_WIDTH * 1.5, {}, () => runOnJS(handleSwipeComplete)('right'));
+              translateX.value = withSpring(SCREEN_WIDTH * 1.5, {}, () => runOnJS(handleSwipeComplete)('right'));
             }}
           >
             <Ionicons name="checkmark" size={32} color="white" />
@@ -314,137 +348,156 @@ export default function ReviewRSVPScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { 
+    flex: 1 
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  center: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    height: 50,
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16, 
+    height: 50 
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  headerTitle: { 
+    fontSize: 18, 
+    fontWeight: '600' 
   },
-  cardStack: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 20,
+  finishedTitle: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    marginTop: 16 
   },
-  cardContainer: {
-    position: 'absolute',
-    width: SCREEN_WIDTH * 0.9,
-    height: '100%',
-    maxHeight: 600,
-    justifyContent: 'center',
-    alignItems: 'center',
+  finishedSub: { 
+    fontSize: 16, 
+    marginTop: 8 
   },
-  card: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+  cardStack: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginVertical: 20 
   },
-  statsRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+  cardContainer: { 
+    position: 'absolute', 
+    width: SCREEN_WIDTH * 0.9, 
+    height: '100%', 
+    maxHeight: 600, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
+  card: { 
+    width: '100%', 
+    height: '100%', 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    padding: 16, 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 5 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 10, 
+    elevation: 5 
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
+  statsRow: { 
+    flexDirection: 'row', 
+    marginTop: 16, 
+    paddingVertical: 12, 
+    borderTopWidth: 1, 
+    borderBottomWidth: 1 
   },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 2,
+  statItem: { 
+    flex: 1, 
+    alignItems: 'center' 
   },
-  divider: {
-    height: 16,
+  statValue: { 
+    fontSize: 18, 
+    fontWeight: '700' 
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+  statLabel: { 
+    fontSize: 12, 
+    marginTop: 2 
   },
-  answerBox: {
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
+  linksContainer: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginVertical: 16 
   },
-  questionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
+  linkButton: { 
+    flex: 1, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingVertical: 12, 
+    borderRadius: 10 
   },
-  answerText: {
-    fontSize: 15,
+  linkText: { 
+    color: 'white', 
+    fontWeight: '600', 
+    marginLeft: 8 
   },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    paddingBottom: 40,
-    paddingTop: 10,
+  divider: { 
+    height: 16 
   },
-  actionBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+  sectionTitle: { 
+    fontSize: 16, 
+    fontWeight: '600', 
+    marginBottom: 12 
   },
-  overlayBadge: {
-    position: 'absolute',
-    top: 50,
-    borderWidth: 4,
-    borderRadius: 8,
-    padding: 8,
-    zIndex: 999,
+  answerBox: { 
+    padding: 12, 
+    borderRadius: 12, 
+    marginBottom: 12 
   },
-  overlayText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+  questionText: { 
+    fontSize: 12, 
+    fontWeight: '600', 
+    marginBottom: 4 
   },
-  finishedTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 20,
+  answerText: { 
+    fontSize: 15 
   },
-  finishedSub: {
-    marginTop: 8,
-    marginBottom: 30,
+  actionButtons: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-evenly', 
+    paddingBottom: 40, 
+    paddingTop: 10 
   },
-  backButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+  actionBtn: { 
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.2, 
+    shadowRadius: 4, 
+    elevation: 4 
+  },
+  overlayBadge: { 
+    position: 'absolute', 
+    top: 50, 
+    borderWidth: 4, 
+    borderRadius: 8, 
+    padding: 8, 
+    zIndex: 999 
+  },
+  overlayText: { 
+    fontSize: 32, 
+    fontWeight: 'bold', 
+    textTransform: 'uppercase' 
+  },
+  backButton: { 
+    marginTop: 20, 
+    paddingHorizontal: 20, 
+    paddingVertical: 10, 
+    borderRadius: 8, 
+    borderWidth: 1, 
+    borderColor: 'rgba(0,0,0,0.1)' 
   },
 });
