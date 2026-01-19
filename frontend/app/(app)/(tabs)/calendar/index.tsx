@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { BlurView } from 'expo-blur';
 import {
     View,
@@ -15,6 +15,12 @@ import { EventsFeed } from '@/components/events/EventsFeed';
 import { LibraryCalendarWrapper } from '@/components/calendar/LibraryCalendarWrapper';
 import { MonthHeroHeader } from '@/components/events/MonthHeroHeader';
 import { isSameDay, isSameMonth } from 'date-fns';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolation,
+} from 'react-native-reanimated';
 
 const HEADER_TRIGGER_OFFSET = 300;
 
@@ -28,8 +34,15 @@ export default function EventsScreen() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [showCalendar, setShowCalendar] = useState(false);
 
+    const scrollY = useSharedValue(0);
+    const feedRef = useRef<any>(null);
+
     const handleQRScanPress = () => {
         router.push('/check-in');
+    };
+
+    const handleScrollEvent = (event: any) => {
+        scrollY.value = event.nativeEvent.contentOffset.y;
     };
 
     useEffect(() => {
@@ -49,7 +62,6 @@ export default function EventsScreen() {
             }
             return date;
         });
-        setShowCalendar(false);
     }, []);
 
     const nextMonth = () => {
@@ -70,71 +82,87 @@ export default function EventsScreen() {
 
     const monthTitle = `${currentMonth.toLocaleDateString('en-US', { month: 'long' })}`;
 
+    const stickyHeaderStyle = useAnimatedStyle(() => {
+        return {
+            opacity: interpolate(scrollY.value, [250, 300], [0, 1], Extrapolation.CLAMP),
+            transform: [
+                { translateY: interpolate(scrollY.value, [250, 300], [-10, 0], Extrapolation.CLAMP) }
+            ],
+        };
+    });
+
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
 
-            {/* Calendar View (Conditional) */}
-            {showCalendar && (
-                <View style={[styles.calendarContainer, { paddingTop: insets.top + 60 }]}>
-                    <LibraryCalendarWrapper
-                        events={events}
-                        selectedDate={selectedDate}
-                        onDateSelect={handleDateSelect}
-                        currentMonth={currentMonth}
-                        onMonthChange={handleMonthChange}
-                    />
-                </View>
-            )}
-
             {/* Events Feed */}
-            {!showCalendar && (
-                <EventsFeed
-                    events={events}
-                    isRefreshing={isLoading}
-                    selectedDate={selectedDate}
-                    currentMonth={currentMonth}
-                    onSelectEvent={(event) => router.push(`/event/${event.id}`)}
-                    contentContainerStyle={{ paddingTop: 0 }}
-                    ListHeaderComponent={<MonthHeroHeader currentMonth={currentMonth} onScanPress={handleQRScanPress} />}
-                />
-            )}
+            <EventsFeed
+                ref={feedRef}
+                events={events}
+                isRefreshing={isLoading}
+                selectedDate={selectedDate}
+                currentMonth={currentMonth}
+                onSelectEvent={(event) => router.push(`/event/${event.id}`)}
+                contentContainerStyle={{ paddingTop: 0 }}
+                ListHeaderComponent={
+                    <>
+                        <MonthHeroHeader
+                            currentMonth={currentMonth}
+                            onScanPress={handleQRScanPress}
+                            onCalendarPress={toggleCalendar}
+                            showCalendar={showCalendar}
+                        />
 
-            {/* Sticky Navigation Header */}
-            <View
-                style={[styles.header, { paddingTop: insets.top }]}
+                        {/* Inline Calendar (Expandable) */}
+                        {showCalendar && (
+                            <Animated.View style={[
+                                styles.calendarSection,
+                                { backgroundColor: isDark ? 'transparent' : 'rgba(0, 0, 0, 0.03)' }
+                            ]}>
+                                <LibraryCalendarWrapper
+                                    events={events}
+                                    selectedDate={selectedDate}
+                                    onDateSelect={handleDateSelect}
+                                    currentMonth={currentMonth}
+                                    onMonthChange={handleMonthChange}
+                                />
+                            </Animated.View>
+                        )}
+                    </>
+                }
+                onScroll={handleScrollEvent}
+            />
+
+            {/* Sticky Navigation Header (Shows on Scroll) */}
+            <Animated.View
+                style={[styles.header, { paddingTop: insets.top }, stickyHeaderStyle]}
                 pointerEvents="box-none"
             >
                 <BlurView
                     intensity={80}
                     tint={isDark ? 'dark' : 'light'}
-                    style={[StyleSheet.absoluteFill, { borderBottomColor: theme.border }]}
+                    style={[StyleSheet.absoluteFill, { borderBottomColor: theme.border, borderBottomWidth: 0.5 }]}
                 />
                 <View style={styles.headerContent}>
-                    <Pressable onPress={prevMonth} hitSlop={20} style={styles.navButton}>
-                        <Ionicons name="chevron-back" size={24} color={theme.text} />
-                    </Pressable>
-
-                    <Pressable onPress={toggleCalendar} style={styles.titleContainer}>
-                        <Text style={[styles.headerTitle, { color: theme.text }]}>
-                            {monthTitle}
-                        </Text>
-                        <View style={{ marginLeft: 4, marginTop: 2 }}>
+                    <Text style={[styles.headerTitle, { color: theme.text }]}>
+                        {monthTitle}
+                    </Text>
+                    <View style={styles.headerButtons}>
+                        <Pressable onPress={toggleCalendar} style={styles.headerButton}>
                             <Ionicons
-                                name={showCalendar ? "chevron-up" : "chevron-down"}
-                                size={16}
-                                color={theme.subtext}
+                                name="calendar-outline"
+                                size={22}
+                                color={showCalendar ? theme.primary : theme.text}
                             />
-                        </View>
-                    </Pressable>
-
-                    <Pressable onPress={nextMonth} hitSlop={20} style={styles.navButton}>
-                        <Ionicons name="chevron-forward" size={24} color={theme.text} />
-                    </Pressable>
+                        </Pressable>
+                        <Pressable onPress={handleQRScanPress} style={styles.headerButton}>
+                            <Ionicons name="qr-code-outline" size={22} color={theme.text} />
+                        </Pressable>
+                    </View>
                 </View>
-            </View>
+            </Animated.View>
 
             {/* Return to Current Month Button */}
-            {!isSameMonth(currentMonth, new Date()) && !showCalendar && (
+            {!isSameMonth(currentMonth, new Date()) && (
                 <BlurView
                     intensity={80}
                     tint={isDark ? 'dark' : 'light'}
@@ -167,9 +195,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
     },
-    calendarContainer: {
-        flex: 1,
+    calendarSection: {
         paddingHorizontal: 10,
+        paddingTop: 20,
+        paddingBottom: 10,
+        marginBottom: 10,
+        borderRadius: 16,
     },
     header: {
         position: 'absolute',
@@ -183,23 +214,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingBottom: 16,
-        paddingTop: 10,
-    },
-    titleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-    navButton: {
-        padding: 8,
-        backgroundColor: 'rgba(125,125,125,0.1)',
-        borderRadius: 20,
+        paddingBottom: 12,
+        paddingTop: 8,
     },
     headerTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        letterSpacing: -0.5,
+        fontSize: 18,
+        fontWeight: '700',
+        letterSpacing: -0.3,
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    headerButton: {
+        padding: 6,
     },
     floatingButtonContainer: {
         position: 'absolute',

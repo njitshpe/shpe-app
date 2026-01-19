@@ -61,6 +61,13 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
             }
         });
 
+        // Ensure today (if no event) uses primary color
+        if (!marks[todayStr]) {
+            marks[todayStr] = { marked: false, textColor: theme.primary };
+        } else if (!marks[todayStr].textColor) {
+            marks[todayStr].textColor = theme.primary;
+        }
+
         // Mark selected date
         if (selectedDate) {
             const selectedStr = format(selectedDate, 'yyyy-MM-dd');
@@ -124,7 +131,7 @@ export const LibraryCalendarWrapper: React.FC<LibraryCalendarWrapperProps> = ({
                     calendarBackground: 'transparent', // Important for Glass
                     textSectionTitleColor: theme.subtext, // Mon, Tue...
                     selectedDayTextColor: '#ffffff',
-                    // todayTextColor: theme.primary, // Commented out to allow individual events to override
+                    todayTextColor: theme.primary,
                     dayTextColor: theme.text,
                     textDisabledColor: theme.subtext, // Faded days
                     dotColor: theme.primary,

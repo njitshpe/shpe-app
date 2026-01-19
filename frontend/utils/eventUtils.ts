@@ -9,7 +9,7 @@ export const EVENT_GRADIENTS = {
     corporate: ['transparent', 'rgba(103, 58, 183, 0.4)', 'rgba(103, 58, 183, 0.95)'], // Purple
     volunteering: ['transparent', 'rgba(34, 197, 94, 0.4)', 'rgba(34, 197, 94, 0.95)'], // Green
     shpetinas: ['transparent', 'rgba(236, 72, 153, 0.4)', 'rgba(236, 72, 153, 0.95)'], // Pink
-    default: ['transparent', 'rgba(228, 0, 236, 0.81)', 'rgba(246, 168, 0, 0.9)'], // Standard Dark
+    default: ['transparent', 'rgba(236, 161, 0, 0.81)', 'rgba(246, 168, 0, 0.9)'], // Standard Dark
 };
 
 export const getEventGradient = (event: Event): string[] => {
@@ -46,12 +46,12 @@ export const MONTH_THEMES = {
     },
     1: {
         title: 'February',
-        description: 'Valentine\'s themed events and career fair season. Polish that resume and practice your pitch.',
+        description: 'Valentine\'s themed events and the spring career fair. Polish that resume and practice your pitch 💼.',
         image: 'https://images.unsplash.com/photo-1516550893923-42d28e5677af?q=80&w=2672&auto=format&fit=crop',
     },
     2: {
         title: 'March',
-        description: 'Company hospitality suites to showcase opportunities and connect with industry professionals.',
+        description: 'Company hospitality suites to showcase opportunities, some fun events, and Latin Night to celebrate our culture.',
         image: 'https://images.unsplash.com/photo-1530999811698-221aa9eb1739?q=80&w=1364&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // Chichen Itza, Mexico
     },
     3: {

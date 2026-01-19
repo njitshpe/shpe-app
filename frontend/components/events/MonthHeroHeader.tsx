@@ -7,15 +7,17 @@ import { MONTH_THEMES } from '@/utils/eventUtils';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
-const HEADER_HEIGHT = 575;
+const { width, height } = Dimensions.get('window');
+const HEADER_HEIGHT = height * 0.60; // Percent of screen height
 
 interface MonthHeroHeaderProps {
     currentMonth: Date;
     onScanPress?: () => void;
+    onCalendarPress?: () => void;
+    showCalendar?: boolean;
 }
 
-export const MonthHeroHeader: React.FC<MonthHeroHeaderProps> = ({ currentMonth, onScanPress }) => {
+export const MonthHeroHeader: React.FC<MonthHeroHeaderProps> = ({ currentMonth, onScanPress, onCalendarPress, showCalendar }) => {
     const { theme, isDark } = useTheme();
     const monthIndex = currentMonth.getMonth();
     const themeData = MONTH_THEMES[monthIndex as keyof typeof MONTH_THEMES] || MONTH_THEMES[0];
@@ -90,22 +92,42 @@ export const MonthHeroHeader: React.FC<MonthHeroHeaderProps> = ({ currentMonth, 
                     {themeData.description}
                 </Text>
 
-                {/* Scan Pill Button */}
-                {onScanPress && (
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.scanPill,
-                            {
-                                backgroundColor: theme.primary,
-                                opacity: pressed ? 0.8 : 1
-                            }
-                        ]}
-                        onPress={onScanPress}
-                    >
-                        <Ionicons name="qr-code-outline" size={16} color="#FFFFFF" />
-                        <Text style={styles.scanText}>Scan</Text>
-                    </Pressable>
-                )}
+                {/* Action Buttons */}
+                <View style={styles.buttonContainer}>
+                    {/* Calendar Pill Button */}
+                    {onCalendarPress && (
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.actionPill,
+                                {
+                                    backgroundColor: showCalendar ? theme.primary : (isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)'),
+                                    opacity: pressed ? 0.7 : 1
+                                }
+                            ]}
+                            onPress={onCalendarPress}
+                        >
+                            <Ionicons name="calendar-outline" size={16} color={showCalendar ? '#FFFFFF' : theme.text} />
+                            <Text style={[styles.actionText, { color: showCalendar ? '#FFFFFF' : theme.text }]}>Calendar</Text>
+                        </Pressable>
+                    )}
+
+                    {/* Scan Pill Button */}
+                    {onScanPress && (
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.actionPill,
+                                {
+                                    backgroundColor: theme.primary,
+                                    opacity: pressed ? 0.8 : 1
+                                }
+                            ]}
+                            onPress={onScanPress}
+                        >
+                            <Ionicons name="qr-code-outline" size={16} color="#FFFFFF" />
+                            <Text style={styles.actionText}>Scan</Text>
+                        </Pressable>
+                    )}
+                </View>
             </View>
         </View>
     );
@@ -170,17 +192,20 @@ const styles = StyleSheet.create({
         fontWeight: '400',
         maxWidth: '100%',
     },
-    scanPill: {
+    buttonContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 12,
+    },
+    actionPill: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 20,
-        marginTop: 12,
-        alignSelf: 'flex-start',
     },
-    scanText: {
+    actionText: {
         fontSize: 14,
         fontWeight: '600',
         color: '#FFFFFF',
