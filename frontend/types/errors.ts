@@ -43,6 +43,7 @@ export type ErrorCode =
   | 'DATABASE_ERROR'
   | 'NOT_FOUND'
   | 'ALREADY_EXISTS'
+  | 'UNIQUE_VIOLATION'
   | 'UPLOAD_ERROR'
   | 'DELETE_ERROR'
 

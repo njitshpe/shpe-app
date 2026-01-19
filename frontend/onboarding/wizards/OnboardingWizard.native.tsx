@@ -190,13 +190,26 @@ export default function OnboardingWizard() {
 
       if (!result.success) {
         console.error('DATABASE SAVE ERROR:', result.error);
-        throw new Error(result.error?.message || "Database save failed");
+        setIsSaving(false);
+
+        // Check if it's a UCID conflict - navigate back to Academics step
+        if (result.error?.message?.includes('UCID')) {
+          Alert.alert(
+            "UCID Conflict",
+            result.error.message,
+            [{ text: "Fix UCID", onPress: () => setCurrentStep(1) }] // Jump back to Academics
+          );
+          return;
+        }
+
+        Alert.alert('Save Failed', result.error?.message || 'Database save failed');
+        return;
       }
 
       // 4. PRE-LOAD APP STATE & SUCCESS
       await updateUserMetadata({ onboarding_completed: true });
       setIsSaving(false);
-      setShowBadgeCelebration(true); 
+      setShowBadgeCelebration(true);
 
     } catch (error: any) {
       console.error('Error completing onboarding:', error);
