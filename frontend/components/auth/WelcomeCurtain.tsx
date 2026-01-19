@@ -65,15 +65,15 @@ export function WelcomeCurtain() {
   }));
 
   return (
-    <Animated.View style={[styles.container, animatedContainerStyle]}>
-      <View style={styles.backgroundWrapper}>
+    <Animated.View style={[styles.container, animatedContainerStyle]} pointerEvents="box-none">
+      <View style={styles.backgroundWrapper} pointerEvents="box-none">
         <Animated.View style={[styles.gridContainer, animatedContentStyle]}>
           <AnimatedGridBackground />
         </Animated.View>
       </View>
-      
+
       {/* Content Overlay - All content at bottom */}
-      <View style={styles.overlay}>
+      <View style={styles.overlay} pointerEvents="box-none">
         {/* Bottom Content */}
         <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 16 }]}>
           <Animated.View style={[styles.textContainer, animatedContentStyle]}>
