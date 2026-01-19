@@ -123,6 +123,7 @@ function mapEventRowToEvent(row: EventRow): Event {
     coverImageUrl: row.cover_image_url ?? undefined,
     tags: (row.tags as EventTag[]) ?? [],
     status: isPast ? 'past' : 'upcoming',
+    registration_questions: row.registration_questions ?? [],
   };
 }
 
