@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,16 +31,18 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
     third: '#CD7F32',
   };
 
-  // Unified stone gradient: dark in dark mode, light in light mode
+  // Monochrome Luxury Gradients: Dark Crystal vs Porcelain
   const blockGradientColors: Record<'first' | 'second' | 'third', readonly [string, string, ...string[]]> = {
-    first: isDark ? (['#2A2A2A', '#111111'] as const) : (['#E6E9EF', '#C9D1DB'] as const),
-    second: isDark ? (['#2A2A2A', '#111111'] as const) : (['#E6E9EF', '#C9D1DB'] as const),
-    third: isDark ? (['#2A2A2A', '#111111'] as const) : (['#E6E9EF', '#C9D1DB'] as const),
+    first: isDark ? (['#222222', '#000000'] as const) : (['#FFFFFF', '#F2F2F7'] as const),
+    second: isDark ? (['#222222', '#000000'] as const) : (['#FFFFFF', '#F2F2F7'] as const),
+    third: isDark ? (['#222222', '#000000'] as const) : (['#FFFFFF', '#F2F2F7'] as const),
   };
 
-  // Top Lid solid color: lighter surface to match block in each theme
-  const lidColor = isDark ? '#3D3D3D' : '#F2F4F7';
-  const pedestalNumberColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(11, 22, 48, 0.3)';
+  // Lid Colors: Deep Grey/Black vs Pure White
+  const lidColor = isDark ? '#222222' : '#FFFFFF';
+  
+  // Number Color
+  const pedestalNumberColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)';
 
   const delay = isSecond ? 100 : isThird ? 200 : 0;
   const blockHeight = isFirst ? 180 : isSecond ? 140 : 120;
@@ -52,9 +54,8 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
       activeOpacity={0.7}
       style={styles.podiumStackWrapper}
     >
-      {/* Stack Strategy: Avatar + Text floating above Block */}
       <View style={styles.podiumStack}>
-        {/* Floating Avatar with Rank Badge */}
+        {/* Floating Avatar */}
         <MotiView
           from={{ opacity: 0, scale: 0.8, translateY: 20 }}
           animate={{ opacity: 1, scale: 1, translateY: 0 }}
@@ -66,18 +67,18 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
           }}
           style={styles.floatingAvatarContainer}
         >
-          {/* Avatar Circle */}
           <View
             style={[
               styles.podiumAvatar,
               isFirst && styles.podiumAvatarLarge,
               {
-                backgroundColor: isDark ? '#444' : '#E5E7EB',
-                shadowColor: '#000',
-                shadowOpacity: 0.5,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 8,
+                backgroundColor: isDark ? '#1a1a1a' : '#F9F9F9',
+                // Diffused Fog Shadow
+                shadowColor: isDark ? '#FFF' : '#000',
+                shadowOpacity: 0.3,
+                shadowRadius: 20,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 12,
               },
             ]}
           >
@@ -102,7 +103,7 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
             )}
           </View>
 
-          {/* Rank Badge (top-right overlap) */}
+          {/* Rank Badge */}
           <View
             style={[
               styles.rankBadge,
@@ -159,7 +160,7 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
           </View>
         </MotiView>
 
-        {/* Top Lid (3D trapezoid surface) */}
+        {/* Top Lid */}
         <MotiView
           from={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -180,7 +181,7 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
           />
         </MotiView>
 
-        {/* Pedestal Block (Front Face) */}
+        {/* Pedestal Block */}
         <MotiView
           from={{ opacity: 0, height: 0, scale: 0.9 }}
           animate={{ opacity: 1, height: blockHeight, scale: 1 }}
@@ -198,11 +199,11 @@ export const PodiumCard: React.FC<PodiumCardProps> = ({ entry, position, current
             end={{ x: 0, y: 1 }}
             style={styles.pedestalBlock}
           >
-            {/* Giant Faint Number */}
+            {/* Watermark Number */}
             <Text
               style={[
                 styles.pedestalBlockNumber,
-                { color: pedestalNumberColor, opacity: isDark ? 0.7 : 0.3 },
+                { color: pedestalNumberColor },
               ]}
             >
               {rankNumber}
@@ -299,7 +300,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   topLid: {
-    width: '100%', // Relative width match podium pillars
+    width: '100%',
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
@@ -308,10 +309,10 @@ const styles = StyleSheet.create({
     borderRightWidth: 10,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    marginBottom: -1, // Fix tiny gap artifact
+    marginBottom: -1,
   },
   topLidLarge: {
-    width: '100%', // Slightly larger overhang for 1st place
+    width: '100%',
     borderBottomWidth: 28,
     borderLeftWidth: 12,
     borderRightWidth: 12,
@@ -321,7 +322,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 4,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   podiumNameLarge: {
     fontSize: 17,
@@ -362,7 +364,6 @@ const styles = StyleSheet.create({
     fontSize: 100,
     fontWeight: '900',
     color: '#FFF',
-    opacity: 0.05,
     letterSpacing: -4,
   },
 });

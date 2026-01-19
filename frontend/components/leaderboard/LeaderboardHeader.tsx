@@ -18,12 +18,13 @@ interface LeaderboardHeaderProps {
   onClearMajor: () => void;
   onClearClassYear: () => void;
   onShowRules: () => void;
+  topInset?: number;
 }
 
 const CONTEXT_OPTIONS: Array<{ value: LeaderboardContext; label: string }> = [
-  { value: 'month', label: 'This Month' },
-  { value: 'semester', label: 'This Semester' },
-  { value: 'allTime', label: 'All-Time' },
+  { value: 'month', label: 'MONTH' },
+  { value: 'semester', label: 'SEMESTER' },
+  { value: 'allTime', label: 'ALL TIME' },
 ];
 
 export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
@@ -38,23 +39,30 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
   onClearMajor,
   onClearClassYear,
   onShowRules,
+  topInset = 0,
 }) => {
   const { theme, isDark } = useTheme();
   const searchInputRef = useRef<TextInput>(null);
 
+  // GLASS STYLES (No more solid Orange)
+  const glassBorder = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)';
+  const activeGlassBg = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)'; // Frosted White
+  const activeGlassBorder = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.2)'; // Brighter Border
+
   return (
     <View style={styles.headerOverlay}>
+      {/* Local Gradient: Fades out at the bottom to blend with the screen background */}
       <LinearGradient
         colors={isDark
-          ? ['#000000', '#000000']
-          : [theme.background, `${theme.background}00`]
+          ? ['rgba(0,0,0,0.8)', 'rgba(0,0,0,0)'] 
+          : ['rgba(255,255,255,0.9)', 'rgba(255,255,255,0)']
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={styles.headerGradient}
+        style={[styles.headerGradient, topInset ? { paddingTop: topInset } : null]}
       >
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Leaderboard</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>LEADERBOARD</Text>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={onShowRules}
@@ -64,33 +72,37 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Row 1: Time Scope Pills */}
+        {/* Row 1: Time Scope Pills (Glass Style) */}
         <View style={styles.timeScopeRow}>
-          {CONTEXT_OPTIONS.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.timeScopePill,
-                context === option.value && [
-                  styles.timeScopePillActive,
-                  { backgroundColor: theme.primary }
-                ],
-              ]}
-              onPress={() => onContextChange(option.value)}
-              activeOpacity={0.7}
-            >
-              <Text
+          {CONTEXT_OPTIONS.map((option) => {
+            const isActive = context === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
                 style={[
-                  styles.timeScopeText,
-                  context === option.value
-                    ? styles.timeScopeTextActive
-                    : { color: theme.subtext },
+                  styles.timeScopePill,
+                  {
+                    borderColor: isActive ? activeGlassBorder : glassBorder,
+                    backgroundColor: isActive ? activeGlassBg : 'transparent',
+                    borderWidth: 1,
+                  }
                 ]}
+                onPress={() => onContextChange(option.value)}
+                activeOpacity={0.7}
               >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.timeScopeText,
+                    isActive
+                      ? [styles.timeScopeTextActive, { color: theme.text }]
+                      : { color: theme.subtext },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Row 2: Filters + Search */}
@@ -99,8 +111,11 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPillSubtle,
-              selectedMajor ? styles.filterPillSubtleActive : undefined,
-              selectedMajor ? { backgroundColor: theme.primary + '20', borderColor: theme.primary } : undefined,
+              {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                borderColor: selectedMajor ? activeGlassBorder : 'transparent',
+                borderWidth: selectedMajor ? 1 : 0,
+              }
             ]}
             onPress={onMajorPress}
             activeOpacity={0.7}
@@ -108,16 +123,16 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
             <Ionicons
               name="school-outline"
               size={14}
-              color={selectedMajor ? theme.primary : theme.subtext}
+              color={selectedMajor ? theme.text : theme.subtext}
               style={{ opacity: selectedMajor ? 1 : 0.5 }}
             />
             <Text
               style={[
                 styles.filterTextSubtle,
-                selectedMajor ? { color: theme.primary } : { color: theme.subtext, opacity: 0.6 },
+                selectedMajor ? { color: theme.text } : { color: theme.subtext, opacity: 0.6 },
               ]}
             >
-              {selectedMajor || 'Major'}
+              {selectedMajor || 'MAJOR'}
             </Text>
             {selectedMajor && (
               <TouchableOpacity
@@ -127,7 +142,7 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close-circle" size={14} color={theme.primary} />
+                <Ionicons name="close-circle" size={14} color={theme.text} />
               </TouchableOpacity>
             )}
           </TouchableOpacity>
@@ -136,8 +151,11 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPillSubtle,
-              selectedClassYear ? styles.filterPillSubtleActive : undefined,
-              selectedClassYear ? { backgroundColor: theme.primary + '20', borderColor: theme.primary } : undefined,
+              {
+                 backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                 borderColor: selectedClassYear ? activeGlassBorder : 'transparent',
+                 borderWidth: selectedClassYear ? 1 : 0,
+              }
             ]}
             onPress={onClassYearPress}
             activeOpacity={0.7}
@@ -145,16 +163,16 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
             <Ionicons
               name="calendar-outline"
               size={14}
-              color={selectedClassYear ? theme.primary : theme.subtext}
+              color={selectedClassYear ? theme.text : theme.subtext}
               style={{ opacity: selectedClassYear ? 1 : 0.5 }}
             />
             <Text
               style={[
                 styles.filterTextSubtle,
-                selectedClassYear ? { color: theme.primary } : { color: theme.subtext, opacity: 0.6 },
+                selectedClassYear ? { color: theme.text } : { color: theme.subtext, opacity: 0.6 },
               ]}
             >
-              {selectedClassYear ? `'${String(selectedClassYear).slice(-2)}` : 'Year'}
+              {selectedClassYear ? `'${String(selectedClassYear).slice(-2)}` : 'YEAR'}
             </Text>
             {selectedClassYear && (
               <TouchableOpacity
@@ -164,18 +182,24 @@ export const LeaderboardHeader: React.FC<LeaderboardHeaderProps> = ({
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close-circle" size={14} color={theme.primary} />
+                <Ionicons name="close-circle" size={14} color={theme.text} />
               </TouchableOpacity>
             )}
           </TouchableOpacity>
 
           {/* Search Input */}
-          <View style={[styles.searchContainerInline, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' }]}>
+          <View style={[
+              styles.searchContainerInline, 
+              { 
+                  borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+                  backgroundColor: 'transparent'
+              }
+          ]}>
             <Ionicons name="search-outline" size={16} color={theme.subtext} style={{ opacity: 0.5 }} />
             <TextInput
               ref={searchInputRef}
               style={[styles.searchInputInline, { color: theme.text }]}
-              placeholder="Search..."
+              placeholder="SEARCH..."
               placeholderTextColor={theme.subtext}
               value={searchQuery}
               onChangeText={onSearchChange}
@@ -210,6 +234,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.title,
+    fontSize: 14,
+    letterSpacing: 2.5,
     fontWeight: '700',
   },
   iconButton: {
@@ -228,23 +254,15 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     minWidth: 90,
     alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  timeScopePillActive: {
-    shadowColor: '#FFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   timeScopeText: {
     ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    letterSpacing: 1,
     fontWeight: '600',
-    fontSize: 13,
-    opacity: 0.5,
+    opacity: 0.7,
   },
   timeScopeTextActive: {
-    color: '#FFF',
     fontWeight: '700',
     opacity: 1,
   },
@@ -262,16 +280,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
     borderRadius: RADIUS.full,
-    borderWidth: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  filterPillSubtleActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   filterTextSubtle: {
     ...TYPOGRAPHY.small,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
+    letterSpacing: 0.5,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   searchContainerInline: {
     flex: 1,
@@ -279,7 +294,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 6,
-    borderRadius: RADIUS.full,
+    borderBottomWidth: 1,
+    borderRadius: 0,
     gap: SPACING.xs,
   },
   searchInputInline: {
@@ -287,5 +303,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.small,
     fontSize: 12,
     paddingVertical: 0,
+    letterSpacing: 0.5,
   },
 });
