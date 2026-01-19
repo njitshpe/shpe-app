@@ -6,6 +6,7 @@ import { Toast } from '@/components/auth/Toast';
 import { LoginScreen } from '@/components/auth/LoginScreen';
 import { WelcomeCurtain } from '@/components/auth/WelcomeCurtain';
 import { AuthBottomSheet } from '@/components/auth/AuthBottomSheet';
+import { GuestCheckInScanner } from '@/components/auth/GuestCheckInScanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { PendingCheckInService, PendingCheckIn } from '@/services/pendingCheckIn.service';
 
@@ -20,6 +21,7 @@ export default function WelcomeScreen() {
   const [pendingCheckIn, setPendingCheckIn] = useState<PendingCheckIn | null>(null);
   const [isEmailSheetVisible, setEmailSheetVisible] = useState(false);
   const [showAuthSheet, setShowAuthSheet] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [isEmailAuthLoading, setIsEmailAuthLoading] = useState(false);
   const [emailAuthError, setEmailAuthError] = useState<string | null>(null);
@@ -81,7 +83,16 @@ export default function WelcomeScreen() {
   };
 
   const handleGuestScan = () => {
-    router.push('/guest-check-in');
+    setShowScanner(true);
+  };
+
+  const handleScanSuccess = (eventName: string) => {
+    setShowScanner(false);
+    checkPendingStatus(); // Refresh the pending check-in banner
+    Alert.alert(
+      'QR Code Saved! 🎟️',
+      `Complete your sign-up now to confirm your check-in for ${eventName}.`
+    );
   };
 
   const handleEmailAuth = async ({
@@ -188,6 +199,13 @@ export default function WelcomeScreen() {
           onSubmit={handleEmailAuth}
           isLoading={isEmailAuthLoading}
           error={emailAuthError}
+        />
+
+        {/* Guest Check-In Scanner Overlay */}
+        <GuestCheckInScanner
+          visible={showScanner}
+          onClose={() => setShowScanner(false)}
+          onScanSuccess={handleScanSuccess}
         />
       </View>
       <Toast
