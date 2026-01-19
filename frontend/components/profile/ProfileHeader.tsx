@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { MotiView } from 'moti';
 import Svg, { Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
     useSharedValue,
     useAnimatedProps,
@@ -10,6 +11,7 @@ import Animated, {
     withSequence,
     Easing,
 } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const AVATAR_SIZE = 120;
@@ -148,6 +150,18 @@ export function ProfileHeader({
                             <Text style={[styles.avatarInitials, { color: theme.text }]}>{initials}</Text>
                         </View>
                     )}
+
+                    {/* Mentor Verification Badge */}
+                    {isMentor && (
+                        <LinearGradient
+                            colors={['#FFD700', '#FFA500', '#FFD700']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.verifiedBadge}
+                        >
+                            <Ionicons name="checkmark" size={14} color="#1a1a1a" />
+                        </LinearGradient>
+                    )}
                 </MotiView>
             </View>
 
@@ -210,6 +224,18 @@ const styles = StyleSheet.create({
         elevation: 30,
     },
     mentorPulseGlow: { position: 'absolute', width: AVATAR_SIZE + 10, height: AVATAR_SIZE + 10, borderRadius: (AVATAR_SIZE + 10) / 2, backgroundColor: 'transparent', borderWidth: 2 },
+    verifiedBadge: {
+        position: 'absolute',
+        bottom: 2,
+        right: 2,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#1a1a1a',
+    },
     avatar: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, borderWidth: 2 },
     avatarPlaceholder: { width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
     avatarInitials: { fontSize: 40, fontWeight: 'bold' },

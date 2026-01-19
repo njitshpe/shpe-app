@@ -229,13 +229,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.xs,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
   },
   headerTitle: {
     ...TYPOGRAPHY.title,
-    fontSize: 14,
-    letterSpacing: 2.5,
+    fontSize: 22,
+    letterSpacing: 1,
     fontWeight: '700',
   },
   iconButton: {

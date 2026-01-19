@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { Easing } from 'react-native-reanimated';
 import { SPACING, RADIUS } from '@/constants/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const ANIMATION_DURATION = 700;
+const ANIMATION_DURATION = 500; // Slightly faster for profile interactions
 
 const MENTORSHIP_WAYS = [
   { id: 'resume-reviews', label: 'Resume Reviews', icon: 'document-text-outline' },
@@ -26,11 +26,15 @@ const MENTORSHIP_WAYS = [
   { id: 'company-tours', label: 'Company Tours', icon: 'business-outline' },
 ];
 
+const VALID_WAY_IDS = new Set(MENTORSHIP_WAYS.map(w => w.id));
+
 interface MentorshipInterstitialProps {
   visible: boolean;
   onDecline: () => void;
   onAccept: (selectedWays: string[]) => void;
   onDismiss: () => void;
+  initialSelected?: string[]; // Add this to pre-fill choices
+  isEditing?: boolean; // True when editing from profile (user is already a mentor)
 }
 
 export default function MentorshipInterstitial({
@@ -38,17 +42,32 @@ export default function MentorshipInterstitial({
   onDecline,
   onAccept,
   onDismiss,
+  initialSelected = [],
+  isEditing = false,
 }: MentorshipInterstitialProps) {
   const [expanded, setExpanded] = useState(false);
-  const [selectedWays, setSelectedWays] = useState<string[]>([]);
+  const [selectedWays, setSelectedWays] = useState<string[]>(initialSelected);
   const [showError, setShowError] = useState(false);
   const [isMounted, setIsMounted] = useState(visible);
 
+  // Track previous visible state to detect when modal opens
+  const prevVisibleRef = useRef(visible);
+
+  // Sync state when modal opens (visible changes from false to true)
   useEffect(() => {
-    if (visible) {
+    const justOpened = visible && !prevVisibleRef.current;
+    prevVisibleRef.current = visible;
+
+    if (justOpened) {
       setIsMounted(true);
+      // Filter initialSelected to only include valid IDs (handles legacy data migration)
+      const validInitialSelected = initialSelected.filter(id => VALID_WAY_IDS.has(id));
+      setSelectedWays(validInitialSelected);
+      setShowError(false);
+      // If editing (user is already a mentor), auto-expand to show editing view
+      setExpanded(isEditing);
     }
-  }, [visible]);
+  }, [visible, initialSelected, isEditing]);
 
   useEffect(() => {
     if (!visible && isMounted) {
@@ -69,11 +88,15 @@ export default function MentorshipInterstitial({
   };
 
   const handleContinue = () => {
-    if (selectedWays.length === 0) {
+    // During onboarding (not editing), require at least one selection
+    if (selectedWays.length === 0 && !isEditing) {
       setShowError(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
+
+    // If editing and all selections removed, this will disable mentorship
+    // If selections exist, this enables/updates mentorship
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onAccept(selectedWays);
   };
@@ -89,12 +112,15 @@ export default function MentorshipInterstitial({
       onRequestClose={onDismiss}
     >
       <View style={styles.modalContainer}>
+        {/* Blur Backdrop */}
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onDismiss}
           pointerEvents={visible ? 'auto' : 'none'}
         >
-          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          {/* Dark Overlay for contrast */}
+          <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)' }} />
         </Pressable>
 
         <AnimatePresence>
@@ -103,7 +129,6 @@ export default function MentorshipInterstitial({
               from={{ translateY: SCREEN_HEIGHT }}
               animate={{ translateY: 0 }}
               exit={{ translateY: SCREEN_HEIGHT }}
-              // REMOVED BOUNCE: Switched to smooth cubic easing
               transition={{ 
                 type: 'timing', 
                 duration: ANIMATION_DURATION, 
@@ -114,21 +139,27 @@ export default function MentorshipInterstitial({
               <View style={styles.handle} />
 
               <View style={styles.content}>
-                {/* REWARD BADGE: Shimmering Gold */}
-                <MotiView 
-                  from={{ opacity: 0, translateY: 5 }} 
-                  animate={{ opacity: 1, translateY: 0 }}
-                  transition={{ delay: 300 }}
-                  style={styles.rewardBadge}
-                >
-                  <Ionicons name="medal" size={16} color="#FFD700" />
-                  <Text style={styles.rewardText}>+50 LEGACY POINTS</Text>
-                </MotiView>
+                {/* REWARD BADGE */}
+                {!expanded && (
+                    <MotiView 
+                    from={{ opacity: 0, translateY: 5 }} 
+                    animate={{ opacity: 1, translateY: 0 }}
+                    transition={{ delay: 300 }}
+                    style={styles.rewardBadge}
+                    >
+                    <Ionicons name="medal" size={16} color="#FFD700" />
+                    <Text style={styles.rewardText}>+50 LEGACY POINTS</Text>
+                    </MotiView>
+                )}
 
-                <Text style={styles.headline}>The Legacy Program</Text>
+                <Text style={styles.headline}>
+                    {isEditing ? "Mentor Settings" : "The Legacy Program"}
+                </Text>
                 <Text style={styles.body}>
-                  Pass the torch to the next generation. Mentors receive exclusive 
-                  badges and priority placement in the networking directory.
+                  {isEditing
+                    ? "Update how you wish to contribute to the next generation of engineers."
+                    : "Pass the torch to the next generation. Mentors receive exclusive badges and priority placement in the networking directory."
+                  }
                 </Text>
 
                 {!expanded ? (
@@ -146,12 +177,12 @@ export default function MentorshipInterstitial({
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       >
-                        <Text style={styles.primaryButtonText}>Be a Mentor</Text>
+                        <Text style={styles.primaryButtonText}>Become a Mentor</Text>
                       </LinearGradient>
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={onDecline} style={styles.secondaryButton}>
-                      <Text style={styles.secondaryButtonText}>Enroll later</Text>
+                      <Text style={styles.secondaryButtonText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -190,12 +221,26 @@ export default function MentorshipInterstitial({
 
                     <TouchableOpacity onPress={handleContinue} activeOpacity={0.9}>
                       <LinearGradient
-                        colors={['#FFD700', '#B8860B']}
+                        colors={selectedWays.length === 0 && isEditing
+                          ? ['#FF453A', '#CC362E']
+                          : ['#FFD700', '#B8860B']}
                         style={styles.continueButton}
                       >
-                        <Text style={styles.primaryButtonText}>Confirm Status</Text>
+                        <Text style={styles.primaryButtonText}>
+                            {selectedWays.length === 0 && isEditing
+                              ? "Remove Mentor Status"
+                              : isEditing
+                                ? "Update Status"
+                                : "Confirm Status"}
+                        </Text>
                       </LinearGradient>
                     </TouchableOpacity>
+                    
+                    {/* Add Cancel Option in Expanded View */}
+                    <TouchableOpacity onPress={onDecline} style={[styles.secondaryButton, { marginTop: 12 }]}>
+                      <Text style={styles.secondaryButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+
                   </MotiView>
                 )}
               </View>
@@ -210,99 +255,104 @@ export default function MentorshipInterstitial({
 const styles = StyleSheet.create({
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#000',
-    borderTopLeftRadius: RADIUS.xl * 1.5,
-    borderTopRightRadius: RADIUS.xl * 1.5,
-    paddingBottom: 20,
+    backgroundColor: '#050505', // Deep Black
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingBottom: 40,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
   },
   handle: {
-    width: 36,
+    width: 40,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 2,
     alignSelf: 'center',
-    marginTop: 12,
+    marginTop: 16,
   },
-  content: { padding: SPACING.xl },
+  content: { padding: 24 },
   rewardBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
     alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     gap: 8,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   rewardText: {
     color: '#FFD700',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   headline: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
     color: '#FFF',
     textAlign: 'center',
-    letterSpacing: -0.8,
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
   body: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
     lineHeight: 24,
-    marginTop: 14,
     marginBottom: 40,
   },
   subHeadline: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: 'rgba(255,255,255,0.3)',
-    letterSpacing: 2,
+    fontSize: 13,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: 'center',
   },
   buttonGroup: { gap: 16 },
   primaryButton: {
     height: 56,
-    borderRadius: RADIUS.full,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: { color: '#000', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
-  secondaryButton: { height: 50, alignItems: 'center', justifyContent: 'center' },
-  secondaryButtonText: { color: 'rgba(255,255,255,0.25)', fontSize: 16, fontWeight: '700' },
+  primaryButtonText: { color: '#000', fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
+  secondaryButton: { height: 44, alignItems: 'center', justifyContent: 'center' },
+  secondaryButtonText: { color: 'rgba(255,255,255,0.4)', fontSize: 16, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 32 },
   glassChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderRadius: RADIUS.xl,
-    gap: 10,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 20,
+    gap: 8,
   },
   selectedChip: { backgroundColor: '#FFF', borderColor: '#FFF' },
-  chipText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  chipText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   selectedChipText: { color: '#000' },
   continueButton: {
-    height: 64,
-    borderRadius: RADIUS.full,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
     shadowColor: '#FFD700',
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 15,
   },
-  errorText: { color: '#FF453A', textAlign: 'center', marginBottom: 20, fontSize: 12, fontWeight: '800' },
+  errorText: { color: '#FF453A', textAlign: 'center', marginBottom: 16, fontSize: 13, fontWeight: '700' },
 });
