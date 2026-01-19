@@ -41,62 +41,62 @@ export const getEventGradient = (event: Event): string[] => {
 export const MONTH_THEMES = {
     0: {
         title: 'January',
-        description: "Getting ready to start the spring semester off on the right foot. We have some social events to get you right into the swing of things.",
-        image: 'https://images.unsplash.com/photo-1509845350455-fb0c36048db1?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+        description: "Getting ready to start the spring semester off on the right foot. We have some introductory and social events to get you right into the swing of things.",
+        image: 'https://images.unsplash.com/photo-1509845350455-fb0c36048db1?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', //spain
     },
     1: {
         title: 'February',
-        description: 'Career fair season is upon us. Polish that resume, practice your pitch, and land that summer internship.',
+        description: 'Valentine\'s themed events and career fair season. Polish that resume and practice your pitch.',
         image: 'https://images.unsplash.com/photo-1516550893923-42d28e5677af?q=80&w=2672&auto=format&fit=crop',
     },
     2: {
         title: 'March',
-        description: 'Elections are coming up. Consider running for a position or get ready to vote for your next executive board.',
-        image: 'https://images.unsplash.com/photo-1557053503-4333dd49d97f?q=80&w=2669&auto=format&fit=crop',
+        description: 'Company hospitality suites to showcase opportunities and connect with industry professionals.',
+        image: 'https://images.unsplash.com/photo-1530999811698-221aa9eb1739?q=80&w=1364&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // Chichen Itza, Mexico
     },
     3: {
         title: 'April',
-        description: 'Wrapping up the academic year. Join us for our end -of-year banquet and de-stress events before finals.',
-        image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=1770&auto=format&fit=crop',
+        description: 'Wrapping up the academic year. Join us for before finals.',
+        image: 'https://images.unsplash.com/photo-1582642250536-419cfaaef741?q=80&w=1335&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // Cartagena, Colombia
     },
     4: {
         title: 'May',
         description: 'Good luck on finals! Congratulations to our graduating seniors, and have a great summer!',
-        image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1770&auto=format&fit=crop',
+        image: 'https://images.unsplash.com/photo-1592174887344-02ff9373ca55?q=80&w=2340&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // Havana, Cuba
     },
     5: {
         title: 'June',
-        description: 'Summer vibes are here. Stay connected and keep learning even while you recharge.',
-        image: 'https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?q=80&w=1770&auto=format&fit=crop', // Summer / Sun
+        description: 'Enjoy the summer!',
+        image: 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=2670&auto=format&fit=crop', // Rio de Janeiro, Brazil
     },
     6: {
         title: 'July',
-        description: 'Heat waves and cool code. Perfect time to work on personal projects and skills.',
-        image: 'https://images.unsplash.com/photo-1596464716127-f9a87595ca58?q=80&w=2835&auto=format&fit=crop', // Summer Tech
+        description: 'Enjoy the summer!',
+        image: 'https://images.unsplash.com/photo-1512813498716-3e640fed3f39?q=80&w=2670&auto=format&fit=crop', // Buenos Aires, Argentina
     },
     7: {
         title: 'August',
-        description: 'Back to school! Welcome new members and let\'s start this semester strong.',
-        image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?q=80&w=1770&auto=format&fit=crop', // School / Campus
+        description: 'Enjoy the summer! Prepare for the fall semester.',
+        image: 'https://images.unsplash.com/photo-1555109307-f7d9da25c244?q=80&w=2670&auto=format&fit=crop', // Barcelona, Spain
     },
     8: {
         title: 'September',
-        description: 'Fall into rhythm. Join our General Body Meetings and find your community.',
-        image: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=2668&auto=format&fit=crop', // Autumn / Leaves
+        description: 'Back to school! Welcome new members and returning members alike and let\'s start this semester strong.',
+        image: 'https://images.unsplash.com/photo-1518659526054-e98e6e39f223?q=80&w=2670&auto=format&fit=crop', // Guatemala City, Guatemala
     },
     9: {
         title: 'October',
-        description: 'Spooky season is here! Don\'t get ghosted by recruiters—prepare for the National Convention.',
-        image: 'https://images.unsplash.com/photo-1508182314998-a27943f63f5f?q=80&w=2669&auto=format&fit=crop', // Fall / Halloween
+        description: 'Preparing for the national convention. Learn about hospitality suites, how to pitch yourself to recruiters, and much more.',
+        image: 'https://images.unsplash.com/photo-1512813498716-3e640fed3f39?q=80&w=2670&auto=format&fit=crop', // Mexico City, Mexico
     },
     10: {
         title: 'November',
-        description: 'Giving thanks and giving back. Join us for community service and gratitude.',
-        image: 'https://images.unsplash.com/photo-1524253482453-3fed8d2fe12b?q=80&w=2576&auto=format&fit=crop', // Cozy / Thanksgiving
+        description: 'Preparing for finals season. Join us for de-stress events before finals.',
+        image: 'https://images.unsplash.com/photo-1531968455001-5c5272a41129?q=80&w=2670&auto=format&fit=crop', // San Juan, Puerto Rico
     },
     11: {
         title: 'December',
         description: 'Wrapping up the year with holiday cheer. Good luck on finals and enjoy the break!',
-        image: 'https://images.unsplash.com/photo-1482517967863-00e15c9b8043?q=80&w=2668&auto=format&fit=crop', // Holiday / Winter
+        image: 'https://images.unsplash.com/photo-1518659526054-e98e6e39f223?q=80&w=2670&auto=format&fit=crop', // Antigua, Guatemala
     },
 };

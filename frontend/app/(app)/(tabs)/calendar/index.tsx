@@ -71,7 +71,7 @@ export default function EventsScreen() {
         (currentY, previousY) => {
 
 
-            const threshold = CALENDAR_HEIGHT / 2;
+            const threshold = CALENDAR_HEIGHT * 0.3;
             if (previousY !== null) {
                 if (
                     (previousY < threshold && currentY >= threshold) ||
@@ -250,7 +250,7 @@ export default function EventsScreen() {
                         currentMonth={currentMonth}
                         onSelectEvent={(event) => router.push(`/event/${event.id}`)}
                         contentContainerStyle={{ paddingTop: 0 }}
-                        ListHeaderComponent={<MonthHeroHeader currentMonth={currentMonth} />}
+                        ListHeaderComponent={<MonthHeroHeader currentMonth={currentMonth} onScanPress={handleQRScanPress} />}
                         onScroll={scrollHandler}
                     />
                 </Animated.View>
@@ -289,20 +289,6 @@ export default function EventsScreen() {
                     </Pressable>
                 </View>
             </Animated.View>
-
-            {/* QR Scanner FAB (Fixed on top) */}
-            <BlurView
-                intensity={80}
-                tint={isDark ? 'dark' : 'light'}
-                style={[styles.fabContainer, { borderColor: theme.primary, bottom: 40 }]}
-            >
-                <Pressable
-                    style={({ pressed }) => [styles.fabContent, { opacity: pressed ? 0.7 : 1 }]}
-                    onPress={handleQRScanPress}
-                >
-                    <Ionicons name="qr-code-outline" size={28} color={theme.primary} />
-                </Pressable>
-            </BlurView>
 
             {/* Return to Current Month Button (Fixed on top) */}
             {!isSameMonth(currentMonth, new Date()) && !isCalendarOpen && (
