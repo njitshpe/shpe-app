@@ -38,4 +38,7 @@ export interface EventRow {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  points: number;
+  requires_rsvp: boolean;
+  event_limit?: number | null;
 }

@@ -20,6 +20,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { MotiView } from 'moti';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedGridBackground } from '@/components/auth/AnimatedGridBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -74,7 +75,7 @@ const RoleCard = ({
             <View style={StyleSheet.absoluteFill}>
               <LinearGradient
                 // FIX: Opacity moved into the color hex/rgba string
-                colors={[`${accentColor}33`, 'transparent']} 
+                colors={[`${accentColor}33`, 'transparent']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
@@ -83,10 +84,10 @@ const RoleCard = ({
           )}
 
           <View style={[styles.iconContainer, { backgroundColor: isSelected ? accentColor : 'rgba(255,255,255,0.08)' }]}>
-            <Ionicons 
-              name={icon} 
-              size={28} 
-              color={isSelected ? '#FFF' : accentColor} 
+            <Ionicons
+              name={icon}
+              size={28}
+              color={isSelected ? '#FFF' : accentColor}
             />
           </View>
 
@@ -96,11 +97,11 @@ const RoleCard = ({
           </View>
 
           <View style={styles.actionIcon}>
-             {isSelected ? (
-                <Ionicons name="checkmark-circle" size={24} color={accentColor} />
-             ) : (
-                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
-             )}
+            {isSelected ? (
+              <Ionicons name="checkmark-circle" size={24} color={accentColor} />
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+            )}
           </View>
         </View>
       </Pressable>
@@ -110,7 +111,8 @@ const RoleCard = ({
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
-  const { user, updateUserMetadata, loading: authLoading } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { user, updateUserMetadata, signOut, isLoading: authLoading } = useAuth();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -129,9 +131,16 @@ export default function RoleSelectionScreen() {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleBack = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await signOut();
+    // AuthGuard will handle the redirect, but we can also help it along
+    router.replace('/(auth)/welcome');
+  };
+
   const handleSelect = useCallback(async (role: Role) => {
     if (isProcessing || !user) return;
-    
+
     setIsProcessing(true);
     setSelectedRole(role);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -162,7 +171,15 @@ export default function RoleSelectionScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
+      {/* Back Button */}
+      <Pressable
+        onPress={handleBack}
+        style={[styles.backButton, { top: insets.top + 10 }]}
+      >
+        <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.6)" />
+      </Pressable>
+
       <View style={styles.backgroundLayer}>
         <AnimatedGridBackground />
         <LinearGradient
@@ -251,4 +268,12 @@ const styles = StyleSheet.create({
   actionIcon: { marginLeft: 12 },
   loadingWrapper: { marginTop: 32, alignItems: 'center' },
   loadingText: { color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 10,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+  },
 });
