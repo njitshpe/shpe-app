@@ -15,6 +15,7 @@ import {
     KeyboardAvoidingView,
     Switch,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CreateEventData, EventQuestion, QuestionType, adminEventsService } from '@/services/adminEvents.service';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,6 +83,10 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [showDateTimeModal, setShowDateTimeModal] = useState(false);
     const [editingField, setEditingField] = useState<'start' | 'end' | null>(null);
     const [tempDate, setTempDate] = useState(new Date());
+
+    // Android-specific picker state
+    const [showAndroidPicker, setShowAndroidPicker] = useState(false);
+    const [androidMode, setAndroidMode] = useState<'date' | 'time'>('date');
 
     // Dynamic styles based on theme
     const dynamicStyles = {
@@ -271,8 +276,48 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
 
     const openDateTimePicker = (field: 'start' | 'end') => {
         setEditingField(field);
-        setTempDate(field === 'start' ? startDate : endDate);
-        setShowDateTimeModal(true);
+        const currentDate = field === 'start' ? startDate : endDate;
+        setTempDate(currentDate);
+
+        if (Platform.OS === 'ios') {
+            setShowDateTimeModal(true);
+        } else {
+            setAndroidMode('date');
+            setShowAndroidPicker(true);
+        }
+    };
+
+    const onAndroidChange = (event: any, selectedDate?: Date) => {
+        if (event.type === 'dismissed') {
+            setShowAndroidPicker(false);
+            return;
+        }
+
+        if (selectedDate) {
+            const currentFieldDate = editingField === 'start' ? startDate : endDate;
+
+            if (androidMode === 'date') {
+                const newDate = new Date(currentFieldDate);
+                newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+
+                if (editingField === 'start') setStartDate(newDate);
+                else setEndDate(newDate);
+
+                // Switch to time picker
+                // Small timeout to allow state to settle/picker to close before reopening
+                setShowAndroidPicker(false);
+                setAndroidMode('time');
+                setTimeout(() => setShowAndroidPicker(true), 100);
+            } else {
+                const newDate = new Date(currentFieldDate);
+                newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+
+                if (editingField === 'start') setStartDate(newDate);
+                else setEndDate(newDate);
+
+                setShowAndroidPicker(false);
+            }
+        }
     };
 
     return (
@@ -423,10 +468,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                 </Text>
                             </View>
 
-                            <View style={styles.separator} />
-
                             {/* --- RSVP & QUESTIONS --- */}
-                            <View style={styles.separator} />
                             <View style={styles.rsvpHeader}>
                                 <Text style={[styles.sectionTitle, dynamicStyles.text]}>Registration</Text>
                                 <View style={styles.switchRow}>
@@ -545,23 +587,48 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* Date Time Modal */}
-            <Modal visible={showDateTimeModal} transparent animationType="fade" onRequestClose={() => setShowDateTimeModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, dynamicStyles.card]}>
-                        <Text style={[styles.modalTitle, dynamicStyles.text]}>{editingField === 'start' ? 'Start Time' : 'End Time'}</Text>
-                        <TouchableOpacity
-                            style={[styles.button, dynamicStyles.button, { marginTop: 20 }]}
-                            onPress={() => {
-                                if (editingField === 'start') setStartDate(new Date(startDate.getTime() + 3600000));
-                                setShowDateTimeModal(false);
-                            }}
-                        >
-                            <Text style={styles.submitButtonText}>Done</Text>
-                        </TouchableOpacity>
+            {/* Date Time Modal (iOS only) */}
+            {Platform.OS === 'ios' && (
+                <Modal visible={showDateTimeModal} transparent animationType="fade" onRequestClose={() => setShowDateTimeModal(false)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.modalContent, dynamicStyles.card]}>
+                            <Text style={[styles.modalTitle, dynamicStyles.text]}>{editingField === 'start' ? 'Start Time' : 'End Time'}</Text>
+
+                            <DateTimePicker
+                                value={tempDate}
+                                mode="datetime"
+                                display="spinner"
+                                onChange={(event, date) => date && setTempDate(date)}
+                                textColor={theme.text}
+                                themeVariant={isDark ? 'dark' : 'light'}
+                            />
+
+                            <TouchableOpacity
+                                style={[styles.button, dynamicStyles.button, { marginTop: 20 }]}
+                                onPress={() => {
+                                    if (editingField === 'start') setStartDate(tempDate);
+                                    else setEndDate(tempDate);
+                                    setShowDateTimeModal(false);
+                                }}
+                            >
+                                <Text style={styles.submitButtonText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </Modal>
+                </Modal>
+            )}
+
+            {/* Android Picker */}
+            {Platform.OS === 'android' && showAndroidPicker && (
+                <DateTimePicker
+                    testID="dateTimePicker"
+                    value={editingField === 'start' ? startDate : endDate}
+                    mode={androidMode}
+                    is24Hour={false}
+                    display="default"
+                    onChange={onAndroidChange}
+                />
+            )}
         </>
     );
 }
@@ -792,15 +859,12 @@ const styles = StyleSheet.create({
     modalContent: {
         padding: 20,
         borderRadius: 20,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20,
+        alignItems: 'center',
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 20,
+        marginBottom: 15,
     },
+
 });

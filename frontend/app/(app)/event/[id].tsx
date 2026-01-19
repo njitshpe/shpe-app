@@ -85,7 +85,7 @@ export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { events, isCurrentUserAdmin, updateEventAdmin, deleteEventAdmin } = useEvents();
+  const { events, isCurrentUserAdmin, deleteEventAdmin, refetchEvents } = useEvents();
   // Find the event from context
   const event = events.find((evt) => evt.id === id);
 
@@ -347,11 +347,10 @@ export default function EventDetailScreen() {
    */
   const handleEditSubmit = async (data: CreateEventData): Promise<boolean> => {
     if (!event) return false;
-    const success = await updateEventAdmin(event.id, data);
-    if (success) {
-      setShowEditModal(false);
-    }
-    return success;
+    // AdminEventForm handles the API call internally
+    await refetchEvents();
+    setShowEditModal(false);
+    return true;
   };
 
   if (!event) {
