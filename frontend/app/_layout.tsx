@@ -92,12 +92,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     const inAlumniOnboarding = segments[0] === 'alumni-onboarding' || pathname === '/alumni-onboarding';
     const inGuestOnboarding = segments[0] === 'guest-onboarding' || pathname === '/guest-onboarding';
     const inRoleSelection = segments[0] === 'role-selection' || pathname === '/role-selection';
-    const inGuestCheckIn = segments[0] === 'guest-check-in' || pathname === '/guest-check-in'; // Allow without auth
     const inRoot = pathname === '/';
     const inApp =
       (segments[0] === '(app)' || segments.includes('(tabs)')) &&
       !inRoot;
-    const isNonAppRoute = inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection || inGuestCheckIn || inRoot;
+    const isNonAppRoute = inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection || inRoot;
     const isInApp = !isNonAppRoute || inApp;
 
     const userType = user?.user_metadata?.user_type;
@@ -122,8 +121,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // Rule 1: No session → redirect to welcome (except for guest-check-in which is allowed)
-    if (!session && !inAuthGroup && !inGuestCheckIn) {
+    // Rule 1: No session → redirect to welcome
+    if (!session && !inAuthGroup) {
       replaceIfNeeded('/(auth)/welcome');
       return;
     }

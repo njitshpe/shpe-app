@@ -11,7 +11,6 @@ import {
     Platform,
     StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { CameraView, BarcodeScanningResult } from 'expo-camera';
 import { BlurView } from 'expo-blur';
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -24,8 +23,13 @@ const { width, height } = Dimensions.get('window');
 const SCAN_FRAME_SIZE = 300;
 const BORDER_RADIUS = 30;
 
-export default function GuestCheckInScreen() {
-    const router = useRouter();
+interface GuestCheckInScannerProps {
+    visible: boolean;
+    onClose: () => void;
+    onScanSuccess: (eventName: string) => void;
+}
+
+export function GuestCheckInScanner({ visible, onClose, onScanSuccess }: GuestCheckInScannerProps) {
     const { theme } = useTheme();
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
@@ -36,14 +40,21 @@ export default function GuestCheckInScreen() {
     const isScanningRef = useRef<boolean>(false);
 
     useEffect(() => {
-        requestCameraPermission();
+        if (visible) {
+            requestCameraPermission();
+            // Reset state when opening
+            setScanned(false);
+            setProcessing(false);
+            isScanningRef.current = false;
+            lastScannedRef.current = '';
+        }
 
         return () => {
             if (scanTimeoutRef.current) {
                 clearTimeout(scanTimeoutRef.current);
             }
         };
-    }, []);
+    }, [visible]);
 
     const requestCameraPermission = async () => {
         const { granted, canAskAgain } = await cameraService.requestPermission();
@@ -82,23 +93,6 @@ export default function GuestCheckInScreen() {
         return true;
     };
 
-    const handleScanSuccess = (eventName: string) => {
-        Alert.alert(
-            'QR Code Saved! 🎟️',
-            `Complete your sign-up now to confirm your check-in for ${eventName}.`,
-            [
-                {
-                    text: 'Continue to Sign Up',
-                    onPress: () => {
-                        // Go to welcome screen to start signup
-                        router.dismissAll();
-                        router.replace('/(auth)/welcome');
-                    },
-                },
-            ]
-        );
-    };
-
     const handleScanError = (error: any) => {
         console.error('Scan error:', error);
         Alert.alert(
@@ -116,10 +110,9 @@ export default function GuestCheckInScreen() {
     const processScan = async (token: string) => {
         try {
             await PendingCheckInService.save(token);
-            // Re-read to get the event name we just saved
             const pending = await PendingCheckInService.get();
             if (pending) {
-                handleScanSuccess(pending.eventName);
+                onScanSuccess(pending.eventName);
             } else {
                 throw new Error('Failed to save check-in');
             }
@@ -160,6 +153,9 @@ export default function GuestCheckInScreen() {
         setTorchOn((prev) => !prev);
     };
 
+    // Don't render if not visible
+    if (!visible) return null;
+
     const dynamicStyles = {
         container: { backgroundColor: theme.background },
         text: { color: theme.text },
@@ -188,7 +184,7 @@ export default function GuestCheckInScreen() {
                 <TouchableOpacity style={[styles.button, dynamicStyles.button]} onPress={requestCameraPermission}>
                     <Text style={[styles.buttonText, dynamicStyles.buttonText]}>Grant Permission</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, styles.secondaryButton, dynamicStyles.secondaryButton]} onPress={() => router.back()}>
+                <TouchableOpacity style={[styles.button, styles.secondaryButton, dynamicStyles.secondaryButton]} onPress={onClose}>
                     <Text style={[styles.buttonText, styles.secondaryButtonText, dynamicStyles.secondaryButtonText]}>Cancel</Text>
                 </TouchableOpacity>
             </View>
@@ -244,7 +240,7 @@ export default function GuestCheckInScreen() {
             <View style={styles.uiContainer} pointerEvents="box-none">
                 <View style={styles.header}>
                     <Text style={styles.headerText}>Scan Event QR Code</Text>
-                    <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                         <Text style={styles.closeButtonText}>✕</Text>
                     </TouchableOpacity>
                 </View>
@@ -285,7 +281,11 @@ export default function GuestCheckInScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000' },
+    container: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: '#000',
+        zIndex: 100,
+    },
     loadingText: { marginTop: 20, fontSize: 16 },
     errorText: { fontSize: 16, textAlign: 'center', marginHorizontal: 40, marginBottom: 30 },
     maskContainer: { flex: 1, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center' },
