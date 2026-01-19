@@ -28,29 +28,15 @@ import * as Haptics from 'expo-haptics';
 import { SPACING, RADIUS } from '@/constants/colors';
 import { useProfilePhoto } from '@/hooks/media/useProfilePhoto';
 
-// --- SCHEMAS (Unchanged) ---
-const studentIdentitySchema = z.object({
+// Simple Schema: Just Name
+const identitySchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
 });
 
-const getGuestIdentitySchema = () => {
-  return z.object({
-    firstName: z.string().trim().min(1, 'First name is required'),
-    lastName: z.string().trim().min(1, 'Last name is required'),
-    university: z.string().trim().min(2, 'University is required'),
-    major: z.string().trim().min(2, 'Major is required'),
-    graduationYear: z.string().trim().regex(/^\d{4}$/),
-  });
-};
-
 export interface FormData {
   firstName: string;
   lastName: string;
-  university?: string;
-  ucid?: string;
-  major?: string;
-  graduationYear?: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
 }
 
@@ -58,12 +44,10 @@ interface IdentityStepProps {
   data: FormData;
   update: (fields: Partial<FormData>) => void;
   onNext: () => void;
-  isGuestMode?: boolean;
+  // Removed isGuestMode - this screen is now pure Identity for everyone
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UI COMPONENT: Styled Input (White/Grey Accent)
-// ─────────────────────────────────────────────────────────────────────────────
+// Reusable Glass Input Component
 const StyledInput = ({ icon, ...props }: any) => {
   const [isFocused, setIsFocused] = useState(false);
   
@@ -73,7 +57,6 @@ const StyledInput = ({ icon, ...props }: any) => {
       isFocused && inputStyles.focused,
       props.error && inputStyles.error
     ]}>
-      {/* Icon Box: Turns White with Black Icon on Focus */}
       <View style={[inputStyles.iconContainer, isFocused && { backgroundColor: '#FFFFFF' }]}>
         <Ionicons 
           name={icon} 
@@ -99,19 +82,15 @@ const StyledInput = ({ icon, ...props }: any) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
 export default function IdentityStep({
   data,
   update,
   onNext,
-  isGuestMode = false,
 }: IdentityStepProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [error, setError] = useState<string | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false); // Lock state
   
   const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
@@ -130,7 +109,6 @@ export default function IdentityStep({
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
-  // ANIMATIONS
   const avatarStyle = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(keyboardOpen.value, [0, 1], [1, 0.7]) }],
     opacity: interpolate(keyboardOpen.value, [0, 1], [1, 0.8]),
@@ -151,20 +129,17 @@ export default function IdentityStep({
   const handleNext = () => {
     if (isNavigating) return;
 
-    const schema = isGuestMode ? getGuestIdentitySchema() : studentIdentitySchema;
-    const result = schema.safeParse(data);
+    const result = identitySchema.safeParse(data);
 
     if (!result.success) {
       setError(result.error.issues[0]?.message || 'Please fill in all fields.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-
+    
     setIsNavigating(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onNext();
-
-    // Safety release in case component doesn't unmount immediately
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
@@ -177,21 +152,15 @@ export default function IdentityStep({
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* HEADER */}
           <MotiView 
             from={{ opacity: 0, translateY: -20 }}
             animate={{ opacity: 1, translateY: 0 }}
             style={styles.headerContainer}
           >
-            <Text style={styles.headerTitle}>
-              {isGuestMode ? 'Welcome Guest' : 'Who are you?'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              Let&apos;s get your profile set up.
-            </Text>
+            <Text style={styles.headerTitle}>Who are you?</Text>
+            <Text style={styles.headerSubtitle}>Let&apos;s get your profile set up.</Text>
           </MotiView>
 
-          {/* AVATAR CENTERPIECE */}
           <Animated.View style={[styles.avatarContainer, avatarStyle]}>
             <TouchableOpacity onPress={handlePhotoOptions} activeOpacity={0.8}>
               <View style={[styles.avatarCircle, data.profilePhoto && styles.avatarFilled]}>
@@ -213,7 +182,6 @@ export default function IdentityStep({
             </TouchableOpacity>
           </Animated.View>
 
-          {/* INPUTS */}
           <View style={styles.formContainer}>
             {error && <Text style={styles.errorText}>{error}</Text>}
             
@@ -246,7 +214,6 @@ export default function IdentityStep({
           </View>
         </View>
 
-        {/* FOOTER */}
         <MotiView 
           from={{ translateY: 50, opacity: 0 }}
           animate={{ translateY: 0, opacity: 1 }}
@@ -259,7 +226,6 @@ export default function IdentityStep({
             style={[styles.button, (isNextDisabled || isNavigating) && styles.buttonDisabled]}
           >
             <LinearGradient
-              // NEW: White Gradient for Active, Dark Grey for Disabled
               colors={isNextDisabled ? ['#333333', '#1A1A1A'] : ['#FFFFFF', '#E2E8F0']}
               style={styles.gradientButton}
               start={{ x: 0, y: 0 }}
@@ -271,7 +237,7 @@ export default function IdentityStep({
               <Ionicons 
                 name="arrow-forward" 
                 size={20} 
-                color={isNextDisabled ? '#666666' : '#000000'} // Black arrow on white button
+                color={isNextDisabled ? '#666666' : '#000000'} 
               />
             </LinearGradient>
           </TouchableOpacity>
@@ -286,144 +252,43 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1 },
   content: { flex: 1, alignItems: 'center' },
   
-  headerContainer: {
-    marginTop: SPACING.xl,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#94A3B8',
-    marginTop: 8,
-  },
+  headerContainer: { marginTop: SPACING.xl, alignItems: 'center' },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#FFF', letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 16, color: '#94A3B8', marginTop: 8 },
 
-  avatarContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.xl,
-  },
+  avatarContainer: { alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl },
   avatarCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
-    position: 'relative',
+    width: 140, height: 140, borderRadius: 70, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden', position: 'relative',
   },
-  avatarFilled: {
-    borderColor: '#FFFFFF', // White border when filled
-    borderWidth: 3,
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarGradient: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addPhotoText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 8,
-  },
+  avatarFilled: { borderColor: '#FFFFFF', borderWidth: 3 },
+  avatarImage: { width: '100%', height: '100%' },
+  avatarGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  addPhotoText: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', marginTop: 8 },
   editBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 20,
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF', // White badge
-    borderRadius: 12,
-    padding: 4,
+    position: 'absolute', bottom: 8, right: 20, alignSelf: 'center',
+    backgroundColor: '#FFFFFF', borderRadius: 12, padding: 4,
   },
 
-  formContainer: {
-    width: '100%',
-    paddingHorizontal: SPACING.lg,
-  },
+  formContainer: { width: '100%', paddingHorizontal: SPACING.lg },
   row: { flexDirection: 'row', gap: SPACING.md },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94A3B8', // Grey label
-    marginBottom: 8,
-    letterSpacing: 1,
-  },
-  errorText: {
-    color: '#FF6B6B',
-    textAlign: 'center',
-    marginBottom: SPACING.md,
-    fontSize: 13,
-  },
+  label: { fontSize: 11, fontWeight: '700', color: '#94A3B8', marginBottom: 8, letterSpacing: 1 },
+  errorText: { color: '#FF6B6B', textAlign: 'center', marginBottom: SPACING.md, fontSize: 13 },
 
-  footer: {
-    width: '100%',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-  },
-  button: {
-    borderRadius: RADIUS.full,
-    shadowColor: '#FFFFFF', // White glow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
+  footer: { width: '100%', paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg },
+  button: { borderRadius: RADIUS.full, shadowColor: '#FFFFFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 },
   buttonDisabled: { shadowOpacity: 0, elevation: 0 },
-  gradientButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-    borderRadius: RADIUS.full,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000000', // Black text
-    letterSpacing: 0.5,
-  },
+  gradientButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, borderRadius: RADIUS.full },
+  buttonText: { fontSize: 16, fontWeight: '700', color: '#000000', letterSpacing: 0.5 },
 });
 
 const inputStyles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: RADIUS.lg,
-    height: 56,
-    overflow: 'hidden',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: RADIUS.lg, height: 56, overflow: 'hidden',
   },
-  focused: {
-    borderColor: '#FFFFFF', // White border on focus
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-  },
+  focused: { borderColor: '#FFFFFF', backgroundColor: 'rgba(30, 41, 59, 0.8)' },
   error: { borderColor: '#FF6B6B' },
-  iconContainer: {
-    width: 40,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#FFFFFF',
-    height: '100%',
-    paddingHorizontal: 12,
-    fontWeight: '500',
-  },
+  iconContainer: { width: 40, height: '100%', alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderRightColor: 'rgba(255, 255, 255, 0.05)' },
+  input: { flex: 1, fontSize: 16, color: '#FFFFFF', height: '100%', paddingHorizontal: 12, fontWeight: '500' },
 });

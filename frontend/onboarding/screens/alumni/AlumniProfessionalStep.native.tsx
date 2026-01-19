@@ -1,51 +1,204 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  useColorScheme,
+  ScrollView,
+  Modal,
+  FlatList,
+  Keyboard,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
+import { z } from 'zod';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
-import MentorshipInterstitial from '../../components/MentorshipInterstitial.native';
+import * as Haptics from 'expo-haptics';
+import { SPACING, RADIUS } from '@/constants/colors';
+import { GlassInput } from '../../components/OnboardingComponents';
 
+// --- INDUSTRIES LIST ---
 const INDUSTRIES = [
-  'Aerospace',
-  'Automotive',
-  'Biotechnology',
-  'Civil Infrastructure',
-  'Consulting',
-  'Construction',
-  'Energy',
+  'Technology',
   'Finance',
   'Healthcare',
+  'Construction',
+  'Energy',
+  'Education',
+  'Government',
+  'Consulting',
   'Manufacturing',
-  'Pharmaceuticals',
-  'Software/Tech',
+  'Aerospace & Defense',
   'Telecommunications',
+  'Retail',
   'Other',
-];
+] as const;
 
+// --- VALIDATION ---
+const linkedinUrlSchema = z
+  .string()
+  .optional()
+  .refine(
+    (val) => {
+      if (!val || val.trim() === '') return true;
+      const urlPattern = /^(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+\/?$/i;
+      return urlPattern.test(val);
+    },
+    { message: 'Enter a valid LinkedIn profile URL' }
+  );
 
-export interface FormData {
-  company: string;
-  jobTitle: string;
-  industry: string;
-  mentorshipAvailable: boolean;
-  mentorshipWays: string[];
-}
+const professionalSchema = z.object({
+  company: z.string().trim().min(1, 'Company is required'),
+  jobTitle: z.string().trim().min(1, 'Job title is required'),
+  industry: z.string().trim().min(1, 'Industry is required'),
+  linkedinUrl: linkedinUrlSchema,
+});
+
+// --- INDUSTRY SELECTION MODAL ---
+const IndustryModal = ({
+  visible,
+  onClose,
+  onSelect,
+  selected,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (industry: string) => void;
+  selected: string;
+}) => {
+  const insets = useSafeAreaInsets();
+
+  const handleSelect = (industry: string) => {
+    Haptics.selectionAsync();
+    onSelect(industry);
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={[modalStyles.container, { paddingTop: insets.top }]}>
+        {/* Header */}
+        <View style={modalStyles.header}>
+          <Text style={modalStyles.title}>Select Industry</Text>
+          <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
+            <Ionicons name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* List */}
+        <FlatList
+          data={INDUSTRIES}
+          keyExtractor={(item) => item}
+          contentContainerStyle={{ paddingHorizontal: SPACING.lg, paddingBottom: 40 }}
+          renderItem={({ item, index }) => {
+            const isSelected = selected === item;
+            return (
+              <MotiView
+                from={{ opacity: 0, translateX: -20 }}
+                animate={{ opacity: 1, translateX: 0 }}
+                transition={{ type: 'timing', duration: 200, delay: index * 30 }}
+              >
+                <TouchableOpacity
+                  style={[
+                    modalStyles.option,
+                    isSelected && modalStyles.optionSelected,
+                  ]}
+                  onPress={() => handleSelect(item)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      modalStyles.optionText,
+                      isSelected && modalStyles.optionTextSelected,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              </MotiView>
+            );
+          }}
+        />
+      </View>
+    </Modal>
+  );
+};
+
+const modalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: RADIUS.lg,
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  optionSelected: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#FFFFFF',
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#94A3B8',
+  },
+  optionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+});
 
 interface AlumniProfessionalStepProps {
-  data: FormData;
-  update: (fields: Partial<FormData>) => void;
+  data: {
+    company: string;
+    jobTitle: string;
+    industry: string;
+    linkedinUrl: string;
+  };
+  update: (
+    fields: Partial<{
+      company: string;
+      jobTitle: string;
+      industry: string;
+      linkedinUrl: string;
+    }>
+  ) => void;
   onNext: () => void;
 }
 
@@ -54,325 +207,175 @@ export default function AlumniProfessionalStep({
   update,
   onNext,
 }: AlumniProfessionalStepProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const scrollViewRef = useRef<ScrollView>(null);
-
-  const [selectedIndustry, setSelectedIndustry] = useState(data.industry ?? '');
+  const [isIndustryModalVisible, setIsIndustryModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showInterstitial, setShowInterstitial] = useState(false);
-
-  const handleIndustrySelect = (industry: string) => {
-    setSelectedIndustry(industry);
-    update({ industry });
-    setError(null);
-  };
-
-  const handleMentorshipDecline = () => {
-    setShowInterstitial(false);
-    update({
-      mentorshipAvailable: false,
-      mentorshipWays: [],
-    });
-    onNext();
-  };
-
-  const handleMentorshipAccept = (selectedWays: string[]) => {
-    setShowInterstitial(false);
-    update({
-      mentorshipAvailable: true,
-      mentorshipWays: selectedWays,
-    });
-    onNext();
-  };
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const handleNext = () => {
-    // Validate required fields
-    if (!data.company?.trim()) {
-      setError('Company name is required');
-      return;
-    }
-    if (!data.jobTitle?.trim()) {
-      setError('Job title is required');
-      return;
-    }
-    if (!selectedIndustry?.trim()) {
-      setError('Please select an industry');
+    if (isNavigating) return;
+
+    const result = professionalSchema.safeParse(data);
+    if (!result.success) {
+      const firstError = result.error.errors[0]?.message || 'Please complete all fields.';
+      setError(firstError);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
 
-    update({
-      company: data.company?.trim(),
-      jobTitle: data.jobTitle?.trim(),
-      industry: selectedIndustry,
-    });
     setError(null);
-
-    // Show mentorship interstitial instead of navigating directly
-    setShowInterstitial(true);
+    setIsNavigating(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onNext();
+    setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  const isNextDisabled = !data.company?.trim() || !data.jobTitle?.trim() || !selectedIndustry?.trim();
-
-  // Dynamic colors
-  const colors = {
-    background: isDark ? '#001339' : '#F7FAFF',
-    surface: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.75)',
-    text: isDark ? '#F5F8FF' : '#0B1630',
-    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
-    border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
-    borderGlow: SHPE_COLORS.accentBlueBright,
-    primary: SHPE_COLORS.accentBlueBright,
-    error: '#DC2626',
-    pill: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
-    pillActive: SHPE_COLORS.accentBlueBright,
-  };
+  const isNextDisabled = !data.company || !data.jobTitle || !data.industry;
 
   return (
     <View style={styles.outerContainer}>
-      <MotiView
-        from={{ translateX: 50, opacity: 0 }}
-        animate={{ translateX: 0, opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
-        style={styles.container}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
-          style={styles.keyboardView}
-        >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Professional Details</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Tell us about your current role and expertise.
-            </Text>
-          </View>
-
-          {/* Error Message */}
-          {error ? (
-            <View style={[styles.errorContainer, { backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2', borderColor: isDark ? '#7F1D1D' : '#FCA5A5' }]}>
-              <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>⚠️ {error}</Text>
-            </View>
-          ) : null}
-
-          {/* Company Input */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Company</Text>
-            <View style={[styles.inputContainer, { backgroundColor: colors.pill, borderColor: colors.border }]}>
-              <Text style={styles.inputIcon}>🏢</Text>
-              <TextInput
-                value={data.company ?? ''}
-                onChangeText={(text) => {
-                  update({ company: text });
-                  setError(null);
-                }}
-                placeholder="e.g., Google, Tesla, Self-Employed"
-                placeholderTextColor={colors.textSecondary}
-                style={[styles.input, { color: colors.text }]}
-                returnKeyType="next"
-              />
-            </View>
-          </View>
-
-          {/* Job Title Input */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Job Title</Text>
-            <View style={[styles.inputContainer, { backgroundColor: colors.pill, borderColor: colors.border }]}>
-              <Text style={styles.inputIcon}>💼</Text>
-              <TextInput
-                value={data.jobTitle ?? ''}
-                onChangeText={(text) => {
-                  update({ jobTitle: text });
-                  setError(null);
-                }}
-                placeholder="e.g., Software Engineer, Project Manager"
-                placeholderTextColor={colors.textSecondary}
-                style={[styles.input, { color: colors.text }]}
-                returnKeyType="next"
-              />
-            </View>
-          </View>
-
-          {/* Industry Tags (Expertise) */}
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: colors.text }]}>Your Industry Expertise</Text>
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Select the industry that best describes your professional experience
-            </Text>
-            <View style={styles.pillsContainer}>
-              {INDUSTRIES.map((industry) => {
-                const isSelected = selectedIndustry === industry;
-                return (
-                  <TouchableOpacity
-                    key={industry}
-                    onPress={() => handleIndustrySelect(industry)}
-                    style={[
-                      styles.pill,
-                      { backgroundColor: colors.pill, borderColor: colors.border },
-                      isSelected && { backgroundColor: colors.pillActive, borderColor: colors.pillActive },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.pillText,
-                        { color: colors.text },
-                        isSelected && styles.pillTextActive,
-                      ]}
-                    >
-                      {industry}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-        </ScrollView>
-        </KeyboardAvoidingView>
-      </MotiView>
-
-      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
         <TouchableOpacity
-          onPress={handleNext}
-          disabled={isNextDisabled}
-          activeOpacity={0.8}
-          style={styles.buttonWrapper}
+          style={{ flex: 1 }}
+          activeOpacity={1}
+          onPress={Keyboard.dismiss}
         >
-          <LinearGradient
-            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
-            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.nextButtonText}>Next</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 500 }}
+            >
+              <View style={styles.header}>
+                <Text style={styles.title}>YOUR CAREER</Text>
+                <Text style={styles.subtitle}>
+                  Where has your journey taken you?
+                </Text>
+              </View>
 
-      {/* Mentorship Interstitial */}
-      <MentorshipInterstitial
-        visible={showInterstitial}
-        onDecline={handleMentorshipDecline}
-        onAccept={handleMentorshipAccept}
-      />
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              {/* COMPANY INPUT */}
+              <GlassInput
+                label="COMPANY"
+                value={data.company}
+                placeholder="e.g. Google, Goldman Sachs"
+                icon="business-outline"
+                onChangeText={(t) => update({ company: t })}
+              />
+
+              {/* JOB TITLE INPUT */}
+              <GlassInput
+                label="JOB TITLE"
+                value={data.jobTitle}
+                placeholder="e.g. Software Engineer"
+                icon="briefcase-outline"
+                onChangeText={(t) => update({ jobTitle: t })}
+              />
+
+              {/* INDUSTRY SELECTOR */}
+              <GlassInput
+                label="INDUSTRY"
+                value={data.industry}
+                placeholder="Select Industry"
+                icon="layers-outline"
+                readOnly
+                onPress={() => setIsIndustryModalVisible(true)}
+              />
+
+              {/* LINKEDIN INPUT */}
+              <GlassInput
+                label="LINKEDIN (OPTIONAL)"
+                value={data.linkedinUrl}
+                placeholder="linkedin.com/in/yourprofile"
+                icon="logo-linkedin"
+                keyboardType="url"
+                autoCapitalize="none"
+                onChangeText={(t) => update({ linkedinUrl: t })}
+              />
+            </MotiView>
+          </ScrollView>
+        </TouchableOpacity>
+
+        {/* FOOTER */}
+        <MotiView
+          from={{ translateY: 50, opacity: 0 }}
+          animate={{ translateY: 0, opacity: 1 }}
+          style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}
+        >
+          <TouchableOpacity
+            onPress={handleNext}
+            disabled={isNextDisabled || isNavigating}
+            style={[
+              styles.button,
+              (isNextDisabled || isNavigating) && styles.buttonDisabled,
+            ]}
+          >
+            <LinearGradient
+              colors={isNextDisabled ? ['#333333', '#1A1A1A'] : ['#FFFFFF', '#E2E8F0']}
+              style={styles.gradientButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text
+                style={[styles.buttonText, isNextDisabled && { color: '#666666' }]}
+              >
+                Next Step
+              </Text>
+              <Ionicons
+                name="arrow-forward"
+                size={20}
+                color={isNextDisabled ? '#666666' : '#000000'}
+              />
+            </LinearGradient>
+          </TouchableOpacity>
+        </MotiView>
+
+        <IndustryModal
+          visible={isIndustryModalVisible}
+          onClose={() => setIsIndustryModalVisible(false)}
+          onSelect={(industry) => update({ industry })}
+          selected={data.industry}
+        />
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
+  outerContainer: { flex: 1 },
+  scrollContent: { padding: SPACING.lg },
+  header: { marginBottom: SPACING.xl, marginTop: SPACING.md },
+  title: { fontSize: 24, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+  subtitle: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
+
+  errorText: { color: '#F87171', marginBottom: 10, fontSize: 13 },
+  footer: { paddingHorizontal: SPACING.lg },
+  button: {
     width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 16,
-    flexGrow: 1,
-  },
-  buttonContainer: {
-    paddingHorizontal: 16,
-    paddingTop: SPACING.md,
-    backgroundColor: 'transparent',
-  },
-  buttonWrapper: {
-    width: '100%',
-  },
-  header: {
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
-  errorContainer: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    fontSize: 14,
-  },
-  fieldContainer: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    paddingHorizontal: SPACING.md,
-  },
-  inputIcon: {
-    fontSize: 20,
-    marginRight: SPACING.sm,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    fontSize: 16,
-  },
-  helperText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  pillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 12,
-  },
-  pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
     borderRadius: RADIUS.full,
-    borderWidth: 1,
+    shadowOpacity: 0.3,
+    elevation: 4,
   },
-  pillText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  pillTextActive: {
-    color: '#FFFFFF',
-  },
-  nextButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
+  buttonDisabled: { shadowOpacity: 0, elevation: 0 },
+  gradientButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+    borderRadius: RADIUS.full,
   },
-  nextButtonText: {
+  buttonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: 0.5,
   },
 });
