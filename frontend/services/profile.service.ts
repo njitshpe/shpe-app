@@ -8,6 +8,50 @@ class ProfileService {
     private inFlight: Map<string, Promise<ServiceResponse<UserProfile | null>>> = new Map();
 
     /**
+     * Maps PostgreSQL unique constraint errors to user-friendly messages.
+     * Error code 23505 = Unique Violation
+     */
+    private mapUniqueConstraintError(error: any): ServiceResponse<any> {
+        if (error?.code === '23505') {
+            const message = error.message?.toLowerCase() || '';
+
+            if (message.includes('ucid')) {
+                return {
+                    success: false,
+                    error: createError(
+                        'This UCID is already registered to another SHPE account.',
+                        'UNIQUE_VIOLATION',
+                        'ucid',
+                        error.message
+                    ),
+                };
+            }
+            if (message.includes('email')) {
+                return {
+                    success: false,
+                    error: createError(
+                        'This email is already registered to another account.',
+                        'UNIQUE_VIOLATION',
+                        'email',
+                        error.message
+                    ),
+                };
+            }
+            // Generic unique constraint violation
+            return {
+                success: false,
+                error: createError(
+                    'A profile with this information already exists.',
+                    'UNIQUE_VIOLATION',
+                    undefined,
+                    error.message
+                ),
+            };
+        }
+        return { success: false, error };
+    }
+
+    /**
      * Flattens profile_data JSONB fields into the profile object for backward compatibility.
      * Fields from profile_data take precedence over legacy column values.
      */
@@ -111,6 +155,11 @@ class ProfileService {
                 .select()
                 .single();
 
+            // Check for unique constraint violations (UCID, email, etc.)
+            if (error?.code === '23505') {
+                return this.mapUniqueConstraintError(error);
+            }
+
             // Flatten profile_data for backward compatibility
             const flattenedData = this.flattenProfileData(data);
             return handleSupabaseError(flattenedData, error);
@@ -159,6 +208,11 @@ class ProfileService {
                 .eq('id', userId)
                 .select()
                 .single();
+
+            // Check for unique constraint violations (UCID, email, etc.)
+            if (error?.code === '23505') {
+                return this.mapUniqueConstraintError(error);
+            }
 
             // Flatten profile_data for backward compatibility
             const flattenedData = this.flattenProfileData(data);

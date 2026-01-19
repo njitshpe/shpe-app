@@ -173,7 +173,16 @@ export default function AlumniOnboardingWizard() {
 
       if (!result.success) {
         console.error('ALUMNI SAVE ERROR:', result.error);
-        throw new Error(result.error?.message || "Database save failed");
+        setIsSaving(false);
+
+        // Handle unique constraint errors with user-friendly messages
+        if (result.error?.code === 'UNIQUE_VIOLATION') {
+          Alert.alert('Profile Conflict', result.error.message);
+          return;
+        }
+
+        Alert.alert('Save Failed', result.error?.message || 'Database save failed');
+        return;
       }
 
       // 4. Success
