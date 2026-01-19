@@ -1,373 +1,392 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { SPACING, RADIUS } from '@/constants/colors';
 
-export interface FormData {
+const HOLD_DURATION = 1500; // 1.5 seconds
+
+interface AlumniFormData {
   firstName: string;
   lastName: string;
+  profilePhoto: ImagePicker.ImagePickerAsset | null;
   major: string;
   degreeType: string;
   graduationYear: string;
-  profilePhoto: ImagePicker.ImagePickerAsset | null;
   company: string;
   jobTitle: string;
-  linkedinUrl: string;
-  professionalBio: string;
   industry: string;
-  mentorshipAvailable: boolean;
-  mentorshipWays: string[];
+  linkedinUrl: string;
+  bio: string;
+  isMentor: boolean;
 }
 
 interface AlumniReviewStepProps {
-  data: FormData;
+  data: AlumniFormData;
   onNext: () => void;
 }
 
-const MENTORSHIP_WAY_LABELS: Record<string, string> = {
-  'resume-reviews': '📄 Resume Reviews',
-  'mock-interviews': '🎤 Mock Interviews',
-  'coffee-chats': '☕ Coffee Chats',
-  'company-tours': '🏢 Company Tours',
-};
+// ─────────────────────────────────────────────────────────────────────────────
+// Hold-to-Confirm Button (The "Ignition")
+// ─────────────────────────────────────────────────────────────────────────────
+function HoldToConfirmButton({ onComplete }: { onComplete: () => void }) {
+  const progress = useSharedValue(0);
+  const isHolding = useSharedValue(false);
+  const scale = useSharedValue(1);
+  const hapticInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const triggerHaptic = useCallback(
+    (intensity: 'light' | 'medium' | 'heavy') => {
+      if (intensity === 'light')
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (intensity === 'medium')
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    },
+    []
+  );
+
+  const startHapticFeedback = useCallback(() => {
+    triggerHaptic('light');
+    let count = 0;
+    hapticInterval.current = setInterval(() => {
+      count++;
+      triggerHaptic(count < 5 ? 'light' : count < 10 ? 'medium' : 'heavy');
+    }, 150);
+  }, [triggerHaptic]);
+
+  const stopHapticFeedback = useCallback(() => {
+    if (hapticInterval.current) {
+      clearInterval(hapticInterval.current);
+      hapticInterval.current = null;
+    }
+  }, []);
+
+  const handleComplete = useCallback(() => {
+    stopHapticFeedback();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onComplete();
+  }, [onComplete, stopHapticFeedback]);
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(0)
+    .onStart(() => {
+      'worklet';
+      isHolding.value = true;
+      scale.value = withTiming(0.95, { duration: 120 });
+      runOnJS(startHapticFeedback)();
+      progress.value = withTiming(1, { duration: HOLD_DURATION }, (finished) => {
+        if (finished && isHolding.value) runOnJS(handleComplete)();
+      });
+    })
+    .onFinalize(() => {
+      'worklet';
+      isHolding.value = false;
+      scale.value = withTiming(1, { duration: 160 });
+      runOnJS(stopHapticFeedback)();
+      if (progress.value < 1) progress.value = withTiming(0, { duration: 200 });
+    });
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const animatedFillStyle = useAnimatedStyle(() => ({
+    width: `${interpolate(progress.value, [0, 1], [0, 100], Extrapolate.CLAMP)}%`,
+  }));
+
+  return (
+    <GestureDetector gesture={longPressGesture}>
+      <Animated.View style={[holdButtonStyles.wrapper, animatedContainerStyle]}>
+        {/* Track */}
+        <View style={holdButtonStyles.track}>
+          <Animated.View style={[holdButtonStyles.fillWrapper, animatedFillStyle]}>
+            {/* Black Fill over white background */}
+            <View style={holdButtonStyles.fill} />
+          </Animated.View>
+
+          <View style={holdButtonStyles.content}>
+            <Ionicons
+              name="rocket"
+              size={20}
+              color="#000"
+              style={holdButtonStyles.icon}
+            />
+            <Text style={holdButtonStyles.text}>HOLD TO LAUNCH</Text>
+          </View>
+        </View>
+        <Text style={holdButtonStyles.hint}>Hold for 1.5s to confirm</Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+const holdButtonStyles = StyleSheet.create({
+  wrapper: { width: '100%', alignItems: 'center' },
+  track: {
+    width: '100%',
+    borderRadius: RADIUS.full,
+    height: 56,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fillWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: '#E2E8F0',
+    zIndex: 0,
+  },
+  fill: { flex: 1, backgroundColor: '#000000' },
+  content: { flexDirection: 'row', alignItems: 'center', zIndex: 1 },
+  icon: { marginRight: 8 },
+  text: { fontSize: 16, fontWeight: '800', color: '#000000', letterSpacing: 1 },
+  hint: { fontSize: 11, color: '#64748B', marginTop: 8, fontWeight: '600' },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main AlumniReviewStep Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AlumniReviewStep({ data, onNext }: AlumniReviewStepProps) {
-  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+
+  const profileSource = data.profilePhoto?.uri
+    ? { uri: data.profilePhoto.uri }
+    : require('../../../assets/app-logo-transparent.png');
+
+  const detailsLine = `Alumni • Class of ${data.graduationYear}`;
+  const roleAtCompany = `${data.jobTitle} @ ${data.company}`;
 
   return (
     <View style={styles.outerContainer}>
       <MotiView
-        from={{ translateX: 50, opacity: 0 }}
-        animate={{ translateX: 0, opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 500 }}
         style={styles.container}
       >
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Almost there!</Text>
-          <Text style={[styles.subtitle, { color: theme.subtext }]}>
-            Review your information before we launch 🚀
-          </Text>
-        </View>
+          <View style={styles.header}>
+            <Text style={styles.title}>READY TO LAUNCH</Text>
+            <Text style={styles.subtitle}>Review your alumni profile.</Text>
+          </View>
 
-        {/* Hero ID Badge Card */}
-        <MotiView
-          from={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', damping: 15 }}
-        >
-          <LinearGradient
-            colors={isDark ? GRADIENTS.darkCard : GRADIENTS.lightCard}
-            style={[styles.heroCard, { borderColor: SHPE_COLORS.accentBlueBright }]}
+          {/* HERO CARD */}
+          <MotiView
+            from={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 15 }}
+            style={styles.cardContainer}
           >
-            {/* Profile Photo with Gradient Ring */}
-            <View style={styles.photoContainer}>
-              <LinearGradient
-                colors={GRADIENTS.accentButton}
-                style={styles.photoRing}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {data.profilePhoto ? (
-                  <Image source={{ uri: data.profilePhoto.uri }} style={styles.profileImage} />
-                ) : (
-                  <View
-                    style={[
-                      styles.placeholderImage,
-                      { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(11, 22, 48, 0.08)' },
-                    ]}
-                  >
-                    <Text style={[styles.placeholderText, { color: isDark ? '#F5F8FF' : '#0B1630' }]}>
-                      {data.firstName?.charAt(0)}{data.lastName?.charAt(0)}
-                    </Text>
-                  </View>
-                )}
-              </LinearGradient>
-            </View>
+            <View style={styles.summaryCard}>
+              {/* Profile Image with White Halo */}
+              <View style={styles.profileHalo}>
+                <Image source={profileSource} style={styles.profileImage} />
+              </View>
 
-            {/* Name & Professional Role - EMPHASIZED */}
-            <View style={styles.identitySection}>
-              <Text style={[styles.fullName, { color: theme.text }]}>
+              {/* Name */}
+              <Text style={styles.summaryName}>
                 {data.firstName} {data.lastName}
               </Text>
-              {/* Emphasize Job Title at Company */}
-              <Text style={[styles.professionalRole, { color: SHPE_COLORS.accentBlueBright }]}>
-                {data.jobTitle} at {data.company}
-              </Text>
-              {/* Mentor Badge */}
-              {data.mentorshipAvailable && (
-                <View style={[styles.mentorBadge, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 215, 0, 0.15)' }]}>
-                  <Text style={styles.mentorBadgeText}>🌟 Active Mentor</Text>
-                </View>
-              )}
-              {/* De-emphasize education */}
-              <Text style={[styles.education, { color: theme.subtext }]}>
-                {data.degreeType} {data.major} • Class of {data.graduationYear}
-              </Text>
+
+              {/* Alumni Status */}
+              <Text style={styles.summaryDetails}>{detailsLine}</Text>
+
+              {/* Job Title @ Company */}
+              <Text style={styles.roleText}>{roleAtCompany}</Text>
+
+              {/* Bio (if provided) */}
+              {data.bio ? (
+                <Text style={styles.summaryBio} numberOfLines={3}>
+                  "{data.bio}"
+                </Text>
+              ) : null}
             </View>
+          </MotiView>
 
-            {/* Divider */}
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-            {/* Expertise Tags (Industry) */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Expertise</Text>
-              <View style={styles.interestsContainer}>
-                <View style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(92, 141, 255, 0.2)' : 'rgba(92, 141, 255, 0.12)' }]}>
-                  <Text style={[styles.interestText, { color: SHPE_COLORS.accentBlueBright }]}>
-                    {data.industry}
-                  </Text>
-                </View>
+          {/* STATS ROW */}
+          <View style={styles.statsRow}>
+            {/* Mentor Ready Badge */}
+            {data.isMentor && (
+              <View style={styles.mentorBadge}>
+                <Ionicons name="heart" size={14} color="#FFFFFF" />
+                <Text style={styles.mentorBadgeText}>Mentor Ready</Text>
               </View>
-            </View>
-
-            {/* Mentorship Areas - Replaces Student Interests */}
-            {data.mentorshipAvailable && data.mentorshipWays && data.mentorshipWays.length > 0 && (
-              <>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Mentorship Areas</Text>
-                  <View style={styles.interestsContainer}>
-                    {data.mentorshipWays.map((wayId) => (
-                      <View key={wayId} style={[styles.interestChip, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.2)' : 'rgba(255, 215, 0, 0.15)' }]}>
-                        <Text style={[styles.interestText, { color: '#B8860B' }]}>
-                          {MENTORSHIP_WAY_LABELS[wayId] || wayId}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              </>
             )}
 
-            {/* Professional Bio (if provided) */}
-            {data.professionalBio && (
-              <>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Professional Bio</Text>
-                  <Text style={[styles.bioPreview, { color: theme.subtext }]}>
-                    {data.professionalBio}
-                  </Text>
-                </View>
-              </>
+            {/* Industry Chip */}
+            {data.industry && (
+              <View style={styles.statChip}>
+                <Ionicons name="layers" size={14} color="#FFF" />
+                <Text style={styles.statText}>{data.industry}</Text>
+              </View>
             )}
 
-            {/* LinkedIn (if provided) */}
+            {/* LinkedIn Chip */}
             {data.linkedinUrl && (
-              <>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Professional Links</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailIcon}>🔗</Text>
-                    <Text style={[styles.detail, { color: theme.subtext }]} numberOfLines={1}>
-                      LinkedIn connected
-                    </Text>
-                  </View>
-                </View>
-              </>
+              <View style={styles.statChip}>
+                <Ionicons name="logo-linkedin" size={14} color="#FFF" />
+                <Text style={styles.statText}>LinkedIn</Text>
+              </View>
             )}
-          </LinearGradient>
-        </MotiView>
 
-        <Text style={[styles.helperText, { color: theme.subtext }]}>
-          You can update this information anytime in your profile settings.
-        </Text>
-      </ScrollView>
+            {/* Degree Chip */}
+            <View style={styles.statChip}>
+              <Ionicons name="school" size={14} color="#FFF" />
+              <Text style={styles.statText}>
+                {data.degreeType} {data.major ? `in ${data.major.split(' ')[0]}` : ''}
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
       </MotiView>
 
-      {/* Fixed Navigation Button - Outside MotiView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
-        <TouchableOpacity onPress={onNext} activeOpacity={0.8} style={styles.buttonWrapper}>
-          <LinearGradient
-            colors={GRADIENTS.accentButton}
-            style={styles.confirmButton}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.confirmButtonText}>Confirm & Launch 🚀</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      {/* FOOTER */}
+      <MotiView
+        from={{ translateY: 50, opacity: 0 }}
+        animate={{ translateY: 0, opacity: 1 }}
+        transition={{ delay: 300 }}
+        style={[styles.buttonContainer, { paddingBottom: insets.bottom + SPACING.md }]}
+      >
+        <HoldToConfirmButton onComplete={onNext} />
+      </MotiView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
+  outerContainer: { flex: 1 },
+  container: { flex: 1, width: '100%', maxWidth: 448, alignSelf: 'center' },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: SPACING.lg, paddingBottom: 60 },
+
+  header: { marginBottom: SPACING.xl, alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+  subtitle: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
+
+  cardContainer: { alignItems: 'center', marginBottom: SPACING.xl },
+  summaryCard: {
     width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  buttonContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    backgroundColor: 'transparent',
-  },
-  buttonWrapper: {
-    width: '100%',
-  },
-  header: {
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    ...TYPOGRAPHY.title,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
-  // Hero digital ID badge card
-  heroCard: {
-    borderWidth: 2,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginBottom: SPACING.lg,
     alignItems: 'center',
-    ...SHADOWS.large,
+    padding: 24,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(30, 41, 59, 0.3)',
   },
-  // Profile photo with gradient ring
-  photoContainer: {
-    marginBottom: SPACING.lg,
-  },
-  photoRing: {
-    width: 120,
-    height: 120,
-    borderRadius: RADIUS.full,
-    padding: 4,
+  profileHalo: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
   },
   profileImage: {
-    width: 112,
-    height: 112,
-    borderRadius: RADIUS.full,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#000',
   },
-  placeholderImage: {
-    width: 112,
-    height: 112,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    fontSize: 36,
+  summaryName: {
+    fontSize: 22,
     fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 4,
   },
-  // Identity section
-  identitySection: {
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  fullName: {
-    ...TYPOGRAPHY.headline,
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
-  },
-  professionalRole: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  mentorBadge: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.sm,
-  },
-  mentorBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#B8860B',
-  },
-  education: {
+  summaryDetails: {
     fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginVertical: SPACING.md,
-  },
-  section: {
-    width: '100%',
-    marginBottom: SPACING.sm,
-  },
-  sectionTitle: {
-    fontSize: 15,
+    color: '#94A3B8',
     fontWeight: '600',
-    marginBottom: SPACING.sm,
   },
-  // Interest chips (small pills)
-  interestsContainer: {
+  roleText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  summaryBio: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+
+  statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
+    gap: 8,
+    justifyContent: 'center',
   },
-  interestChip: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-  },
-  interestText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  // Additional info rows
-  detailRow: {
+  statChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  detailIcon: {
-    fontSize: 16,
-    marginRight: SPACING.sm,
-  },
-  detail: {
-    fontSize: 14,
-    flex: 1,
-  },
-  bioPreview: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: SPACING.xs,
-  },
-  // Buttons
-  confirmButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
+  statText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
+
+  // Mentor Badge - Highlighted with white glow
+  mentorBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  mentorBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
-  helperText: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
+
+  buttonContainer: { paddingHorizontal: SPACING.lg },
 });

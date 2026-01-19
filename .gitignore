@@ -3,7 +3,6 @@ supabase/.temp
 
 # Node modules (for Supabase CLI)
 node_modules/
-package-lock.json
 
 # Environment variables
 .env

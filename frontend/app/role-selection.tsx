@@ -1,350 +1,279 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  useColorScheme,
   Pressable,
-  Animated,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, SHADOWS } from '@/constants/colors';
-import { LEGAL_URLS } from '@/constants/legal';
+import { SHPE_COLORS, RADIUS } from '@/constants/colors';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { MotiView } from 'moti';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AnimatedGridBackground } from '@/components/auth/AnimatedGridBackground';
 
-type Role = 'student' | 'alumni' | 'guest' | null;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+type Role = 'student' | 'alumni' | 'guest';
+
+interface RoleOptionProps {
+  id: Role;
+  title: string;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  accentColor: string;
+  isSelected: boolean;
+  isAnySelected: boolean;
+  onSelect: (role: Role) => void;
+}
+
+const RoleCard = ({
+  id,
+  title,
+  subtitle,
+  icon,
+  accentColor,
+  isSelected,
+  isAnySelected,
+  onSelect,
+}: RoleOptionProps) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const targetScale = isSelected ? 1.05 : isAnySelected ? 0.95 : 1;
+    const targetOpacity = isAnySelected && !isSelected ? 0.3 : 1;
+
+    return {
+      transform: [{ scale: withSpring(scale.value * targetScale) }],
+      opacity: withTiming(targetOpacity, { duration: 400 }),
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[styles.cardContainer, animatedStyle]}
+    >
+      <Pressable
+        onPressIn={() => !isAnySelected && (scale.value = 0.97)}
+        onPressOut={() => (scale.value = 1)}
+        onPress={() => !isAnySelected && onSelect(id)}
+        style={styles.pressable}
+      >
+        <View style={[styles.glassBackground, isSelected && { borderColor: accentColor, borderWidth: 1 }]}>
+          {isSelected && (
+            <View style={StyleSheet.absoluteFill}>
+              <LinearGradient
+                // FIX: Opacity moved into the color hex/rgba string
+                colors={[`${accentColor}33`, 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </View>
+          )}
+
+          <View style={[styles.iconContainer, { backgroundColor: isSelected ? accentColor : 'rgba(255,255,255,0.08)' }]}>
+            <Ionicons
+              name={icon}
+              size={28}
+              color={isSelected ? '#FFF' : accentColor}
+            />
+          </View>
+
+          <View style={styles.textContainer}>
+            <Text style={styles.cardTitle}>{title}</Text>
+            <Text style={styles.cardSubtitle}>{subtitle}</Text>
+          </View>
+
+          <View style={styles.actionIcon}>
+            {isSelected ? (
+              <Ionicons name="checkmark-circle" size={24} color={accentColor} />
+            ) : (
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+            )}
+          </View>
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+};
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const { user, updateUserMetadata } = useAuth();
-  const [selectedRole, setSelectedRole] = useState<Role>(null);
+  const insets = useSafeAreaInsets();
+  const { user, updateUserMetadata, signOut, isLoading: authLoading } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
-  // Animated scale values for cards
-  const [studentScale] = useState(new Animated.Value(1));
-  const [alumniScale] = useState(new Animated.Value(1));
-  const [guestScale] = useState(new Animated.Value(1));
+  // Reset state on mount to prevent "glitchy" returns
+  useEffect(() => {
+    setSelectedRole(null);
+    setIsProcessing(false);
+  }, []);
 
-  const handleCardPress = (role: 'student' | 'alumni' | 'guest', scaleValue: Animated.Value) => {
-    // Trigger haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
 
-    // Animate scale down
-    Animated.sequence([
-      Animated.timing(scaleValue, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleValue, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    return () => clearTimeout(timer);
+  }, []);
 
-    // Set selection and navigate after animation
+  const handleBack = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await signOut();
+    // AuthGuard will handle the redirect, but we can also help it along
+    router.replace('/(auth)/welcome');
+  };
+
+  const handleSelect = useCallback(async (role: Role) => {
+    if (isProcessing || !user) return;
+
+    setIsProcessing(true);
     setSelectedRole(role);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    setTimeout(async () => {
-      // Update user metadata with selected role
-      if (user) {
-        await updateUserMetadata({ user_type: role });
-      }
+    try {
+      await updateUserMetadata({ user_type: role });
 
-      // Navigate to appropriate onboarding flow
-      if (role === 'student') {
-        router.replace('/onboarding');
-      } else if (role === 'alumni') {
-        router.replace('/alumni-onboarding');
-      } else if (role === 'guest') {
-        router.replace('/guest-onboarding');
-      }
-    }, 200);
-  };
+      setTimeout(() => {
+        const routes = {
+          student: '/onboarding',
+          alumni: '/alumni-onboarding',
+          guest: '/guest-onboarding',
+        };
 
-  // Dynamic colors
-  const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
-    cardBackground: isDark ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.9)',
-    cardBorder: isDark ? 'rgba(51, 65, 85, 0.5)' : 'rgba(229, 231, 235, 0.5)',
-    studentAccent: SHPE_COLORS.sunsetOrange,
-    alumniAccent: isDark ? '#14B8A6' : '#0D9488', // Teal
-    guestAccent: isDark ? '#8B5CF6' : '#7C3AED', // Purple
-  };
+        router.replace(routes[role] as any);
+      }, 800);
+    } catch (error) {
+      console.error('Role selection error:', error);
+      setSelectedRole(null);
+      setIsProcessing(false);
+    }
+  }, [user, updateUserMetadata, router, isProcessing]);
+
+  if (!isReady || authLoading) {
+    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
+  }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-      <View style={styles.container}>
-        {/* Header Section - Upper 1/3 */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>
-            Welcome to the Familia!
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            To give you the best experience, tell us which path describes you.
-          </Text>
-        </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-        {/* Cards Section - Lower 2/3 */}
-        <View style={styles.cardsContainer}>
-          {/* Student Card */}
-          <Animated.View
-            style={[
-              { transform: [{ scale: studentScale }] },
-              selectedRole && selectedRole !== 'student' && styles.dimmedCard,
-            ]}
-          >
-            <Pressable
-              onPress={() => handleCardPress('student', studentScale)}
-              style={styles.cardWrapper}
-              accessibilityLabel="Select Current Student"
-              accessibilityRole="button"
-            >
-              <LinearGradient
-                colors={
-                  selectedRole === 'student'
-                    ? [`${colors.studentAccent}18`, 'transparent']
-                    : [`${colors.studentAccent}08`, 'transparent']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientGlow}
-              >
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: colors.cardBackground,
-                      borderColor: selectedRole === 'student' ? colors.studentAccent : colors.cardBorder,
-                      borderWidth: 2,
-                    },
-                    selectedRole === 'student' && SHADOWS.medium,
-                  ]}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.studentAccent}20` }]}>
-                    <Ionicons name="school" size={32} color={colors.studentAccent} />
-                  </View>
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>Current Student</Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      I am an undergrad or grad student at NJIT.
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+      {/* Back Button */}
+      <Pressable
+        onPress={handleBack}
+        style={[styles.backButton, { top: insets.top + 10 }]}
+      >
+        <Ionicons name="arrow-back" size={24} color="rgba(255,255,255,0.6)" />
+      </Pressable>
 
-          {/* Alumni Card */}
-          <Animated.View
-            style={[
-              { transform: [{ scale: alumniScale }] },
-              selectedRole && selectedRole !== 'alumni' && styles.dimmedCard,
-            ]}
-          >
-            <Pressable
-              onPress={() => handleCardPress('alumni', alumniScale)}
-              style={styles.cardWrapper}
-              accessibilityLabel="Select Professional or Alumni"
-              accessibilityRole="button"
-            >
-              <LinearGradient
-                colors={
-                  selectedRole === 'alumni'
-                    ? [`${colors.alumniAccent}18`, 'transparent']
-                    : [`${colors.alumniAccent}08`, 'transparent']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientGlow}
-              >
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                      borderColor: selectedRole === 'alumni' ? colors.alumniAccent : 'rgba(148, 163, 184, 0.2)',
-                      borderWidth: 1,
-                    },
-                  ]}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.alumniAccent}20` }]}>
-                    <Ionicons name="briefcase" size={32} color={colors.alumniAccent} />
-                  </View>
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>Professional / Alumni</Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      I am a working professional or SHPE graduate.
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
-
-          {/* External Guest Card */}
-          <Animated.View
-            style={[
-              { transform: [{ scale: guestScale }] },
-              selectedRole && selectedRole !== 'guest' && styles.dimmedCard,
-            ]}
-          >
-            <Pressable
-              onPress={() => handleCardPress('guest', guestScale)}
-              style={styles.cardWrapper}
-              accessibilityLabel="Select External Guest or Visiting Student"
-              accessibilityRole="button"
-            >
-              <LinearGradient
-                colors={
-                  selectedRole === 'guest'
-                    ? [`${colors.guestAccent}18`, 'transparent']
-                    : [`${colors.guestAccent}08`, 'transparent']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientGlow}
-              >
-                <View
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                      borderColor: selectedRole === 'guest' ? colors.guestAccent : 'rgba(148, 163, 184, 0.2)',
-                      borderWidth: 1,
-                    },
-                  ]}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: `${colors.guestAccent}20` }]}>
-                    <Ionicons name="globe-outline" size={32} color={colors.guestAccent} />
-                  </View>
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: colors.text }]}>
-                      External Guest / Visiting Student
-                    </Text>
-                    <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                      I'm visiting from another university or organization.
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
-        </View>
-
-        {/* Legal Text Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.legalText, { color: colors.textSecondary }]}>
-            By continuing, you agree to our{' '}
-            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}>
-              Terms of Use
-            </Text>
-            {' '}and{' '}
-            <Text style={[styles.linkText, { color: SHPE_COLORS.lightBlue }]} onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}>
-              Privacy Policy
-            </Text>
-          </Text>
-        </View>
+      <View style={styles.backgroundLayer}>
+        <AnimatedGridBackground />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000']}
+          style={StyleSheet.absoluteFill}
+        />
       </View>
-    </SafeAreaView>
+
+      <MotiView
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 1000 }}
+        style={styles.contentContainer}
+      >
+        <View style={styles.header}>
+          <Text style={styles.superTitle}>WHO ARE YOU?</Text>
+          <Text style={styles.subTitle}>Choose your path to customize your experience.</Text>
+        </View>
+
+        <View style={styles.listContainer}>
+          <RoleCard
+            id="student"
+            title="Student"
+            subtitle="Undergrad or Graduate at NJIT"
+            icon="school-outline"
+            accentColor={SHPE_COLORS.sunsetOrange}
+            isSelected={selectedRole === 'student'}
+            isAnySelected={selectedRole !== null}
+            onSelect={handleSelect}
+          />
+          <RoleCard
+            id="alumni"
+            title="Alumni"
+            subtitle="Working professional or graduate"
+            icon="briefcase-outline"
+            accentColor="#0D9488"
+            isSelected={selectedRole === 'alumni'}
+            isAnySelected={selectedRole !== null}
+            onSelect={handleSelect}
+          />
+          <RoleCard
+            id="guest"
+            title="Guest"
+            subtitle="Visiting from another org"
+            icon="earth-outline"
+            accentColor="#7C3AED"
+            isSelected={selectedRole === 'guest'}
+            isAnySelected={selectedRole !== null}
+            onSelect={handleSelect}
+          />
+        </View>
+
+        {isProcessing && (
+          <MotiView
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={styles.loadingWrapper}
+          >
+            <Text style={styles.loadingText}>PREPARING YOUR EXPERIENCE...</Text>
+          </MotiView>
+        )}
+      </MotiView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: '#000' },
+  backgroundLayer: { ...StyleSheet.absoluteFillObject, opacity: 0.6 },
+  contentContainer: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
+  header: { marginBottom: 40 },
+  superTitle: { fontSize: 12, fontWeight: '900', color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 8 },
+  subTitle: { fontSize: 32, fontWeight: '700', color: '#FFF', lineHeight: 38 },
+  listContainer: { gap: 16 },
+  cardContainer: { width: '100%' },
+  pressable: { borderRadius: 24, overflow: 'hidden' },
+  glassBackground: {
+    flexDirection: 'row', alignItems: 'center', padding: 20,
+    backgroundColor: 'rgba(30, 30, 30, 0.6)', borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)', borderRadius: 24,
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-  },
-  header: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 16,
-  },
-  cardsContainer: {
-    flex: 2,
-    justifyContent: 'center',
-    gap: 20,
-  },
-  cardWrapper: {
-    width: '100%',
-  },
-  gradientGlow: {
-    borderRadius: 16,
-    padding: 2,
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  dimmedCard: {
-    opacity: 0.5,
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  cardContent: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  footer: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  legalText: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  linkText: {
-    fontWeight: '600',
+  iconContainer: { width: 52, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  textContainer: { flex: 1 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: '#FFF', marginBottom: 4 },
+  cardSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
+  actionIcon: { marginLeft: 12 },
+  loadingWrapper: { marginTop: 32, alignItems: 'center' },
+  loadingText: { color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 10,
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
   },
 });
