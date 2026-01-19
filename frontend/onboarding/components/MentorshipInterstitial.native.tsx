@@ -1,63 +1,65 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Modal,
   StyleSheet,
-  useColorScheme,
   Dimensions,
+  Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { MotiView, AnimatePresence } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { Easing } from 'react-native-reanimated';
+import { SPACING, RADIUS } from '@/constants/colors';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const ANIMATION_DURATION = 700;
 
 const MENTORSHIP_WAYS = [
-  { id: 'resume-reviews', label: 'Resume Reviews', icon: '📄' },
-  { id: 'mock-interviews', label: 'Mock Interviews', icon: '🎤' },
-  { id: 'coffee-chats', label: 'Coffee Chats', icon: '☕' },
-  { id: 'company-tours', label: 'Company Tours', icon: '🏢' },
+  { id: 'resume-reviews', label: 'Resume Reviews', icon: 'document-text-outline' },
+  { id: 'mock-interviews', label: 'Mock Interviews', icon: 'mic-outline' },
+  { id: 'coffee-chats', label: 'Coffee Chats', icon: 'cafe-outline' },
+  { id: 'company-tours', label: 'Company Tours', icon: 'business-outline' },
 ];
 
 interface MentorshipInterstitialProps {
   visible: boolean;
   onDecline: () => void;
   onAccept: (selectedWays: string[]) => void;
+  onDismiss: () => void;
 }
 
 export default function MentorshipInterstitial({
   visible,
   onDecline,
   onAccept,
+  onDismiss,
 }: MentorshipInterstitialProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const [expanded, setExpanded] = useState(false);
   const [selectedWays, setSelectedWays] = useState<string[]>([]);
   const [showError, setShowError] = useState(false);
+  const [isMounted, setIsMounted] = useState(visible);
 
-  // Reset state when modal closes
-  const handleModalClose = () => {
-    setExpanded(false);
-    setSelectedWays([]);
-    setShowError(false);
-  };
+  useEffect(() => {
+    if (visible) {
+      setIsMounted(true);
+    }
+  }, [visible]);
 
-  const handleDecline = () => {
-    handleModalClose();
-    onDecline();
-  };
-
-  const handleYes = () => {
-    setExpanded(true);
-    setShowError(false);
-  };
+  useEffect(() => {
+    if (!visible && isMounted) {
+      const timer = setTimeout(() => setIsMounted(false), ANIMATION_DURATION);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [visible, isMounted]);
 
   const handleWayToggle = (wayId: string) => {
+    Haptics.selectionAsync();
     setSelectedWays((prev) =>
       prev.includes(wayId)
         ? prev.filter((id) => id !== wayId)
@@ -69,195 +71,133 @@ export default function MentorshipInterstitial({
   const handleContinue = () => {
     if (selectedWays.length === 0) {
       setShowError(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-    handleModalClose();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onAccept(selectedWays);
   };
 
-  const colors = {
-    background: isDark ? '#001339ff' : '#F7FAFF',
-    surface: isDark ? 'rgba(0, 19, 57, .8)' : '#001339f',
-    text: isDark ? '#F5F8FF' : '#0B1630',
-    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
-    border: isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(11, 22, 48, 0.12)',
-    pill: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.65)',
-    pillActive: SHPE_COLORS.accentBlueBright,
-  };
+  if (!isMounted) return null;
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="none"
-      onRequestClose={handleDecline}
       statusBarTranslucent
+      onRequestClose={onDismiss}
     >
       <View style={styles.modalContainer}>
-        {/* Dimmed Backdrop - Inert (no dismiss on tap) */}
-        <View style={styles.backdrop} pointerEvents="none">
-          <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-        </View>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onDismiss}
+          pointerEvents={visible ? 'auto' : 'none'}
+        >
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
+        </Pressable>
 
-        {/* Bottom Sheet */}
         <AnimatePresence>
           {visible && (
             <MotiView
               from={{ translateY: SCREEN_HEIGHT }}
               animate={{ translateY: 0 }}
               exit={{ translateY: SCREEN_HEIGHT }}
-              transition={{ type: 'timing', duration: 300, damping: 20 }}
-              style={[
-                styles.sheetContainer,
-                {
-                  backgroundColor: colors.surface,
-                  maxHeight: expanded ? SCREEN_HEIGHT * 0.75 : SCREEN_HEIGHT * 0.5,
-                },
-              ]}
+              // REMOVED BOUNCE: Switched to smooth cubic easing
+              transition={{ 
+                type: 'timing', 
+                duration: ANIMATION_DURATION, 
+                easing: Easing.out(Easing.exp) 
+              }}
+              style={styles.sheet}
             >
-              {/* Handle Bar */}
-              <View style={styles.handleContainer}>
-                <View style={[styles.handle, { backgroundColor: colors.border }]} />
-              </View>
+              <View style={styles.handle} />
 
-              {/* Content */}
               <View style={styles.content}>
-                {/* Headline */}
-                <Text style={[styles.headline, { color: colors.text }]}>
-                  Pass the Torch 🔥
+                {/* REWARD BADGE: Shimmering Gold */}
+                <MotiView 
+                  from={{ opacity: 0, translateY: 5 }} 
+                  animate={{ opacity: 1, translateY: 0 }}
+                  transition={{ delay: 300 }}
+                  style={styles.rewardBadge}
+                >
+                  <Ionicons name="medal" size={16} color="#FFD700" />
+                  <Text style={styles.rewardText}>+50 LEGACY POINTS</Text>
+                </MotiView>
+
+                <Text style={styles.headline}>The Legacy Program</Text>
+                <Text style={styles.body}>
+                  Pass the torch to the next generation. Mentors receive exclusive 
+                  badges and priority placement in the networking directory.
                 </Text>
 
-                {/* Body */}
-                <Text style={[styles.body, { color: colors.textSecondary }]}>
-                  Your experience is invaluable. Would you be open to students connecting with you for
-                  advice?
-                </Text>
-
-                {/* Initial Buttons (when not expanded) */}
-                {!expanded && (
+                {!expanded ? (
                   <View style={styles.buttonGroup}>
-                    {/* Primary Button */}
                     <TouchableOpacity
-                      onPress={handleYes}
-                      activeOpacity={0.8}
-                      style={styles.primaryButtonWrapper}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                        setExpanded(true);
+                      }}
+                      activeOpacity={0.9}
                     >
                       <LinearGradient
-                        colors={GRADIENTS.accentButton}
+                        colors={['#FFFFFF', '#E2E8F0']}
                         style={styles.primaryButton}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       >
-                        <Text style={styles.primaryButtonText}>Yes, count me in!</Text>
+                        <Text style={styles.primaryButtonText}>Be a Mentor</Text>
                       </LinearGradient>
                     </TouchableOpacity>
 
-                    {/* Secondary Button */}
-                    <TouchableOpacity
-                      onPress={handleDecline}
-                      activeOpacity={0.7}
-                      style={styles.secondaryButton}
-                    >
-                      <Text style={[styles.secondaryButtonText, { color: colors.textSecondary }]}>
-                        Maybe later
-                      </Text>
+                    <TouchableOpacity onPress={onDecline} style={styles.secondaryButton}>
+                      <Text style={styles.secondaryButtonText}>Enroll later</Text>
                     </TouchableOpacity>
                   </View>
-                )}
-
-                {/* Expanded Content */}
-                <AnimatePresence>
-                  {expanded && (
-                    <MotiView
-                      from={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ type: 'timing', duration: 300 }}
-                    >
-                      {/* Expanded Headline */}
-                      <Text style={[styles.expandedHeadline, { color: colors.text }]}>
-                        Great! How would you like to help?
-                      </Text>
-
-                      {/* Error Message */}
-                      {showError && (
-                        <MotiView
-                          from={{ opacity: 0, translateY: -10 }}
-                          animate={{ opacity: 1, translateY: 0 }}
-                          style={[
-                            styles.errorContainer,
-                            {
-                              backgroundColor: isDark
-                                ? 'rgba(220, 38, 38, 0.15)'
-                                : '#FEE2E2',
-                              borderColor: isDark ? '#7F1D1D' : '#FCA5A5',
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.errorText,
-                              { color: isDark ? '#FCA5A5' : '#991B1B' },
-                            ]}
+                ) : (
+                  <MotiView 
+                    from={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }}
+                    transition={{ type: 'timing', duration: 300 }}
+                  >
+                    <Text style={styles.subHeadline}>Ways you can help</Text>
+                    
+                    <View style={styles.grid}>
+                      {MENTORSHIP_WAYS.map((way) => {
+                        const isSelected = selectedWays.includes(way.id);
+                        return (
+                          <TouchableOpacity
+                            key={way.id}
+                            onPress={() => handleWayToggle(way.id)}
+                            style={[styles.glassChip, isSelected && styles.selectedChip]}
                           >
-                            ⚠️ Please select at least one option
-                          </Text>
-                        </MotiView>
-                      )}
+                            <Ionicons 
+                              name={way.icon as any} 
+                              size={18} 
+                              color={isSelected ? '#000' : '#FFF'} 
+                            />
+                            <Text style={[styles.chipText, isSelected && styles.selectedChipText]}>
+                              {way.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-                      {/* Mentorship Chips */}
-                      <View style={styles.chipsContainer}>
-                        {MENTORSHIP_WAYS.map((way) => {
-                          const isSelected = selectedWays.includes(way.id);
-                          return (
-                            <TouchableOpacity
-                              key={way.id}
-                              onPress={() => handleWayToggle(way.id)}
-                              style={[
-                                styles.chip,
-                                {
-                                  backgroundColor: colors.pill,
-                                  borderColor: colors.border,
-                                },
-                                isSelected && {
-                                  backgroundColor: colors.pillActive,
-                                  borderColor: colors.pillActive,
-                                },
-                              ]}
-                            >
-                              <Text style={styles.chipIcon}>{way.icon}</Text>
-                              <Text
-                                style={[
-                                  styles.chipText,
-                                  { color: colors.text },
-                                  isSelected && styles.chipTextActive,
-                                ]}
-                              >
-                                {way.label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
+                    {showError && (
+                      <Text style={styles.errorText}>Select at least one area of impact</Text>
+                    )}
 
-                      {/* Continue Button */}
-                      <TouchableOpacity
-                        onPress={handleContinue}
-                        activeOpacity={0.8}
-                        style={styles.continueButtonWrapper}
+                    <TouchableOpacity onPress={handleContinue} activeOpacity={0.9}>
+                      <LinearGradient
+                        colors={['#FFD700', '#B8860B']}
+                        style={styles.continueButton}
                       >
-                        <LinearGradient
-                          colors={GRADIENTS.accentButton}
-                          style={styles.continueButton}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                        >
-                          <Text style={styles.continueButtonText}>Continue</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </MotiView>
-                  )}
-                </AnimatePresence>
+                        <Text style={styles.primaryButtonText}>Confirm Status</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </MotiView>
+                )}
               </View>
             </MotiView>
           )}
@@ -268,128 +208,101 @@ export default function MentorshipInterstitial({
 }
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  sheetContainer: {
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    paddingBottom: SPACING.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 16,
-  },
-  handleContainer: {
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#000',
+    borderTopLeftRadius: RADIUS.xl * 1.5,
+    borderTopRightRadius: RADIUS.xl * 1.5,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
   },
-  content: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
+  content: { padding: SPACING.xl },
+  rewardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    gap: 8,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+  },
+  rewardText: {
+    color: '#FFD700',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.2,
   },
   headline: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: SPACING.md,
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#FFF',
     textAlign: 'center',
+    letterSpacing: -0.8,
   },
   body: {
     fontSize: 16,
+    color: 'rgba(255,255,255,0.45)',
+    textAlign: 'center',
     lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: SPACING.xl,
+    marginTop: 14,
+    marginBottom: 40,
   },
-  buttonGroup: {
-    gap: SPACING.md,
-  },
-  primaryButtonWrapper: {
-    width: '100%',
-  },
-  primaryButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  secondaryButton: {
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  expandedHeadline: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  errorContainer: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: SPACING.lg,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    gap: 8,
-  },
-  chipIcon: {
-    fontSize: 16,
-  },
-  chipText: {
+  subHeadline: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '900',
+    color: 'rgba(255,255,255,0.3)',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 24,
+    textAlign: 'center',
   },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  continueButtonWrapper: {
-    width: '100%',
-    marginTop: SPACING.sm,
-  },
-  continueButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
+  buttonGroup: { gap: 16 },
+  primaryButton: {
+    height: 56,
+    borderRadius: RADIUS.full,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  continueButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  primaryButtonText: { color: '#000', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+  secondaryButton: { height: 50, alignItems: 'center', justifyContent: 'center' },
+  secondaryButtonText: { color: 'rgba(255,255,255,0.25)', fontSize: 16, fontWeight: '700' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 32 },
+  glassChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: RADIUS.xl,
+    gap: 10,
   },
+  selectedChip: { backgroundColor: '#FFF', borderColor: '#FFF' },
+  chipText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  selectedChipText: { color: '#000' },
+  continueButton: {
+    height: 64,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    shadowColor: '#FFD700',
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+  },
+  errorText: { color: '#FF453A', textAlign: 'center', marginBottom: 20, fontSize: 12, fontWeight: '800' },
 });

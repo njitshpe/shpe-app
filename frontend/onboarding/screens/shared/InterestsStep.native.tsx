@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
-  Alert,
   View,
   Text,
   TextInput,
@@ -8,41 +7,41 @@ import {
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { z } from 'zod';
 import * as Notifications from 'expo-notifications';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  interpolateColor,
+  Easing,
+  cancelAnimation,
+  useDerivedValue,
+} from 'react-native-reanimated';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GRADIENTS, SHPE_COLORS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
+import { GRADIENTS, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/colors';
+import { INTERESTS_LIST } from '@/constants/interests';
 
-const INTEREST_OPTIONS = [
-  { id: 'internships', label: 'Internships 💼' },
-  { id: 'scholarships', label: 'Scholarships 🎓' },
-  { id: 'resume-help', label: 'Resume Help 📄' },
-  { id: 'mental-health', label: 'Mental Health 💙' },
-  { id: 'networking', label: 'Networking 🤝' },
-  { id: 'leadership', label: 'Leadership 🌟' },
-  { id: 'career-fairs', label: 'Career Fairs 🧭' },
-  { id: 'community-service', label: 'Community Service 🤲' },
-];
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Derive rows dynamically from the Single Source of Truth
+const ROW_1 = INTERESTS_LIST.slice(0, 4);
+const ROW_2 = INTERESTS_LIST.slice(4, 8);
+const ROW_3 = INTERESTS_LIST.slice(8, 12);
 
 const interestsSchema = z.object({
-  interests: z
-    .array(z.string())
-    .min(1, 'Select at least 1 interest')
-    .max(3, 'Select up to 3 interests'),
-  phoneNumber: z
-    .string()
-    .trim()
-    .regex(/^\d{10}$/, 'Phone number must be exactly 10 digits')
-    .optional()
-    .or(z.literal('')),
+  interests: z.array(z.string()).min(1, 'Select at least 1 interest'),
+  phoneNumber: z.string().trim().regex(/^\d{10}$/).optional().or(z.literal('')),
 });
 
 export interface FormData {
@@ -56,389 +55,321 @@ interface InterestsStepProps {
   onNext: () => void;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT: Snappy Bubble (No Bounce, Just Fade)
+// ─────────────────────────────────────────────────────────────────────────────
+function InterestBubble({ label, isSelected, onPress }: { label: string, isSelected: boolean, onPress: () => void }) {
+  // Use derived value for extremely responsive updates (no waiting for spring to settle)
+  const progress = useDerivedValue(() => {
+    return withTiming(isSelected ? 1 : 0, { duration: 150, easing: Easing.out(Easing.quad) });
+  });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['rgba(255, 255, 255, 0.05)', '#FFFFFF']
+      ),
+      borderColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['rgba(255, 255, 255, 0.1)', '#FFFFFF']
+      ),
+      transform: [{ scale: withTiming(isSelected ? 1.05 : 1, { duration: 150 }) }]
+    };
+  });
+
+  const textStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 1],
+      ['#94A3B8', '#000000']
+    ),
+  }));
+
+  return (
+    <Animated.View style={[bubbleStyles.wrapper, animatedStyle]}>
+      <Pressable 
+        onPress={() => {
+          Haptics.selectionAsync();
+          onPress();
+        }}
+        style={bubbleStyles.pressable}
+      >
+        <Animated.Text style={[bubbleStyles.label, textStyle]}>
+          {label}
+        </Animated.Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const bubbleStyles = StyleSheet.create({
+  wrapper: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    marginHorizontal: 6, // Spacing between bubbles in the stream
+    overflow: 'hidden',
+  },
+  pressable: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT: Marquee Row (Infinite Scroll)
+// ─────────────────────────────────────────────────────────────────────────────
+function MarqueeRow({ items, selectedIds, onToggle, speed = 20000, direction = 'left' }: any) {
+  const translateX = useSharedValue(0);
+  
+  // Create a looped list (A + A) to fake infinity
+  const list = [...items, ...items, ...items]; 
+
+  useEffect(() => {
+    const toValue = direction === 'left' ? -1000 : 1000; // Arbitrary large distance
+    
+    translateX.value = withRepeat(
+      withTiming(toValue, { duration: speed, easing: Easing.linear }),
+      -1, // Infinite
+      false // No reverse
+    );
+    
+    return () => cancelAnimation(translateX);
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }]
+  }));
+
+  return (
+    <View style={marqueeStyles.rowContainer}>
+      <Animated.View style={[marqueeStyles.row, animatedStyle]}>
+        {list.map((item: any, index: number) => (
+          <InterestBubble
+            key={`${item.id}-${index}`}
+            label={item.label}
+            isSelected={selectedIds.includes(item.id)}
+            onPress={() => onToggle(item.id)}
+          />
+        ))}
+      </Animated.View>
+    </View>
+  );
+}
+
+const marqueeStyles = StyleSheet.create({
+  rowContainer: {
+    height: 60, // Fixed height for row
+    width: '100%',
+    overflow: 'hidden', // Clip the overflow
+    justifyContent: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute', // Allows free movement
+    left: 0, 
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export default function InterestsStep({ data, update, onNext }: InterestsStepProps) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [error, setError] = useState<string | null>(null);
-  const [maxLimitWarning, setMaxLimitWarning] = useState(false);
   const [focusedInput, setFocusedInput] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  const handleToggleInterest = (interestId: string) => {
-    const currentInterests = data.interests ?? [];
-    const isSelected = currentInterests.includes(interestId);
+  const selectedIds = data.interests ?? [];
+  const selectedCount = selectedIds.length;
 
-    if (isSelected) {
-      // Remove interest
-      const updatedInterests = currentInterests.filter((id) => id !== interestId);
-      update({ interests: updatedInterests });
-      setError(null);
-      setMaxLimitWarning(false);
-    } else {
-      // Add interest (with max 3 validation)
-      if (currentInterests.length >= 3) {
-        setMaxLimitWarning(true);
-        setTimeout(() => setMaxLimitWarning(false), 3000);
-        return;
-      }
-      const updatedInterests = [...currentInterests, interestId];
-      update({ interests: updatedInterests });
-      setError(null);
-      setMaxLimitWarning(false);
-    }
-  };
-
-  const handlePhoneChange = (value: string) => {
-    // Only allow digits
-    const cleaned = value.replace(/\D/g, '');
-    update({ phoneNumber: cleaned });
+  const handleToggleInterest = useCallback((interestId: string) => {
+    const isSelected = selectedIds.includes(interestId);
+    const updated = isSelected
+      ? selectedIds.filter((id) => id !== interestId)
+      : [...selectedIds, interestId];
+    
+    update({ interests: updated });
     setError(null);
-  };
-
-  // Format phone number for display (e.g., 1234567890 -> (123) 456-7890)
-  const formatPhoneDisplay = (phone: string) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  };
+  }, [selectedIds, update]);
 
   const handleNext = async () => {
-    const payload = {
-      interests: data.interests ?? [],
-      phoneNumber: data.phoneNumber?.trim() ?? '',
-    };
+    if (isNavigating) return;
 
-    const result = interestsSchema.safeParse(payload);
-    if (!result.success) {
-      setError(result.error.issues[0]?.message ?? 'Please check your inputs.');
+    if (selectedIds.length === 0) {
+      setError('Please select at least 1 interest.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
 
+    setIsNavigating(true);
     setError(null);
 
-    // Request notification permission (only prompts if status is undetermined)
+    // Request notification permissions (OS will show prompt if not yet determined)
     try {
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') {
-        const { status: nextStatus } = await Notifications.requestPermissionsAsync({
-          ios: {
-            allowAlert: true,
-            allowBadge: true,
-            allowSound: true,
-          },
-        });
-
-        if (nextStatus !== 'granted') {
-          Alert.alert(
-            'Enable Notifications',
-            'You can turn on notifications later in Settings.',
-            [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
-            ]
-          );
-        }
-      }
-    } catch (err) {
-      console.error('Notification permission error:', err);
-      // Continue anyway
+      await Notifications.requestPermissionsAsync();
+    } catch {
+      // Permission request failed or was dismissed - continue anyway
     }
 
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onNext();
+    setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  const isNextDisabled = !data.interests || data.interests.length === 0;
+  const isNextDisabled = selectedCount === 0;
 
   return (
     <View style={styles.outerContainer}>
-      <MotiView
-        from={{ translateX: 50, opacity: 0 }}
-        animate={{ translateX: 0, opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
-        style={styles.container}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.text }]}>What interests you?</Text>
-            <Text style={[styles.subtitle, { color: theme.subtext }]}>
-              Select up to 3 areas of interest.
-            </Text>
-          </View>
+          <MotiView 
+            from={{ opacity: 0, translateY: 10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            style={styles.header}
+          >
+            <Text style={styles.title}>YOUR INTERESTS</Text>
+            <Text style={styles.subtitle}>Select what matters to you.</Text>
+          </MotiView>
 
-          {/* Error Message */}
-          {error ? (
-            <MotiView
-              from={{ opacity: 0, translateY: -10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              style={[
-                styles.errorContainer,
-                { backgroundColor: isDark ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2', borderColor: isDark ? '#7F1D1D' : '#FCA5A5' },
-              ]}
-            >
-              <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>⚠️ {error}</Text>
-            </MotiView>
-          ) : null}
+          {error && <Text style={styles.errorText}>{error}</Text>}
 
-          {/* Max Limit Warning */}
-          {maxLimitWarning ? (
-            <MotiView
-              from={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              style={[
-                styles.warningContainer,
-                { backgroundColor: isDark ? 'rgba(251, 191, 36, 0.15)' : '#FEF3C7', borderColor: isDark ? '#92400E' : '#FCD34D' },
-              ]}
-            >
-              <Text style={[styles.warningText, { color: isDark ? '#FCD34D' : '#92400E' }]}>
-                ⚠️ You can select up to 3 interests maximum.
-              </Text>
-            </MotiView>
-          ) : null}
+          {/* MARQUEE STREAM ZONE */}
+          <MotiView 
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 100 }}
+            style={styles.streamZone}
+          >
+            {/* Row 1: Slow Left */}
+            <MarqueeRow 
+              items={ROW_1} 
+              selectedIds={selectedIds} 
+              onToggle={handleToggleInterest} 
+              speed={24000} 
+              direction="left" 
+            />
+            
+            {/* Row 2: Medium Left (Offset speed makes it look organic) */}
+            <MarqueeRow 
+              items={ROW_2} 
+              selectedIds={selectedIds} 
+              onToggle={handleToggleInterest} 
+              speed={29000} 
+              direction="left" 
+            />
 
-          {/* Interest Pills - Instagram Story Style */}
-          <View style={styles.grid}>
-            {INTEREST_OPTIONS.map((interest) => {
-              const isActive = (data.interests ?? []).includes(interest.id);
-              return (
-                <Pressable
-                  key={interest.id}
-                  onPress={() => handleToggleInterest(interest.id)}
-                >
-                  <MotiView
-                    animate={{
-                      scale: isActive ? 1 : 0.98,
-                    }}
-                    transition={{
-                      type: 'spring',
-                      damping: 20,
-                      stiffness: 300,
-                    }}
-                  >
-                    {isActive ? (
-                      <LinearGradient
-                        colors={GRADIENTS.accentButton}
-                        style={[styles.interestPill, styles.interestPillActive]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        <Text style={styles.interestTextActive}>
-                          {interest.label}
-                        </Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={[
-                        styles.interestPill,
-                        { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }
-                      ]}>
-                        <Text style={[styles.interestText, { color: theme.subtext }]}>
-                          {interest.label}
-                        </Text>
-                      </View>
-                    )}
-                  </MotiView>
-                </Pressable>
-              );
-            })}
-          </View>
+            {/* Row 3: Slow Left */}
+            <MarqueeRow 
+              items={ROW_3} 
+              selectedIds={selectedIds} 
+              onToggle={handleToggleInterest} 
+              speed={27000} 
+              direction="left" 
+            />
+          </MotiView>
 
-          {/* Phone Number Input (Optional) - Filled Style */}
-          <View style={styles.phoneContainer}>
-            <Text style={[styles.phoneLabel, { color: theme.text }]}>Phone Number (Optional)</Text>
-            <View
-              style={[
-                styles.filledInput,
-                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' },
-              ]}
-            >
-              <Text style={styles.inputIcon}>📱</Text>
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Phone Input */}
+          <View style={styles.phoneSection}>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>PHONE NUMBER</Text>
+              <View style={styles.badge}><Text style={styles.badgeText}>OPTIONAL</Text></View>
+            </View>
+            
+            <View style={[styles.phoneInputContainer, focusedInput && { borderColor: '#FFFFFF', backgroundColor: 'rgba(30, 41, 59, 0.8)' }]}>
+              <Text style={[styles.prefix, focusedInput && { color: '#FFFFFF' }]}>+1</Text>
+              <View style={styles.vertDivider} />
               <TextInput
-                value={formatPhoneDisplay(data.phoneNumber ?? '')}
-                onChangeText={handlePhoneChange}
+                value={data.phoneNumber}
+                onChangeText={(t) => update({ phoneNumber: t.replace(/\D/g, '') })}
                 onFocus={() => setFocusedInput(true)}
                 onBlur={() => setFocusedInput(false)}
                 placeholder="(123) 456-7890"
-                placeholderTextColor={theme.subtext}
+                placeholderTextColor="rgba(255,255,255,0.3)"
                 keyboardType="phone-pad"
-                maxLength={14}
-                style={[styles.inputWithPadding, { color: theme.text }]}
+                style={styles.input}
               />
             </View>
-            <MotiView
-              animate={{
-                width: focusedInput ? '100%' : '0%',
-                backgroundColor: SHPE_COLORS.accentBlueBright,
-              }}
-              transition={{ type: 'timing', duration: 200 }}
-              style={styles.focusIndicator}
-            />
-            <Text style={[styles.helperText, { color: theme.subtext }]}>
-              We'll only use this for important updates.
-            </Text>
+            <Text style={styles.helperText}>Used only for important SHPE updates.</Text>
           </View>
 
         </ScrollView>
-        </KeyboardAvoidingView>
-      </MotiView>
 
-      {/* Fixed Next Button - Outside KeyboardAvoidingView */}
-      <View style={[styles.buttonContainer, { paddingBottom: insets.bottom || SPACING.md }]}>
-        <TouchableOpacity
-          onPress={handleNext}
-          disabled={isNextDisabled}
-          activeOpacity={0.8}
-          style={styles.buttonWrapper}
+        {/* Footer */}
+        <MotiView 
+          from={{ translateY: 50, opacity: 0 }} 
+          animate={{ translateY: 0, opacity: 1 }}
+          style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}
         >
-          <LinearGradient
-            colors={isNextDisabled ? ['#94A3B8', '#64748B'] : GRADIENTS.accentButton}
-            style={[styles.nextButton, isNextDisabled && { opacity: 0.5 }]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Text style={styles.nextButtonText}>Next</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity onPress={handleNext} disabled={isNextDisabled || isNavigating} style={[styles.button, (isNextDisabled || isNavigating) && styles.buttonDisabled]}>
+            <LinearGradient
+              colors={isNextDisabled ? ['#333333', '#1A1A1A'] : ['#FFFFFF', '#E2E8F0']}
+              style={styles.gradientButton}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              <Text style={[styles.buttonText, isNextDisabled && { color: '#666666' }]}>Next Step</Text>
+              <Ionicons name="arrow-forward" size={20} color={isNextDisabled ? '#666666' : '#000000'} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </MotiView>
+
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    flex: 1,
+  outerContainer: { flex: 1 },
+  scrollContent: { paddingBottom: 120 },
+  
+  header: { paddingHorizontal: SPACING.lg, marginTop: SPACING.md, marginBottom: SPACING.md },
+  title: { fontSize: 24, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+  subtitle: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
+
+  errorText: { color: '#FF6B6B', textAlign: 'center', marginBottom: 10, fontSize: 13, fontWeight: '600' },
+
+  streamZone: { marginVertical: SPACING.sm }, // The Marquee Area
+  counterContainer: { alignItems: 'center', marginTop: SPACING.sm },
+  counterText: { color: '#94A3B8', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: SPACING.md, marginHorizontal: SPACING.lg },
+
+  phoneSection: { paddingHorizontal: SPACING.lg },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  label: { fontSize: 11, fontWeight: '700', color: '#64748B', letterSpacing: 1 },
+  badge: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeText: { fontSize: 9, fontWeight: '700', color: '#94A3B8' },
+
+  phoneInputContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: RADIUS.lg, height: 56, overflow: 'hidden'
   },
-  container: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 448,
-    alignSelf: 'center',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  buttonContainer: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    backgroundColor: 'transparent',
-  },
-  buttonWrapper: {
-    width: '100%',
-  },
-  header: {
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    ...TYPOGRAPHY.title,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: 14,
-  },
-  errorContainer: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  errorText: {
-    fontSize: 14,
-  },
-  warningContainer: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  warningText: {
-    fontSize: 14,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  // Rounded pill chips
-  interestPill: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.md + 4,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 120,
-  },
-  interestPillActive: {
-  },
-  interestText: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  interestTextActive: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  nextButton: {
-    borderRadius: RADIUS.lg,
-    paddingVertical: SPACING.md,
-    minHeight: 52,
-    alignItems: 'center',
-  },
-  nextButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  phoneContainer: {
-    marginBottom: SPACING.lg,
-  },
-  phoneLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: SPACING.sm,
-  },
-  filledInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-  },
-  inputIcon: {
-    fontSize: 20,
-    marginRight: SPACING.sm,
-  },
-  inputWithPadding: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    fontSize: 16,
-  },
-  focusIndicator: {
-    height: 2,
-    borderRadius: RADIUS.full,
-    marginTop: 2,
-  },
-  helperText: {
-    fontSize: 12,
-    marginTop: SPACING.sm,
-  },
+  prefix: { paddingHorizontal: 16, fontSize: 16, fontWeight: '600', color: '#94A3B8' },
+  vertDivider: { width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.1)', marginRight: 12 },
+  input: { flex: 1, fontSize: 16, color: '#FFF', height: '100%' },
+  helperText: { fontSize: 12, color: '#64748B', marginTop: 8 },
+
+  footer: { paddingHorizontal: SPACING.lg },
+  button: { borderRadius: RADIUS.full, shadowColor: '#FFFFFF', shadowOpacity: 0.15, shadowRadius: 10, elevation: 4 },
+  buttonDisabled: { shadowOpacity: 0, elevation: 0 },
+  gradientButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8, borderRadius: RADIUS.full },
+  buttonText: { fontSize: 16, fontWeight: '700', color: '#000000', letterSpacing: 0.5 },
 });

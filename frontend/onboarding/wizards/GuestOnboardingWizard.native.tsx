@@ -1,335 +1,239 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { Alert, View, Text, StyleSheet, Keyboard } from 'react-native';
 import { AnimatePresence, MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
+import { SHADOWS, RADIUS } from '@/constants/colors';
+import { InterestType } from '@/types/userProfile';
 import WizardLayout from '../components/WizardLayout.native';
+
+// Screens
 import IdentityStep from '../screens/shared/IdentityStep.native';
-import InterestsStep from '../screens/shared/InterestsStep.native';
+import GuestAffiliationStep from '../screens/guest/GuestAffiliationStep.native'; // NEW
+import GuestIntentStep from '../screens/guest/GuestIntentStep.native';
 import GuestReviewStep from '../screens/guest/GuestReviewStep.native';
 
-const CURRENT_YEAR = new Date().getFullYear();
-const DEFAULT_GRAD_YEAR = String(CURRENT_YEAR);
-
-// Guest-specific FormData interface (simplified)
-interface GuestOnboardingFormData {
-  // Step 0: Identity
+interface GuestFormData {
   firstName: string;
   lastName: string;
   university: string;
   major: string;
   graduationYear: string;
   profilePhoto: ImagePicker.ImagePickerAsset | null;
-  // Step 1: Interests
-  interests: string[];
-  phoneNumber: string;
+  intent: string;
 }
 
 export default function GuestOnboardingWizard() {
   const router = useRouter();
-  const { user, updateUserMetadata, loadProfile } = useAuth();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { user, updateUserMetadata } = useAuth();
   const confettiRef = useRef<ConfettiCannon>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
-  const [formData, setFormData] = useState<GuestOnboardingFormData>({
-    // Step 0: Identity
+  const [loadingMessage, setLoadingMessage] = useState('Creating Guest Pass...');
+
+  const [formData, setFormData] = useState<GuestFormData>({
     firstName: '',
     lastName: '',
     university: '',
     major: '',
-    graduationYear: DEFAULT_GRAD_YEAR,
+    graduationYear: new Date().getFullYear().toString(),
     profilePhoto: null,
-    // Step 1: Interests
-    interests: [],
-    phoneNumber: '',
+    intent: '',
   });
-
-  // Helper function to merge partial data into main state
-  const updateFormData = (fields: Partial<GuestOnboardingFormData>) => {
-    setFormData((prev) => ({ ...prev, ...fields }));
-  };
 
   useEffect(() => {
     if (!user) return;
-    const userType = user.user_metadata?.user_type;
-    if (!userType) {
+    if (user.user_metadata?.user_type !== 'guest') {
       router.replace('/role-selection');
-      return;
-    }
-    if (userType !== 'guest') {
-      const fallback =
-        userType === 'student'
-          ? '/onboarding'
-          : userType === 'alumni'
-            ? '/alumni-onboarding'
-            : '/role-selection';
-      router.replace(fallback);
     }
   }, [user, router]);
 
-  // Navigation helpers
+  const updateFormData = (fields: Partial<GuestFormData>) => {
+    setFormData((prev) => ({ ...prev, ...fields }));
+  };
+
+  const TOTAL_STEPS = 4; // Increased to 4
+
   const nextStep = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 2)); // 3 steps (0-2)
+    Keyboard.dismiss();
+    Haptics.selectionAsync();
+    setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
   };
 
   const prevStep = () => {
+    Keyboard.dismiss();
+    Haptics.selectionAsync();
     setCurrentStep((prev) => Math.max(prev - 1, 0));
   };
 
-  // Handle back button press
   const handleBack = async () => {
     if (currentStep === 0) {
-      // Exit to role selection (clear user_type first)
-      try {
-        await updateUserMetadata({ user_type: null });
-        router.replace('/role-selection');
-      } catch (error) {
-        console.error('Failed to clear user type:', error);
-        Alert.alert('Error', 'Unable to exit onboarding. Please try again.');
-      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        'Exit Setup?',
+        'You need a profile to continue.',
+        [
+          { text: 'Stay', style: 'cancel' },
+          { 
+            text: 'Exit', 
+            style: 'destructive', 
+            onPress: async () => {
+              await updateUserMetadata({ user_type: null });
+              router.replace('/role-selection');
+            } 
+          }
+        ]
+      );
     } else {
-      // Go to previous step
       prevStep();
     }
   };
 
-  // Check if user has entered any data
-  const hasFormData = () => {
-    return (
-      formData.firstName.trim() !== '' ||
-      formData.lastName.trim() !== '' ||
-      formData.university.trim() !== '' ||
-      formData.profilePhoto !== null
-    );
-  };
-
-  // Handle badge celebration completion
-  const handleBadgeCelebrationComplete = () => {
-    setShowBadgeCelebration(false);
-    // Fire confetti
-    confettiRef.current?.start();
-    // Redirect to dashboard/home
-    setTimeout(() => {
-      router.replace('/(tabs)/home');
-    }, 1500);
-  };
-
-  // Handle wizard completion
   const handleFinish = async () => {
-    if (!user) {
-      Alert.alert('Error', 'No user found. Please sign in again.');
-      return;
-    }
+    if (!user) return;
 
     setIsSaving(true);
+    setLoadingMessage("Generating Guest ID...");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
       let profilePictureUrl: string | undefined;
-
-      // Upload profile photo if provided
+      
       if (formData.profilePhoto) {
-        const uploadResult = await storageService.uploadProfilePhoto(
-          user.id,
-          formData.profilePhoto
-        );
-
-        if (uploadResult.success) {
-          profilePictureUrl = uploadResult.data.url;
-        } else {
-          Alert.alert(
-            'Photo Upload Failed',
-            'Your profile photo could not be uploaded. You can add it later in settings.',
-            [{ text: 'OK' }]
-          );
-        }
+        setLoadingMessage("Uploading photo...");
+        const uploadResult = await storageService.uploadProfilePhoto(user.id, formData.profilePhoto);
+        if (uploadResult.success) profilePictureUrl = uploadResult.data.url;
       }
 
-      // Map interests from IDs to the format expected by the database
-      const interestMap: Record<string, any> = {
-        'internships': 'career',
-        'scholarships': 'career',
-        'resume-help': 'career',
-        'mental-health': 'workshops',
-        'networking': 'networking',
-        'leadership': 'workshops',
-        'career-fairs': 'career',
-        'community-service': 'volunteering',
-      };
+      setLoadingMessage("Finalizing...");
 
-      const mappedInterests = formData.interests
-        .map(id => interestMap[id])
-        .filter((val, idx, arr) => arr.indexOf(val) === idx); // Remove duplicates
-
-      // Create profile data object for guest
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         university: formData.university.trim(),
         major: formData.major.trim(),
-        graduation_year: parseInt(formData.graduationYear, 10),
-        bio: '',
-        interests: mappedInterests,
-        phone_number: formData.phoneNumber?.trim() || undefined,
+        graduation_year: parseInt(formData.graduationYear, 10) || 0,
+        interests: [formData.intent] as InterestType[],
         profile_picture_url: profilePictureUrl,
         user_type: 'guest' as const,
+        bio: `Guest: ${formData.intent}`,
       };
 
-      // Try to create the profile (will fail if exists, then we update)
-      let result = await profileService.createProfile(user.id, profileData);
+      // Single clean call using upsert
+      const result = await profileService.createProfile(user.id, profileData);
 
       if (!result.success) {
-        // Profile might already exist, try updating instead
-        result = await profileService.updateProfile(user.id, profileData);
-      }
-
-      if (!result.success) {
-        console.error('Profile save error:', result.error);
-        Alert.alert('Error', 'Failed to save profile. Please try again.');
+        console.error('GUEST SAVE ERROR:', result.error);
         setIsSaving(false);
+
+        // Handle unique constraint errors with user-friendly messages
+        if (result.error?.code === 'UNIQUE_VIOLATION') {
+          Alert.alert('Profile Conflict', result.error.message);
+          return;
+        }
+
+        Alert.alert('Save Failed', result.error?.message || 'Database save failed');
         return;
       }
 
-      // Mark onboarding as complete in user metadata
-      // This will trigger onAuthStateChange which will automatically load the profile
       await updateUserMetadata({ onboarding_completed: true });
 
       setIsSaving(false);
+      confettiRef.current?.start();
 
-      // Show badge celebration
-      setShowBadgeCelebration(true);
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
+      setTimeout(() => {
+        router.replace('/(tabs)/home');
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('Error completing guest onboarding:', error);
       setIsSaving(false);
-      Alert.alert('Unable to finish onboarding', 'Please try again.');
+      Alert.alert('Error', error.message || 'Save failed.');
     }
   };
 
-  // Dynamic colors based on theme
-  const colors = {
-    background: isDark ? '#001339' : '#F7FAFF',
-    text: isDark ? '#F5F8FF' : '#0B1630',
-    textSecondary: isDark ? 'rgba(229, 239, 255, 0.75)' : 'rgba(22, 39, 74, 0.7)',
+  const transitionConfig = {
+    from: { opacity: 0, scale: 0.98, translateX: 10 },
+    animate: { opacity: 1, scale: 1, translateX: 0 },
+    exit: { opacity: 0, scale: 0.98, translateX: -10 },
+    transition: { type: 'timing' as const, duration: 300 },
   };
 
   return (
     <WizardLayout
       currentStep={currentStep}
-      totalSteps={3}
+      totalSteps={TOTAL_STEPS}
       onBack={handleBack}
-      hasFormData={hasFormData()}
+      hasFormData={true}
       showConfirmation={currentStep === 0}
       variant="guest"
       progressType="segmented"
     >
-      {/* Step Rendering with AnimatePresence */}
       <View style={styles.stepsContainer}>
-        <AnimatePresence exitBeforeEnter>
-            {currentStep === 0 && (
-              <MotiView
-                key="step-0"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <IdentityStep
-                  data={{
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    university: formData.university,
-                    major: formData.major,
-                    graduationYear: formData.graduationYear,
-                    profilePhoto: formData.profilePhoto,
-                  }}
-                  update={updateFormData}
-                  onNext={nextStep}
-                  isGuestMode
-                />
-              </MotiView>
-            )}
+        <AnimatePresence>
+          
+          {/* Step 0: Identity */}
+          {currentStep === 0 && (
+            <MotiView key="step-0" {...transitionConfig} style={styles.stepWrapper}>
+              <IdentityStep
+                data={formData}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
 
-            {currentStep === 1 && (
-              <MotiView
-                key="step-1"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <InterestsStep
-                  data={{
-                    interests: formData.interests,
-                    phoneNumber: formData.phoneNumber,
-                  }}
-                  update={updateFormData}
-                  onNext={nextStep}
-                />
-              </MotiView>
-            )}
+          {/* Step 1: Affiliation (NEW) */}
+          {currentStep === 1 && (
+            <MotiView key="step-1" {...transitionConfig} style={styles.stepWrapper}>
+              <GuestAffiliationStep
+                data={formData}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
 
-            {currentStep === 2 && (
-              <MotiView
-                key="step-2"
-                from={{ translateX: 50, opacity: 0 }}
-                animate={{ translateX: 0, opacity: 1 }}
-                exit={{ translateX: -50, opacity: 0 }}
-                transition={{ type: 'timing', duration: 300 }}
-                style={styles.stepWrapper}
-              >
-                <GuestReviewStep
-                  data={{
-                    firstName: formData.firstName,
-                    lastName: formData.lastName,
-                    university: formData.university,
-                    major: formData.major,
-                    graduationYear: formData.graduationYear,
-                    profilePhoto: formData.profilePhoto,
-                    interests: formData.interests,
-                    phoneNumber: formData.phoneNumber,
-                  }}
-                  onNext={handleFinish}
-                />
-              </MotiView>
-            )}
+          {/* Step 2: Intent */}
+          {currentStep === 2 && (
+            <MotiView key="step-2" {...transitionConfig} style={styles.stepWrapper}>
+              <GuestIntentStep
+                data={formData}
+                update={updateFormData}
+                onNext={nextStep}
+              />
+            </MotiView>
+          )}
+
+          {/* Step 3: Review */}
+          {currentStep === 3 && (
+            <MotiView key="step-3" {...transitionConfig} style={styles.stepWrapper}>
+              <GuestReviewStep
+                data={formData}
+                onNext={handleFinish}
+              />
+            </MotiView>
+          )}
+
         </AnimatePresence>
       </View>
 
-      {/* Loading Overlay */}
       {isSaving && (
-        <View
-          style={[
-            styles.loadingOverlay,
-            { backgroundColor: isDark ? 'rgba(0, 5, 18, 0.6)' : 'rgba(11, 22, 48, 0.2)' },
-          ]}
-        >
-          <View
-            style={[
-              styles.loadingCard,
-              { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFFFFF' },
-            ]}
-          >
-            <Text style={[styles.loadingText, { color: colors.text }]}>
-              Saving your profile...
-            </Text>
-            <Text style={[styles.loadingSubtext, { color: colors.textSecondary }]}>
-              This may take a moment
-            </Text>
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <Text style={styles.loadingEmoji}>🎟️</Text>
+            <Text style={styles.loadingText}>{loadingMessage}</Text>
           </View>
         </View>
       )}
 
-      {/* Confetti Cannon */}
       <ConfettiCannon
         ref={confettiRef}
         count={200}
@@ -337,53 +241,30 @@ export default function GuestOnboardingWizard() {
         autoStart={false}
         fadeOut
       />
-
-      {/* Badge Unlock Celebration */}
-      <BadgeUnlockOverlay
-        visible={showBadgeCelebration}
-        badgeType="guest"
-        onComplete={handleBadgeCelebrationComplete}
-        autoCompleteDelay={0} // Manual completion only
-      />
     </WizardLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  stepsContainer: {
-    flex: 1,
-    width: '100%',
-  },
-  stepWrapper: {
-    flex: 1,
-    width: '100%',
-  },
+  stepsContainer: { flex: 1, width: '100%' },
+  stepWrapper: { flex: 1, width: '100%', position: 'absolute' },
   loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   loadingCard: {
-    borderRadius: 16,
+    borderRadius: RADIUS.xl,
     padding: 32,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#1E293B',
+    minWidth: 250,
+    ...SHADOWS.large,
   },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  loadingSubtext: {
-    fontSize: 14,
-  },
+  loadingEmoji: { fontSize: 40, marginBottom: 16 },
+  loadingText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
 });
