@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,13 @@ import {
   Platform,
   Keyboard,
 } from 'react-native';
-import { MotiView } from 'moti';
+import { MotiView, AnimatePresence } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { SPACING, RADIUS } from '@/constants/colors';
+import MentorshipInterstitial from '@/onboarding/components/MentorshipInterstitial.native';
 
 const MAX_BIO_LENGTH = 140;
 
@@ -22,15 +23,23 @@ const MAX_BIO_LENGTH = 140;
 const INSPIRATION_CHIPS = [
   '🏢 Career Journey',
   '💡 Advice for Students',
-  '🌟 SHPE Impact',
 ];
 
 interface AlumniImpactStepProps {
   data: {
     bio: string;
+    linkedinUrl: string;
     isMentor: boolean;
+    mentorshipWays: string[];
   };
-  update: (fields: Partial<{ bio: string; isMentor: boolean }>) => void;
+  update: (
+    fields: Partial<{
+      bio: string;
+      linkedinUrl: string;
+      isMentor: boolean;
+      mentorshipWays: string[];
+    }>
+  ) => void;
   onNext: () => void;
 }
 
@@ -42,16 +51,15 @@ export default function AlumniImpactStep({
   const insets = useSafeAreaInsets();
   const [isFocused, setIsFocused] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isLinkedinExpanded, setIsLinkedinExpanded] = useState(false);
+  const linkedinInputRef = useRef<TextInput>(null);
+  const [showMentorModal, setShowMentorModal] = useState(false);
 
   const characterCount = data.bio?.length ?? 0;
   const remainingChars = MAX_BIO_LENGTH - characterCount;
+  const hasBio = !!data.bio?.trim();
 
-  const handleMentorToggle = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    update({ isMentor: !data.isMentor });
-  };
-
-  const handleNext = () => {
+  const proceedNext = () => {
     if (isNavigating) return;
 
     setIsNavigating(true);
@@ -60,8 +68,39 @@ export default function AlumniImpactStep({
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
+  const handleNext = () => {
+    setShowMentorModal(true);
+  };
+
   // Bio is optional, so button is never disabled due to empty bio
   const isNextDisabled = remainingChars < 0;
+
+  const toggleLinkedin = () => {
+    Haptics.selectionAsync();
+    if (isLinkedinExpanded) {
+      setIsLinkedinExpanded(false);
+      Keyboard.dismiss();
+    } else {
+      setIsLinkedinExpanded(true);
+      setTimeout(() => linkedinInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleMentorAccept = (selectedWays: string[]) => {
+    update({ isMentor: true, mentorshipWays: selectedWays });
+    setShowMentorModal(false);
+    proceedNext();
+  };
+
+  const handleMentorDecline = () => {
+    update({ isMentor: false, mentorshipWays: [] });
+    setShowMentorModal(false);
+    proceedNext();
+  };
+
+  const handleMentorDismiss = () => {
+    setShowMentorModal(false);
+  };
 
   return (
     <KeyboardAvoidingView
@@ -71,7 +110,10 @@ export default function AlumniImpactStep({
       <TouchableOpacity
         style={styles.contentContainer}
         activeOpacity={1}
-        onPress={Keyboard.dismiss}
+        onPress={() => {
+          setIsLinkedinExpanded(false);
+          Keyboard.dismiss();
+        }}
       >
         <MotiView
           from={{ opacity: 0, scale: 0.95 }}
@@ -134,68 +176,92 @@ export default function AlumniImpactStep({
             </View>
           </View>
 
-          {/* Mentorship Toggle Card */}
-          <View style={styles.mentorSection}>
-            <Text style={styles.label}>MENTORSHIP</Text>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleMentorToggle}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.label}>LINKEDIN (OPTIONAL)</Text>
+            <View
               style={[
-                styles.mentorCard,
-                data.isMentor && styles.mentorCardActive,
+                styles.cardContainer,
+                isLinkedinExpanded && styles.cardFocused,
+                !!data.linkedinUrl && !isLinkedinExpanded && styles.cardCompleted,
               ]}
             >
-              <View style={styles.mentorContent}>
-                <View
-                  style={[
-                    styles.mentorIconContainer,
-                    data.isMentor && styles.mentorIconActive,
-                  ]}
-                >
-                  <Ionicons
-                    name={data.isMentor ? 'heart' : 'heart-outline'}
-                    size={28}
-                    color={data.isMentor ? '#000000' : '#94A3B8'}
-                  />
-                </View>
-                <View style={styles.mentorTextContainer}>
-                  <Text
-                    style={[
-                      styles.mentorTitle,
-                      data.isMentor && styles.mentorTitleActive,
-                    ]}
-                  >
-                    {data.isMentor
-                      ? "I'm open to mentoring students."
-                      : "I'm just browsing."}
-                  </Text>
-                  <Text style={styles.mentorSubtitle}>
-                    {data.isMentor
-                      ? 'Students can reach out for guidance.'
-                      : 'Tap to enable mentorship.'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Toggle Indicator */}
-              <View
+              <TouchableOpacity
+                onPress={toggleLinkedin}
                 style={[
-                  styles.toggleTrack,
-                  data.isMentor && styles.toggleTrackActive,
+                  styles.iconBox,
+                  !!data.linkedinUrl && styles.iconBoxCompleted,
                 ]}
               >
-                <MotiView
-                  animate={{
-                    translateX: data.isMentor ? 20 : 0,
-                  }}
-                  transition={{ type: 'timing', duration: 200 }}
-                  style={[
-                    styles.toggleThumb,
-                    data.isMentor && styles.toggleThumbActive,
-                  ]}
+                <Ionicons
+                  name="logo-linkedin"
+                  size={22}
+                  color={data.linkedinUrl ? '#000000' : '#FFFFFF'}
                 />
+              </TouchableOpacity>
+
+              <View style={{ flex: 1, justifyContent: 'center' }}>
+                <AnimatePresence exitBeforeEnter>
+                  {isLinkedinExpanded ? (
+                    <MotiView
+                      key="linkedin-input"
+                      from={{ opacity: 0, translateX: -10 }}
+                      animate={{ opacity: 1, translateX: 0 }}
+                      exit={{ opacity: 0, translateX: -10 }}
+                      transition={{ type: 'timing', duration: 200 }}
+                      style={styles.inputWrapper}
+                    >
+                      <TextInput
+                        ref={linkedinInputRef}
+                        value={data.linkedinUrl}
+                        onChangeText={(t) => update({ linkedinUrl: t })}
+                        placeholder="https://linkedin.com/in/yourprofile"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        style={styles.textInput}
+                        autoCapitalize="none"
+                        keyboardType="url"
+                        autoCorrect={false}
+                      />
+                      <TouchableOpacity
+                        onPress={toggleLinkedin}
+                        style={styles.closeBtn}
+                      >
+                        <Ionicons name="checkmark" size={18} color="#000" />
+                      </TouchableOpacity>
+                    </MotiView>
+                  ) : (
+                    <MotiView
+                      key="linkedin-label"
+                      from={{ opacity: 0, translateX: 10 }}
+                      animate={{ opacity: 1, translateX: 0 }}
+                      exit={{ opacity: 0, translateX: 10 }}
+                      transition={{ type: 'timing', duration: 200 }}
+                    >
+                      <TouchableOpacity onPress={toggleLinkedin}>
+                        <Text style={styles.cardTitle}>LinkedIn</Text>
+                        <Text
+                          style={[
+                            styles.cardSubtitle,
+                            data.linkedinUrl && { color: '#FFFFFF' },
+                          ]}
+                        >
+                          {data.linkedinUrl || 'Not Linked'}
+                        </Text>
+                      </TouchableOpacity>
+                    </MotiView>
+                  )}
+                </AnimatePresence>
               </View>
-            </TouchableOpacity>
+
+              {!isLinkedinExpanded && (
+                <TouchableOpacity onPress={toggleLinkedin}>
+                  <Ionicons
+                    name={data.linkedinUrl ? 'pencil' : 'chevron-forward'}
+                    size={20}
+                    color="rgba(255,255,255,0.3)"
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </MotiView>
       </TouchableOpacity>
@@ -223,7 +289,7 @@ export default function AlumniImpactStep({
             <Text
               style={[styles.buttonText, isNextDisabled && { color: '#666666' }]}
             >
-              {data.bio ? 'Next Step' : 'Skip for now'}
+              {hasBio ? 'Next Step' : 'Skip for now'}
             </Text>
             <Ionicons
               name="arrow-forward"
@@ -233,6 +299,13 @@ export default function AlumniImpactStep({
           </LinearGradient>
         </TouchableOpacity>
       </MotiView>
+
+      <MentorshipInterstitial
+        visible={showMentorModal}
+        onDecline={handleMentorDecline}
+        onAccept={handleMentorAccept}
+        onDismiss={handleMentorDismiss}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -250,7 +323,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
   subtitle: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
 
-  fieldContainer: { marginBottom: SPACING.lg },
+  fieldContainer: { marginBottom: SPACING.md },
   label: {
     fontSize: 11,
     fontWeight: '700',
@@ -301,81 +374,43 @@ const styles = StyleSheet.create({
   },
   chipText: { color: '#94A3B8', fontSize: 12, fontWeight: '600' },
 
-  // Mentorship Card
-  mentorSection: { marginBottom: SPACING.lg },
-  mentorCard: {
+  cardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    borderRadius: RADIUS.xl,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    padding: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    height: 72,
+    paddingHorizontal: 16,
   },
-  mentorCardActive: {
+  cardFocused: {
     borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#FFFFFF',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
-  mentorContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  cardCompleted: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  mentorIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
-  mentorIconActive: {
+  iconBoxCompleted: { backgroundColor: '#FFFFFF' },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#FFF' },
+  cardSubtitle: { fontSize: 13, color: '#94A3B8', marginTop: 2 },
+  inputWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  textInput: { flex: 1, color: '#FFF', fontSize: 16, height: '100%' },
+  closeBtn: {
+    padding: 8,
     backgroundColor: '#FFFFFF',
-  },
-  mentorTextContainer: {
-    flex: 1,
-  },
-  mentorTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#94A3B8',
-    marginBottom: 2,
-  },
-  mentorTitleActive: {
-    color: '#FFFFFF',
-  },
-  mentorSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-
-  // Toggle Switch
-  toggleTrack: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 2,
-    marginLeft: 12,
-  },
-  toggleTrackActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  toggleThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#64748B',
-  },
-  toggleThumbActive: {
-    backgroundColor: '#000000',
+    borderRadius: 20,
+    marginLeft: 8,
   },
 
   footer: {

@@ -10,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import { SHADOWS, RADIUS } from '@/constants/colors';
+import { InterestType } from '@/types/userProfile';
 import WizardLayout from '../components/WizardLayout.native';
 
 // Screens
@@ -119,22 +120,34 @@ export default function GuestOnboardingWizard() {
         university: formData.university.trim(),
         major: formData.major.trim(),
         graduation_year: parseInt(formData.graduationYear, 10) || 0,
-        interests: [formData.intent],
+        interests: [formData.intent] as InterestType[],
         profile_picture_url: profilePictureUrl,
         user_type: 'guest' as const,
         bio: `Guest: ${formData.intent}`,
       };
 
-      let result = await profileService.createProfile(user.id, profileData);
-      if (!result.success) result = await profileService.updateProfile(user.id, profileData);
+      // Single clean call using upsert
+      const result = await profileService.createProfile(user.id, profileData);
 
-      if (!result.success) throw new Error(result.error?.message);
+      if (!result.success) {
+        console.error('GUEST SAVE ERROR:', result.error);
+        setIsSaving(false);
+
+        // Handle unique constraint errors with user-friendly messages
+        if (result.error?.code === 'UNIQUE_VIOLATION') {
+          Alert.alert('Profile Conflict', result.error.message);
+          return;
+        }
+
+        Alert.alert('Save Failed', result.error?.message || 'Database save failed');
+        return;
+      }
 
       await updateUserMetadata({ onboarding_completed: true });
-      
+
       setIsSaving(false);
       confettiRef.current?.start();
-      
+
       setTimeout(() => {
         router.replace('/(tabs)/home');
       }, 1500);

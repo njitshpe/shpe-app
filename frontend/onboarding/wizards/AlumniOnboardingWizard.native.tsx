@@ -38,6 +38,7 @@ interface AlumniFormData {
   // Impact
   bio: string;
   isMentor: boolean;
+  mentorshipWays: string[];
 }
 
 export default function AlumniOnboardingWizard() {
@@ -64,6 +65,7 @@ export default function AlumniOnboardingWizard() {
     linkedinUrl: '',
     bio: '',
     isMentor: false,
+    mentorshipWays: [],
   });
 
   useEffect(() => {
@@ -160,25 +162,30 @@ export default function AlumniOnboardingWizard() {
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
         
         bio: formData.bio?.trim() || '',
-        is_mentor: formData.isMentor, // Important for the "Mentor" badge later
+        mentorship_available: formData.isMentor,
+        mentorship_ways: formData.isMentor ? formData.mentorshipWays : [],
         
         profile_picture_url: profilePictureUrl,
         user_type: 'alumni' as const,
         interests: [], // Alumni might not select student interests, or we add a step later
       };
 
-      // 3. API Call
+      // 3. API Call (Single clean call using upsert)
       console.log('Submitting Alumni Data:', JSON.stringify(profileData, null, 2));
-      let result = await profileService.createProfile(user.id, profileData);
-      
-      if (!result.success) {
-        // Idempotency: Try update if create fails
-        result = await profileService.updateProfile(user.id, profileData);
-      }
+      const result = await profileService.createProfile(user.id, profileData);
 
       if (!result.success) {
         console.error('ALUMNI SAVE ERROR:', result.error);
-        throw new Error(result.error?.message || "Database save failed");
+        setIsSaving(false);
+
+        // Handle unique constraint errors with user-friendly messages
+        if (result.error?.code === 'UNIQUE_VIOLATION') {
+          Alert.alert('Profile Conflict', result.error.message);
+          return;
+        }
+
+        Alert.alert('Save Failed', result.error?.message || 'Database save failed');
+        return;
       }
 
       // 4. Success

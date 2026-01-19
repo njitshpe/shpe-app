@@ -19,7 +19,7 @@ import { GlassInput } from '../../components/OnboardingComponents';
 import { NJIT_MAJORS } from '@/constants/majors';
 import { SPACING, RADIUS } from '@/constants/colors';
 
-const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_YEAR = new Date().getFullYear() - 1;
 const MIN_YEAR = 1960;
 const YEAR_ITEM_HEIGHT = 44;
 
@@ -175,6 +175,7 @@ export default function AlumniAcademicsStep({
               value={data.major}
               placeholder="Select Major"
               icon="school-outline"
+              readOnly
               onPress={() => setIsMajorModalVisible(true)}
             />
 

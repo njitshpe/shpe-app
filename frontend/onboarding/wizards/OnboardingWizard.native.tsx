@@ -187,7 +187,7 @@ export default function OnboardingWizard() {
       console.log('Submitting Profile Data:', JSON.stringify(profileData, null, 2));
 
       let result = await profileService.createProfile(user.id, profileData);
-      
+
       // If create fails, try update (idempotency)
       if (!result.success) {
         console.log('Create failed, trying update...', result.error);
@@ -202,7 +202,7 @@ export default function OnboardingWizard() {
       // 4. PRE-LOAD APP STATE & SUCCESS
       await updateUserMetadata({ onboarding_completed: true });
       setIsSaving(false);
-      setShowBadgeCelebration(true); 
+      setShowBadgeCelebration(true);
 
     } catch (error: any) {
       console.error('Error completing onboarding:', error);
