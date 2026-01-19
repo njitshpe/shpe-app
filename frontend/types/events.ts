@@ -53,6 +53,7 @@ export interface EventDB {
   points: number;
   requires_rsvp: boolean;
   event_limit?: number;
+  cover_image_url?: string | null;
 }
 
 // 2. Update this to use EventDB
