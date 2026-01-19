@@ -187,7 +187,7 @@ export default function IdentityStep({
               {isGuestMode ? 'Welcome Guest' : 'Who are you?'}
             </Text>
             <Text style={styles.headerSubtitle}>
-              Let's get your profile set up.
+              Let&apos;s get your profile set up.
             </Text>
           </MotiView>
 

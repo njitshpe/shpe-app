@@ -4,13 +4,13 @@ import { AnimatePresence, MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as Haptics from 'expo-haptics'; // <--- NEW: Tactile feedback
+import * as Haptics from 'expo-haptics';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
-import { SHADOWS, SHPE_COLORS } from '@/constants/colors';
+import { SHADOWS, SPACING, RADIUS } from '@/constants/colors';
 import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
 import WizardLayout from '../components/WizardLayout.native';
 import IdentityStep from '../screens/shared/IdentityStep.native';
@@ -19,10 +19,10 @@ import InterestsStep from '../screens/shared/InterestsStep.native';
 import BioStep from '../screens/student/BioStep.native';
 import AssetsStep from '../screens/student/AssetsStep.native';
 import ReviewStep from '../screens/student/ReviewStep.native';
+import { InterestType } from '@/types/userProfile'; // Ensure this type is imported
 
 const DEFAULT_GRAD_YEAR = String(new Date().getFullYear());
 
-// Master FormData interface
 interface OnboardingFormData {
   firstName: string;
   lastName: string;
@@ -41,16 +41,14 @@ interface OnboardingFormData {
 export default function OnboardingWizard() {
   const router = useRouter();
   const { user, updateUserMetadata } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // NEW: Dynamic loading messages to build value
-  const [loadingMessage, setLoadingMessage] = useState('Saving...'); 
-  
+  const [loadingMessage, setLoadingMessage] = useState('Saving...');
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
+
   const [formData, setFormData] = useState<OnboardingFormData>({
     firstName: '',
     lastName: '',
@@ -83,13 +81,11 @@ export default function OnboardingWizard() {
     setFormData((prev) => ({ ...prev, ...fields }));
   };
 
-  // --- NAVIGATION HELPERS ---
-  // Total steps: 0=Identity, 1=Academics, 2=Interests, 3=Bio, 4=Assets, 5=Review
   const TOTAL_STEPS = 6;
 
   const nextStep = () => {
-    Keyboard.dismiss(); // Clean up UI
-    Haptics.selectionAsync(); // Tactile confirmation
+    Keyboard.dismiss();
+    Haptics.selectionAsync();
     setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
   };
 
@@ -123,48 +119,39 @@ export default function OnboardingWizard() {
   };
 
   const hasFormData = () => {
-    return (
-      formData.firstName.trim() !== '' ||
-      formData.lastName.trim() !== '' ||
-      formData.ucid.trim() !== ''
-    );
+    return formData.firstName.trim() !== '' || formData.lastName.trim() !== '';
   };
 
   const handleBadgeCelebrationComplete = () => {
     setShowBadgeCelebration(false);
     confettiRef.current?.start();
-    // Delay navigation slightly to let confetti fall
+    // Navigate after a brief confetti shower
     setTimeout(() => {
       router.replace('/(tabs)/home');
-    }, 2500);
+    }, 1500);
   };
 
-  // --- THE "SMART" SAVE PROCESS ---
   const handleFinish = async () => {
     if (!user) return;
 
     setIsSaving(true);
-    setLoadingMessage("Minting your SHPE ID..."); // Step 1: Ego
+    setLoadingMessage("Minting your SHPE ID...");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      // Artificial delay for psychology (800ms)
-      await new Promise(r => setTimeout(r, 800));
-
+      // 1. UPLOADS (Parallel if possible, but sequential for progress feedback)
       let profilePictureUrl: string | undefined;
       let resumeUrl: string | undefined;
       let resumeName: string | undefined;
 
-      // Upload Photo
       if (formData.profilePhoto) {
         setLoadingMessage("Processing photo...");
         const uploadResult = await storageService.uploadProfilePhoto(user.id, formData.profilePhoto);
         if (uploadResult.success) profilePictureUrl = uploadResult.data.url;
       }
 
-      // Upload Resume
       if (formData.resumeFile) {
-        setLoadingMessage("Securing resume..."); // Step 2: Security
+        setLoadingMessage("Securing resume...");
         const uploadResult = await storageService.uploadResume(user.id, formData.resumeFile);
         if (uploadResult.success) {
           resumeUrl = uploadResult.data.url;
@@ -172,25 +159,21 @@ export default function OnboardingWizard() {
         }
       }
 
-      setLoadingMessage("Finalizing profile..."); // Step 3: Completion
+      setLoadingMessage("Finalizing profile...");
 
-      // Map Interests
-      const interestMap: Record<string, any> = {
-        'internships': 'career', 'scholarships': 'career', 'resume-help': 'career',
-        'mental-health': 'workshops', 'networking': 'networking', 'leadership': 'workshops',
-        'career-fairs': 'career', 'community-service': 'volunteering',
-      };
-      const mappedInterests = formData.interests.map(id => interestMap[id]).filter((val, idx, arr) => arr.indexOf(val) === idx);
+      // 2. DATA PREP (Refactored: Direct mapping)
+      const gradYearInt = parseInt(formData.graduationYear, 10);
 
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         ucid: formData.ucid.trim().toLowerCase(),
         major: formData.major.trim(),
-        graduation_year: parseInt(formData.graduationYear, 10),
+        graduation_year: isNaN(gradYearInt) ? new Date().getFullYear() + 4 : gradYearInt,
         university: 'NJIT',
         bio: formData.bio?.trim() || '',
-        interests: mappedInterests,
+        // REFACTORED: Pass interests directly as they match the DB enum now
+        interests: formData.interests as InterestType[], 
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
         portfolio_url: formData.portfolioUrl?.trim() || undefined,
         phone_number: formData.phoneNumber?.trim() || undefined,
@@ -200,29 +183,39 @@ export default function OnboardingWizard() {
         user_type: 'student' as const,
       };
 
+      // 3. API CALL
+      console.log('Submitting Profile Data:', JSON.stringify(profileData, null, 2));
+
       let result = await profileService.createProfile(user.id, profileData);
-      if (!result.success) result = await profileService.updateProfile(user.id, profileData);
+      
+      // If create fails, try update (idempotency)
+      if (!result.success) {
+        console.log('Create failed, trying update...', result.error);
+        result = await profileService.updateProfile(user.id, profileData);
+      }
 
-      if (!result.success) throw new Error(result.error?.message);
+      if (!result.success) {
+        console.error('FINAL SAVE ERROR:', result.error);
+        throw new Error(result.error?.message || "Database save failed");
+      }
 
+      // 4. PRE-LOAD APP STATE & SUCCESS
       await updateUserMetadata({ onboarding_completed: true });
-
       setIsSaving(false);
-      setShowBadgeCelebration(true); // Trigger the "Award" moment
-    } catch (error) {
+      setShowBadgeCelebration(true); 
+
+    } catch (error: any) {
       console.error('Error completing onboarding:', error);
       setIsSaving(false);
-      Alert.alert('Save Failed', 'Please try again.');
+      Alert.alert('Save Failed', error.message || 'Please check your internet and try again.');
     }
   };
 
-  // --- TRANSITION CONFIG ---
-  // A "Stacking" transition feels more premium than a simple slide
   const transitionConfig = {
-    from: { opacity: 0, scale: 0.95, translateX: 20 },
+    from: { opacity: 0, scale: 0.98, translateX: 10 },
     animate: { opacity: 1, scale: 1, translateX: 0 },
-    exit: { opacity: 0, scale: 0.95, translateX: -20 },
-    transition: { type: 'timing' as const, duration: 350 },
+    exit: { opacity: 0, scale: 0.98, translateX: -10 },
+    transition: { type: 'timing' as const, duration: 300 },
   };
 
   return (
@@ -236,82 +229,53 @@ export default function OnboardingWizard() {
       progressType="segmented"
     >
       <View style={styles.stepsContainer}>
-        {/* Remove exitBeforeEnter for a faster, snappier feel */}
         <AnimatePresence>
-          {/* Step 0: Identity (Name/Photo) */}
           {currentStep === 0 && (
             <MotiView key="step-0" {...transitionConfig} style={styles.stepWrapper}>
               <IdentityStep
-                data={{
-                  firstName: formData.firstName,
-                  lastName: formData.lastName,
-                  profilePhoto: formData.profilePhoto,
-                }}
+                data={formData}
                 update={updateFormData}
                 onNext={nextStep}
               />
             </MotiView>
           )}
-
-          {/* Step 1: Academics (Major/Year/UCID) */}
           {currentStep === 1 && (
             <MotiView key="step-1" {...transitionConfig} style={styles.stepWrapper}>
               <AcademicsStep
-                data={{
-                  major: formData.major,
-                  graduationYear: formData.graduationYear,
-                  ucid: formData.ucid,
-                }}
+                data={formData}
                 update={updateFormData}
                 onNext={nextStep}
                 showUcid={true}
               />
             </MotiView>
           )}
-
-          {/* Step 2: Interests */}
           {currentStep === 2 && (
             <MotiView key="step-2" {...transitionConfig} style={styles.stepWrapper}>
               <InterestsStep
-                data={{
-                  interests: formData.interests,
-                  phoneNumber: formData.phoneNumber,
-                }}
+                data={formData}
                 update={updateFormData}
                 onNext={nextStep}
               />
             </MotiView>
           )}
-
-          {/* Step 3: Bio/Pitch */}
           {currentStep === 3 && (
             <MotiView key="step-3" {...transitionConfig} style={styles.stepWrapper}>
               <BioStep
-                data={{
-                  bio: formData.bio,
-                }}
+                data={formData}
                 update={updateFormData}
                 onNext={nextStep}
               />
             </MotiView>
           )}
-
-          {/* Step 4: Assets (Resume/Links) */}
           {currentStep === 4 && (
             <MotiView key="step-4" {...transitionConfig} style={styles.stepWrapper}>
               <AssetsStep
-                data={{
-                  resumeFile: formData.resumeFile,
-                  linkedinUrl: formData.linkedinUrl,
-                  portfolioUrl: formData.portfolioUrl,
-                }}
+                data={formData}
                 update={updateFormData}
                 onNext={nextStep}
               />
             </MotiView>
           )}
-
-          {/* Step 5: Review */}
           {currentStep === 5 && (
             <MotiView key="step-5" {...transitionConfig} style={styles.stepWrapper}>
               <ReviewStep
@@ -323,18 +287,13 @@ export default function OnboardingWizard() {
         </AnimatePresence>
       </View>
 
-      {/* ENHANCED LOADING OVERLAY */}
+      {/* Loading Overlay (Dark Glass Theme) */}
       {isSaving && (
-        <View style={[styles.loadingOverlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.9)' }]}>
-          <View style={[styles.loadingCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            {/* Simple Pulse Animation can be added here later */}
-            <Text style={[styles.loadingEmoji]}>✨</Text>
-            <Text style={[styles.loadingText, { color: theme.text }]}>
-              {loadingMessage}
-            </Text>
-            <Text style={[styles.loadingSubtext, { color: theme.subtext }]}>
-              Do not close the app
-            </Text>
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <Text style={styles.loadingEmoji}>✨</Text>
+            <Text style={styles.loadingText}>{loadingMessage}</Text>
+            <Text style={styles.loadingSubtext}>Do not close the app</Text>
           </View>
         </View>
       )}
@@ -365,19 +324,22 @@ const styles = StyleSheet.create({
   stepWrapper: {
     flex: 1,
     width: '100%',
-    position: 'absolute', // Allows cross-fading without layout jumps
+    position: 'absolute',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
+    backgroundColor: 'rgba(0,0,0,0.85)', // Dark background
   },
   loadingCard: {
-    borderRadius: 24,
+    borderRadius: RADIUS.xl,
     padding: 32,
     alignItems: 'center',
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#1E293B', // Dark Slate
     minWidth: 250,
     ...SHADOWS.large,
   },
@@ -386,13 +348,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   loadingText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
     textAlign: 'center',
+    color: '#FFFFFF',
   },
   loadingSubtext: {
-    fontSize: 14,
-    opacity: 0.7,
+    fontSize: 13,
+    color: '#94A3B8',
   },
 });

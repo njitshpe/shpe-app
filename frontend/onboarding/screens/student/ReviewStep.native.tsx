@@ -25,6 +25,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GRADIENTS, SPACING, RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/colors';
+import { getInterestDetails } from '@/constants/interests';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HOLD_DURATION = 1500; // 1.5 seconds
@@ -51,7 +52,8 @@ interface ReviewStepProps {
 // ─────────────────────────────────────────────────────────────────────────────
 // Interest Bubble Component (Monochrome)
 // ─────────────────────────────────────────────────────────────────────────────
-function InterestBubble({ label }: { label: string }) {
+function InterestBubble({ id }: { id: string }) {
+  const { label } = getInterestDetails(id);
   return (
     <View style={bubbleStyles.container}>
       <Text style={bubbleStyles.label}>{label}</Text>
@@ -221,7 +223,7 @@ export default function ReviewStep({ data, onNext }: ReviewStepProps) {
               {/* BIO SECTION (NEW) */}
               {data.bio ? (
                 <Text style={styles.summaryBio} numberOfLines={3}>
-                  "{data.bio}"
+                  {data.bio}
                 </Text>
               ) : null}
             </View>
@@ -233,7 +235,7 @@ export default function ReviewStep({ data, onNext }: ReviewStepProps) {
               <Text style={styles.sectionLabel}>INTERESTS</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 4 }}>
                 {data.interests.map((id) => (
-                  <InterestBubble key={id} label={id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />
+                  <InterestBubble key={id} id={id} />
                 ))}
               </ScrollView>
             </View>
