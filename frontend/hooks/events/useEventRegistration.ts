@@ -5,7 +5,7 @@ export interface UseEventRegistrationResult {
   isRegistered: boolean;
   loading: boolean;
   error: string | null;
-  register: () => Promise<void>;
+  register: (answers?: Record<string, string>) => Promise<void>;
   cancel: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -22,6 +22,23 @@ export function useEventRegistration(eventId: string): UseEventRegistrationResul
   /**
    * Check registration status
    */
+
+  const register = useCallback(async (answers: Record<string, string> = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      // UPDATE: Pass answers to the service
+      await registrationService.register(eventId, answers); 
+      setIsRegistered(true);
+    } catch (err) {
+      console.error('Failed to register:', err);
+      setError(err instanceof Error ? err.message : 'Failed to register');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+  
   const checkRegistration = useCallback(async () => {
     try {
       setLoading(true);
@@ -31,24 +48,6 @@ export function useEventRegistration(eventId: string): UseEventRegistrationResul
     } catch (err) {
       console.error('Failed to check registration:', err);
       setError(err instanceof Error ? err.message : 'Failed to check registration');
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId]);
-
-  /**
-   * Register for event
-   */
-  const register = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await registrationService.register(eventId);
-      setIsRegistered(true);
-    } catch (err) {
-      console.error('Failed to register:', err);
-      setError(err instanceof Error ? err.message : 'Failed to register');
-      throw err; // Re-throw so caller can handle
     } finally {
       setLoading(false);
     }

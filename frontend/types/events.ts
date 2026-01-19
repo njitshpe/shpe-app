@@ -26,6 +26,11 @@ export interface Event {
   coverImageUrl?: string; // cover_image_url from database
   tags: EventTag[];
   status: 'upcoming' | 'past';
+  registration_questions?: any[];
+  points: number;
+  requiresRsvp: boolean;
+  eventLimit?: number;
+  userRegistrationStatus?: 'going' | 'waitlist' | 'not_going' | 'confirmed' | string; // Status from event_attendance
 }
 
 // 1. Rename 'Event' to 'EventDB' to match your imports and avoid conflicts
@@ -44,6 +49,10 @@ export interface EventDB {
   updated_at: string;
   is_active: boolean;
   registration_questions?: any[]; // JSONB
+  deleted_at?: string;
+  points: number;
+  requires_rsvp: boolean;
+  event_limit?: number;
 }
 
 // 2. Update this to use EventDB
@@ -55,6 +64,8 @@ export interface EventAttendance {
   checked_in_at?: string;
   checked_out_at?: string;
   status?: string; // e.g. 'confirmed', 'pending'
+  is_volunteer?: boolean;
+  duration_minutes?: number;
   registration_answers?: any; // JSONB
 }
 
