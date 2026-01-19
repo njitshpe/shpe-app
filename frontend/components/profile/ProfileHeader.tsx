@@ -1,14 +1,30 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { MotiView } from 'moti';
-import { RADIUS, SPACING } from '@/constants/colors';
+import { RADIUS } from '@/constants/colors';
 
-// ... Props remain the same as your existing ProfileHeader
+interface ProfileHeaderProps {
+  profilePictureUrl?: string;
+  initials: string;
+  userTypeBadge: string;
+  displayName: string;
+  subtitle: string;
+  secondarySubtitle?: string | null;
+  isDark?: boolean;
+  themeText?: string;
+  themeSubtext?: string;
+}
 
-export function ProfileHeader({ profilePictureUrl, initials, userTypeBadge, displayName, subtitle }) {
+export function ProfileHeader({ 
+  profilePictureUrl, 
+  initials, 
+  userTypeBadge, 
+  displayName, 
+  subtitle,
+  secondarySubtitle 
+}: ProfileHeaderProps) {
     return (
         <View style={styles.container}>
-            {/* The Halo Avatar */}
             <MotiView 
                 from={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -25,13 +41,15 @@ export function ProfileHeader({ profilePictureUrl, initials, userTypeBadge, disp
                 )}
             </MotiView>
 
-            {/* Identity Text */}
             <View style={styles.textWrapper}>
                 <View style={styles.badgeGlass}>
                     <Text style={styles.badgeText}>{userTypeBadge.toUpperCase()}</Text>
                 </View>
                 <Text style={styles.name}>{displayName}</Text>
                 <Text style={styles.subtitle}>{subtitle}</Text>
+                {secondarySubtitle && (
+                    <Text style={styles.subtitle}>{secondarySubtitle}</Text>
+                )}
             </View>
         </View>
     );
@@ -42,11 +60,16 @@ const styles = StyleSheet.create({
     haloWrapper: {
         width: 120, height: 120, borderRadius: 60,
         backgroundColor: '#000', justifyContent: 'center', alignItems: 'center',
-        // White Halo Glow
         shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.3, shadowRadius: 20, elevation: 15,
     },
-    avatar: { width: 114, height: 114, borderRadius: 57, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    avatarGlow: { // Fixed: Added missing style
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: 60,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    avatar: { width: 114, height: 114, borderRadius: 57 },
     avatarPlaceholder: { width: 114, height: 114, borderRadius: 57, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center' },
     initials: { color: '#FFF', fontSize: 32, fontWeight: '800' },
     textWrapper: { alignItems: 'center', marginTop: 20 },

@@ -3,17 +3,27 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { RADIUS, SPACING } from '@/constants/colors';
+import { RADIUS } from '@/constants/colors';
+import { UserProfile } from '@/types/userProfile';
 
-export function ProfileSocialLinks({ profile, onOpenResume }) {
-    const handlePress = (type: string) => {
+interface ProfileSocialLinksProps {
+  profile: UserProfile;
+  onOpenResume: () => void;
+  displayName?: string;
+  themeText?: string;
+  themeSubtext?: string;
+  isDark?: boolean;
+  onMentorshipUpdate?: () => Promise<void>;
+  readOnly?: boolean;
+}
+
+export function ProfileSocialLinks({ profile, onOpenResume }: ProfileSocialLinksProps) {
+    const handlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        // Navigation or Linking logic here
     };
 
     return (
         <View style={styles.container}>
-            {/* Professional Assets Row */}
             <View style={styles.assetRow}>
                 {profile.resume_url && (
                     <TouchableOpacity 
@@ -33,20 +43,19 @@ export function ProfileSocialLinks({ profile, onOpenResume }) {
                 )}
             </View>
 
-            {/* Social Circle Chips */}
             <View style={styles.socialRow}>
                 {profile.linkedin_url && (
-                    <SocialCircle icon="logo-linkedin" onPress={() => handlePress('linkedin')} />
+                    <SocialCircle icon="logo-linkedin" onPress={handlePress} />
                 )}
                 {profile.portfolio_url && (
-                    <SocialCircle icon="globe-outline" onPress={() => handlePress('portfolio')} />
+                    <SocialCircle icon="globe-outline" onPress={handlePress} />
                 )}
             </View>
         </View>
     );
 }
 
-const SocialCircle = ({ icon, onPress }) => (
+const SocialCircle = ({ icon, onPress }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) => (
     <TouchableOpacity onPress={onPress} style={styles.circleWrapper}>
         <BlurView intensity={20} tint="dark" style={styles.circleInner}>
             <Ionicons name={icon} size={20} color="#FFF" />
