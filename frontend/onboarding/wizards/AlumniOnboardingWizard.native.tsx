@@ -167,14 +167,9 @@ export default function AlumniOnboardingWizard() {
         interests: [], // Alumni might not select student interests, or we add a step later
       };
 
-      // 3. API Call
+      // 3. API Call (Single clean call using upsert)
       console.log('Submitting Alumni Data:', JSON.stringify(profileData, null, 2));
-      let result = await profileService.createProfile(user.id, profileData);
-      
-      if (!result.success) {
-        // Idempotency: Try update if create fails
-        result = await profileService.updateProfile(user.id, profileData);
-      }
+      const result = await profileService.createProfile(user.id, profileData);
 
       if (!result.success) {
         console.error('ALUMNI SAVE ERROR:', result.error);

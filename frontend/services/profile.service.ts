@@ -86,7 +86,7 @@ class ProfileService {
         }
     }
 
-    // Create a new user profile
+    // Create or update a user profile (idempotent via upsert)
     async createProfile(
         userId: string,
         profileData: Partial<UserProfile>
@@ -97,12 +97,17 @@ class ProfileService {
 
             const { data, error } = await supabase
                 .from('user_profiles')
-                .insert({
-                    id: userId,
-                    ...directUpdates,
-                    profile_data: profileDataUpdates,
-                    updated_at: new Date().toISOString(),
-                })
+                .upsert(
+                    {
+                        id: userId,
+                        ...directUpdates,
+                        profile_data: profileDataUpdates,
+                        updated_at: new Date().toISOString(),
+                    },
+                    {
+                        onConflict: 'id', // Update if the ID already exists
+                    }
+                )
                 .select()
                 .single();
 

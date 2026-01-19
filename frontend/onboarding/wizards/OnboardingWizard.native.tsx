@@ -183,19 +183,13 @@ export default function OnboardingWizard() {
         user_type: 'student' as const,
       };
 
-      // 3. API CALL
+      // 3. API CALL (Single clean call using upsert)
       console.log('Submitting Profile Data:', JSON.stringify(profileData, null, 2));
 
-      let result = await profileService.createProfile(user.id, profileData);
-      
-      // If create fails, try update (idempotency)
-      if (!result.success) {
-        console.log('Create failed, trying update...', result.error);
-        result = await profileService.updateProfile(user.id, profileData);
-      }
+      const result = await profileService.createProfile(user.id, profileData);
 
       if (!result.success) {
-        console.error('FINAL SAVE ERROR:', result.error);
+        console.error('DATABASE SAVE ERROR:', result.error);
         throw new Error(result.error?.message || "Database save failed");
       }
 

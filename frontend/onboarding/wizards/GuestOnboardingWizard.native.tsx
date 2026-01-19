@@ -10,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
 import { SHADOWS, RADIUS } from '@/constants/colors';
+import { InterestType } from '@/types/userProfile';
 import WizardLayout from '../components/WizardLayout.native';
 
 // Screens
@@ -119,16 +120,19 @@ export default function GuestOnboardingWizard() {
         university: formData.university.trim(),
         major: formData.major.trim(),
         graduation_year: parseInt(formData.graduationYear, 10) || 0,
-        interests: [formData.intent],
+        interests: [formData.intent] as InterestType[],
         profile_picture_url: profilePictureUrl,
         user_type: 'guest' as const,
         bio: `Guest: ${formData.intent}`,
       };
 
-      let result = await profileService.createProfile(user.id, profileData);
-      if (!result.success) result = await profileService.updateProfile(user.id, profileData);
+      // Single clean call using upsert
+      const result = await profileService.createProfile(user.id, profileData);
 
-      if (!result.success) throw new Error(result.error?.message);
+      if (!result.success) {
+        console.error('GUEST SAVE ERROR:', result.error);
+        throw new Error(result.error?.message || "Database save failed");
+      }
 
       await updateUserMetadata({ onboarding_completed: true });
       
