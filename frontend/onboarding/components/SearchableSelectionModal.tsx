@@ -7,12 +7,13 @@ import {
   FlatList,
   Modal,
   StyleSheet,
-  useColorScheme,
   Platform,
   Keyboard,
+  SafeAreaView,
 } from 'react-native';
 import { MotiView } from 'moti';
 import { Ionicons } from '@expo/vector-icons';
+import { SHPE_COLORS, SPACING, RADIUS } from '@/constants/colors';
 
 export interface SearchableSelectionModalProps {
   visible: boolean;
@@ -25,22 +26,12 @@ export interface SearchableSelectionModalProps {
   emptyMessage?: string;
 }
 
-/**
- * Fuzzy filter function - matches partial queries against options
- * Example: "comp sci" matches "Computer Science"
- */
 function fuzzyFilter(options: readonly string[], query: string): string[] {
-  if (!query.trim()) {
-    return [...options];
-  }
-
+  if (!query.trim()) return [...options];
   const lowerQuery = query.toLowerCase().trim();
   const queryWords = lowerQuery.split(/\s+/);
-
   return options.filter((option) => {
     const lowerOption = option.toLowerCase();
-
-    // Check if all query words appear in the option
     return queryWords.every((word) => lowerOption.includes(word));
   });
 }
@@ -55,22 +46,17 @@ export default function SearchableSelectionModal({
   placeholder = 'Search...',
   emptyMessage = 'No matches found',
 }: SearchableSelectionModalProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const searchInputRef = useRef<TextInput>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Auto-focus search input when modal opens
+  // Auto-focus logic
   useEffect(() => {
     if (visible) {
       setSearchQuery('');
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 100);
+      setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [visible]);
 
-  // Fuzzy-filtered options
   const filteredOptions = useMemo(() => {
     return fuzzyFilter(options, searchQuery);
   }, [options, searchQuery]);
@@ -88,18 +74,15 @@ export default function SearchableSelectionModal({
     onClose();
   };
 
-  // Dynamic colors
+  // MONOCHROME THEME COLORS
   const colors = {
-    background: isDark ? '#0F172A' : '#FFFFFF',
-    overlay: isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(0, 0, 0, 0.5)',
-    surface: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#FFFFFF' : '#111827',
-    textSecondary: isDark ? '#94A3B8' : '#6B7280',
-    border: isDark ? '#334155' : '#E5E7EB',
-    primary: '#2563EB',
-    primaryLight: isDark ? '#3B82F6' : '#60A5FA',
-    selectedBg: isDark ? '#1E3A8A' : '#EFF6FF',
-    selectedText: isDark ? '#93C5FD' : '#1D4ED8',
+    background: '#000000',
+    surface: '#1E293B',
+    text: '#FFFFFF',
+    textSecondary: '#94A3B8',
+    border: 'rgba(255, 255, 255, 0.1)',
+    primary: '#FFFFFF', // White Accent
+    selectedBg: 'rgba(255, 255, 255, 0.1)',
   };
 
   return (
@@ -108,98 +91,90 @@ export default function SearchableSelectionModal({
       animationType="slide"
       transparent={false}
       onRequestClose={handleClose}
-      statusBarTranslucent
+      presentationStyle="pageSheet" // Nice card effect on iOS
     >
       <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-        {/* Header with close button */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          <TouchableOpacity
-            onPress={handleClose}
-            style={styles.closeButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="close" size={28} color={colors.text} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface }]}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
-            <TextInput
-              ref={searchInputRef}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={placeholder}
-              placeholderTextColor={colors.textSecondary}
-              style={[styles.searchInput, { color: colors.text }]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
+        <SafeAreaView style={{ flex: 1 }}>
+          
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            <TouchableOpacity
+              onPress={handleClose}
+              style={styles.closeButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={28} color={colors.text} />
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Options List */}
-        <FlatList
-          data={filteredOptions}
-          keyExtractor={(item, index) => `${item}-${index}`}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={() => (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {emptyMessage}
-              </Text>
-            </View>
-          )}
-          renderItem={({ item, index }) => {
-            const isSelected = item === selectedValue;
-
-            return (
-              <MotiView
-                from={{ opacity: 0, translateY: 20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{
-                  type: 'timing',
-                  duration: 200,
-                  delay: index * 20, // Stagger animation
-                }}
-              >
-                <TouchableOpacity
-                  onPress={() => handleSelect(item)}
-                  style={[
-                    styles.optionItem,
-                    isSelected && { backgroundColor: colors.selectedBg },
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: isSelected ? colors.selectedText : colors.text },
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                  {isSelected && (
-                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                  )}
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <View style={[styles.searchInputWrapper, { borderColor: colors.border, backgroundColor: 'rgba(30, 41, 59, 0.5)' }]}>
+              <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+              <TextInput
+                ref={searchInputRef}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={placeholder}
+                placeholderTextColor={colors.textSecondary}
+                style={[styles.searchInput, { color: colors.text }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
-              </MotiView>
-            );
-          }}
-        />
+              )}
+            </View>
+          </View>
+
+          {/* List */}
+          <FlatList
+            data={filteredOptions}
+            keyExtractor={(item, index) => `${item}-${index}`}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  {emptyMessage}
+                </Text>
+              </View>
+            )}
+            renderItem={({ item, index }) => {
+              const isSelected = item === selectedValue;
+
+              return (
+                <MotiView
+                  from={{ opacity: 0, translateY: 10 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  transition={{ type: 'timing', duration: 200, delay: index * 10 }}
+                >
+                  <TouchableOpacity
+                    onPress={() => handleSelect(item)}
+                    style={[
+                      styles.optionItem,
+                      isSelected && { backgroundColor: colors.selectedBg },
+                      { borderBottomColor: colors.border }
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.optionText, { color: isSelected ? '#FFFFFF' : '#E2E8F0', fontWeight: isSelected ? '700' : '400' }]}>
+                      {item}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                </MotiView>
+              );
+            }}
+          />
+        </SafeAreaView>
       </View>
     </Modal>
   );
@@ -208,7 +183,6 @@ export default function SearchableSelectionModal({
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? 40 : 60,
   },
   header: {
     flexDirection: 'row',
@@ -221,6 +195,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
+    letterSpacing: 0.5,
   },
   closeButton: {
     padding: 4,
@@ -233,31 +208,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: RADIUS.lg,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: 2,
+    paddingVertical: 0, // Fix alignment on Android
   },
   listContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 20,
+    paddingHorizontal: 0,
+    paddingBottom: 40,
   },
   optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginHorizontal: 8,
-    marginVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderBottomWidth: 1, // Separator lines
   },
   optionText: {
     fontSize: 16,
