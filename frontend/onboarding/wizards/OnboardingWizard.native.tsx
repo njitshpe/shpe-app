@@ -20,6 +20,7 @@ import BioStep from '../screens/student/BioStep.native';
 import AssetsStep from '../screens/student/AssetsStep.native';
 import ReviewStep from '../screens/student/ReviewStep.native';
 import { InterestType } from '@/types/userProfile'; // Ensure this type is imported
+import { supabase } from '@/lib/supabase';
 
 const DEFAULT_GRAD_YEAR = String(new Date().getFullYear());
 
@@ -33,6 +34,8 @@ interface OnboardingFormData {
   interests: string[];
   phoneNumber: string;
   resumeFile: DocumentPicker.DocumentPickerAsset | null;
+  resumeUrl?: string;
+  resumeName?: string;
   linkedinUrl: string;
   portfolioUrl: string;
   bio: string;
@@ -59,6 +62,8 @@ export default function OnboardingWizard() {
     interests: [],
     phoneNumber: '',
     resumeFile: null,
+    resumeUrl: undefined,
+    resumeName: undefined,
     linkedinUrl: '',
     portfolioUrl: '',
     bio: '',
@@ -152,10 +157,36 @@ export default function OnboardingWizard() {
 
       if (formData.resumeFile) {
         setLoadingMessage("Securing resume...");
-        const uploadResult = await storageService.uploadResume(user.id, formData.resumeFile);
-        if (uploadResult.success) {
-          resumeUrl = uploadResult.data.url;
-          resumeName = uploadResult.data.originalName;
+        const response = await fetch(formData.resumeFile.uri);
+        const arrayBuffer = await response.arrayBuffer();
+        const storagePath = `${user.id}/resume.pdf`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('resumes')
+          .upload(storagePath, arrayBuffer, {
+            contentType: formData.resumeFile.mimeType || 'application/pdf',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        resumeUrl = storagePath;
+        resumeName = formData.resumeFile.name;
+        updateFormData({ resumeUrl, resumeName });
+
+        const { error: resumeUpdateError } = await supabase
+          .from('user_profiles')
+          .update({
+            resume_url: resumeUrl,
+            resume_name: resumeName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+
+        if (resumeUpdateError) {
+          console.error('Resume profile update error:', resumeUpdateError);
         }
       }
 

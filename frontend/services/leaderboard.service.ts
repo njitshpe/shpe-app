@@ -64,15 +64,12 @@ class LeaderboardService {
       if (!forceRefresh) {
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-          console.log('🔹 Cache HIT for:', context);
           return {
             success: true,
             data: cached.data,
           };
         }
       }
-
-      console.log('🔸 Cache MISS for:', context);
 
       // Call get_leaderboard_current_season RPC with filters
       const { data, error } = await supabase.rpc(

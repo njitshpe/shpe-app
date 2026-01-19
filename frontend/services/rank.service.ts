@@ -56,6 +56,9 @@ export type PhotoType = 'alumni' | 'professional' | 'member_of_month';
  * 2. Listening for real-time updates (to show toasts).
  */
 class RankService {
+  private createIdempotencyKey(prefix: string) {
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
 
   /**
    * Subscribe to point updates for the current user.
@@ -234,6 +237,88 @@ class RankService {
           tier,
           points_to_next_tier: pointsToNextTier,
         },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: mapSupabaseError(error),
+      };
+    }
+  }
+
+  async awardForAction(
+    userId: string,
+    action: string,
+    points: number
+  ): Promise<void>;
+  async awardForAction(
+    actionType: RankActionType,
+    metadata?: RankActionMetadata
+  ): Promise<ServiceResponse<PointsSummary>>;
+  async awardForAction(
+    arg1: string,
+    arg2?: RankActionMetadata | string,
+    arg3?: number
+  ): Promise<void | ServiceResponse<PointsSummary>> {
+    if (typeof arg3 === 'number') {
+      const userId = arg1;
+      const action = String(arg2 ?? 'manual');
+      const points = arg3;
+      const seasonId = this.computeSeasonId();
+      const idempotencyKey = this.createIdempotencyKey(`manual_${userId}`);
+
+      const { error } = await supabase.from('points_transactions').insert({
+        user_id: userId,
+        season_id: seasonId,
+        action_type: action,
+        points,
+        source_type: 'manual',
+        source_id: null,
+        idempotency_key: idempotencyKey,
+        metadata: { description: action, manual: true },
+      });
+
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      return;
+    }
+
+    const actionType = arg1 as RankActionType;
+    const metadata = (arg2 as RankActionMetadata) || {};
+    const sourceId =
+      (metadata as { event_id?: string }).event_id ||
+      (metadata as { post_id?: string }).post_id ||
+      (metadata as { feedback_id?: string }).feedback_id ||
+      null;
+    const sourceType = (metadata as { event_id?: string }).event_id
+      ? 'event'
+      : (metadata as { post_id?: string }).post_id
+        ? 'post'
+        : (metadata as { feedback_id?: string }).feedback_id
+          ? 'feedback'
+          : 'manual';
+    const idempotencyKey = this.createIdempotencyKey(actionType);
+
+    try {
+      const { data, error } = await supabase.rpc('award_points', {
+        p_action_type: actionType,
+        p_source_type: sourceType,
+        p_idempotency_key: idempotencyKey,
+        p_source_id: sourceId,
+        p_metadata: metadata,
+      });
+
+      if (error) {
+        return { success: false, error: mapSupabaseError(error) };
+      }
+
+      const summary = Array.isArray(data) ? data[0] : data;
+
+      return {
+        success: true,
+        data: summary,
       };
     } catch (error) {
       return {
