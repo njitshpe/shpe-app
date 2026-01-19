@@ -5,13 +5,13 @@
     "scheme": "shpe-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/app-logo-white-transparent.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
@@ -35,8 +35,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -51,17 +51,25 @@
       ]
     },
     "notification": {
-      "icon": "./assets/icon.png",
-      "color": "#FF5F05",
+      "icon": "./assets/app-icon.png",
+      "color": "#A9A9A9",
       "androidMode": "default",
       "androidCollapsedTitle": "SHPE Events"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/app-icon.png"
     },
     "plugins": [
       "expo-router",
       "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/app-logo-white-transparent.png",
+          "imageWidth": 200
+        }
+      ],
       [
         "expo-camera",
         {
