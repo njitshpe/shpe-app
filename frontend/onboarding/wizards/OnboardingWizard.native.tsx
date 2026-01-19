@@ -183,27 +183,20 @@ export default function OnboardingWizard() {
         user_type: 'student' as const,
       };
 
-      // 3. API CALL (Single clean call using upsert)
+      // 3. API CALL
       console.log('Submitting Profile Data:', JSON.stringify(profileData, null, 2));
 
-      const result = await profileService.createProfile(user.id, profileData);
+      let result = await profileService.createProfile(user.id, profileData);
+
+      // If create fails, try update (idempotency)
+      if (!result.success) {
+        console.log('Create failed, trying update...', result.error);
+        result = await profileService.updateProfile(user.id, profileData);
+      }
 
       if (!result.success) {
-        console.error('DATABASE SAVE ERROR:', result.error);
-        setIsSaving(false);
-
-        // Check if it's a UCID conflict - navigate back to Academics step
-        if (result.error?.message?.includes('UCID')) {
-          Alert.alert(
-            "UCID Conflict",
-            result.error.message,
-            [{ text: "Fix UCID", onPress: () => setCurrentStep(1) }] // Jump back to Academics
-          );
-          return;
-        }
-
-        Alert.alert('Save Failed', result.error?.message || 'Database save failed');
-        return;
+        console.error('FINAL SAVE ERROR:', result.error);
+        throw new Error(result.error?.message || "Database save failed");
       }
 
       // 4. PRE-LOAD APP STATE & SUCCESS

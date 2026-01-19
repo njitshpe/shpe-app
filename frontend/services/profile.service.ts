@@ -8,50 +8,6 @@ class ProfileService {
     private inFlight: Map<string, Promise<ServiceResponse<UserProfile | null>>> = new Map();
 
     /**
-     * Maps PostgreSQL unique constraint errors to user-friendly messages.
-     * Error code 23505 = Unique Violation
-     */
-    private mapUniqueConstraintError(error: any): ServiceResponse<any> {
-        if (error?.code === '23505') {
-            const message = error.message?.toLowerCase() || '';
-
-            if (message.includes('ucid')) {
-                return {
-                    success: false,
-                    error: createError(
-                        'This UCID is already registered to another SHPE account.',
-                        'UNIQUE_VIOLATION',
-                        'ucid',
-                        error.message
-                    ),
-                };
-            }
-            if (message.includes('email')) {
-                return {
-                    success: false,
-                    error: createError(
-                        'This email is already registered to another account.',
-                        'UNIQUE_VIOLATION',
-                        'email',
-                        error.message
-                    ),
-                };
-            }
-            // Generic unique constraint violation
-            return {
-                success: false,
-                error: createError(
-                    'A profile with this information already exists.',
-                    'UNIQUE_VIOLATION',
-                    undefined,
-                    error.message
-                ),
-            };
-        }
-        return { success: false, error };
-    }
-
-    /**
      * Flattens profile_data JSONB fields into the profile object for backward compatibility.
      * Fields from profile_data take precedence over legacy column values.
      */
@@ -130,7 +86,7 @@ class ProfileService {
         }
     }
 
-    // Create or update a user profile (idempotent via upsert)
+    // Create a new user profile
     async createProfile(
         userId: string,
         profileData: Partial<UserProfile>
@@ -141,24 +97,14 @@ class ProfileService {
 
             const { data, error } = await supabase
                 .from('user_profiles')
-                .upsert(
-                    {
-                        id: userId,
-                        ...directUpdates,
-                        profile_data: profileDataUpdates,
-                        updated_at: new Date().toISOString(),
-                    },
-                    {
-                        onConflict: 'id', // Update if the ID already exists
-                    }
-                )
+                .insert({
+                    id: userId,
+                    ...directUpdates,
+                    profile_data: profileDataUpdates,
+                    updated_at: new Date().toISOString(),
+                })
                 .select()
                 .single();
-
-            // Check for unique constraint violations (UCID, email, etc.)
-            if (error?.code === '23505') {
-                return this.mapUniqueConstraintError(error);
-            }
 
             // Flatten profile_data for backward compatibility
             const flattenedData = this.flattenProfileData(data);
@@ -208,11 +154,6 @@ class ProfileService {
                 .eq('id', userId)
                 .select()
                 .single();
-
-            // Check for unique constraint violations (UCID, email, etc.)
-            if (error?.code === '23505') {
-                return this.mapUniqueConstraintError(error);
-            }
 
             // Flatten profile_data for backward compatibility
             const flattenedData = this.flattenProfileData(data);
