@@ -21,6 +21,9 @@ interface FeedCardProps {
 
 export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = false }: FeedCardProps) {
     const { theme, isDark } = useTheme();
+
+    // Darker card background to match the rest of the UI
+    const cardBackground = isDark ? 'rgba(18, 18, 20, 0.85)' : theme.card;
     const { user } = useAuth();
     const { isUserBlocked } = useBlock();
     const router = useRouter();
@@ -127,7 +130,7 @@ export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = fal
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={[styles.container, { backgroundColor: cardBackground, borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.border }]}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.authorInfo} onPress={handleAuthorPress}>
