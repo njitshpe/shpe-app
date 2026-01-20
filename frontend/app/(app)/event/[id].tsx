@@ -393,7 +393,16 @@ export default function EventDetailScreen() {
         >
           {/* Top Controls */}
           <View style={[styles.topControls, { top: insets.top + 10 }]}>
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Pressable
+              style={styles.backButton}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/calendar');
+                }
+              }}
+            >
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </Pressable>
 
