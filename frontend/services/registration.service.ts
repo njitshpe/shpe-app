@@ -104,7 +104,10 @@ class RegistrationService {
    */
   async isRegistered(eventSlug: string): Promise<boolean> {
     try {
-      const userId = await this.getUserId();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const userId = user.id;
       const eventUUID = await this.getEventUUID(eventSlug);
 
       if (!eventUUID) return false;

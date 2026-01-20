@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EmailSignInSheet } from '@/components/auth/EmailSignInSheet';
 import { Toast } from '@/components/auth/Toast';
 import { LoginScreen } from '@/components/auth/LoginScreen';
@@ -19,6 +20,7 @@ type ToastState = {
 export default function WelcomeScreen() {
   const router = useRouter();
   const [pendingCheckIn, setPendingCheckIn] = useState<PendingCheckIn | null>(null);
+  const [pendingDeepLink, setPendingDeepLink] = useState<boolean>(false);
   const [isEmailSheetVisible, setEmailSheetVisible] = useState(false);
   const [showAuthSheet, setShowAuthSheet] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -39,6 +41,12 @@ export default function WelcomeScreen() {
   const checkPendingStatus = async () => {
     const pending = await PendingCheckInService.get();
     setPendingCheckIn(pending);
+
+    // Check for pending deep link
+    const link = await AsyncStorage.getItem('pendingDeepLink');
+    if (link && link.includes('/event/')) {
+      setPendingDeepLink(true);
+    }
   };
 
   const showToast = (message: string, type: ToastState['type']) => {
@@ -175,6 +183,22 @@ export default function WelcomeScreen() {
                   For: <Text style={styles.bannerHighlight}>{pendingCheckIn.eventName}</Text>
                 </Text>
                 <Text style={styles.bannerSubtext}>Sign in or sign up now to complete!</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Pending Deep Link Banner (only show if no pending check-in to avoid stacking) */}
+        {pendingDeepLink && !pendingCheckIn && (
+          <View style={styles.bannerContainer}>
+            <View style={styles.bannerContent}>
+              <Text style={styles.bannerIcon}>📅</Text>
+              <View style={styles.bannerTextContainer}>
+                <Text style={styles.bannerTitle}>Event Invitation</Text>
+                <Text style={styles.bannerText}>
+                  You've been invited to an event!
+                </Text>
+                <Text style={styles.bannerSubtext}>Sign in or sign up now to view details and RSVP.</Text>
               </View>
             </View>
           </View>
