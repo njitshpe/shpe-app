@@ -11,6 +11,7 @@ import {
     DeviceEventEmitter,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -22,7 +23,7 @@ import type { FeedPostUI } from '@/types/feed';
 import { FeedSkeleton } from '@/components/ui/FeedSkeleton';
 
 export default function FeedScreen() {
-    const { theme } = useTheme();
+    const { theme, isDark } = useTheme();
     const router = useRouter();
     const { user } = useAuth();
     const { posts, isLoading, isRefreshing, error, hasMore, loadMore, refresh, removePost } = useFeed();
@@ -63,33 +64,44 @@ export default function FeedScreen() {
     );
 
     const renderHeader = () => (
-        <View style={[styles.header, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>Feed</Text>
-            <TouchableOpacity
-                style={[styles.createButton, { backgroundColor: theme.primary }]}
-                onPress={() => router.push('/feed/create')}
-            >
-                <Ionicons name="add" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-        </View>
+        <BlurView
+            intensity={isDark ? 80 : 90}
+            tint={isDark ? 'dark' : 'light'}
+            style={[
+                styles.header,
+                {
+                    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.border,
+                    backgroundColor: isDark ? 'rgba(18, 18, 20, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+                }
+            ]}
+        >
+            <View style={styles.headerOverlay}>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>Feed</Text>
+                <TouchableOpacity
+                    style={[styles.createButton, { backgroundColor: theme.primary }]}
+                    onPress={() => router.push('/feed/create')}
+                >
+                    <Ionicons name="add" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+            </View>
+        </BlurView>
     );
 
     if (isLoading && posts.length === 0) {
         return (
             <View style={[styles.container, { backgroundColor: theme.background }]}>
-                {renderHeader()}
                 <View style={styles.listContent}>
                     <FeedSkeleton />
                     <FeedSkeleton />
                     <FeedSkeleton />
                 </View>
+                {renderHeader()}
             </View>
         );
     }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-            {renderHeader()}
 
             {error ? (
                 <View style={[styles.errorBanner, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -118,6 +130,9 @@ export default function FeedScreen() {
                 windowSize={5}
                 removeClippedSubviews={true}
             />
+
+            {/* Absolutely positioned header for blur effect */}
+            {renderHeader()}
 
             {/* Comments Modal */}
             <Modal
@@ -155,13 +170,21 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
         paddingHorizontal: 16,
         paddingVertical: 12,
         paddingTop: 60, // Account for status bar
         borderBottomWidth: 1,
+        overflow: 'hidden',
+        zIndex: 10,
+    },
+    headerOverlay: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     headerTitle: {
         fontSize: 28,
@@ -176,6 +199,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         padding: 16,
+        paddingTop: 110, // Account for absolute header height (60 status bar + ~50 header)
     },
     modalContainer: {
         flex: 1,

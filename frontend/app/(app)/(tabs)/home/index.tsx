@@ -69,14 +69,14 @@ export default function HomeScreen() {
       setFeaturedEvent(
         nextEvent
           ? {
-              id: nextEvent.event_id,
-              title: nextEvent.name,
-              start_time: nextEvent.start_time,
-              end_time: nextEvent.end_time,
-              location: nextEvent.location_name,
-              flyer: nextEvent.cover_image_url ?? null,
-              is_registered: myEventIds.has(nextEvent.event_id),
-            }
+            id: nextEvent.event_id,
+            title: nextEvent.name,
+            start_time: nextEvent.start_time,
+            end_time: nextEvent.end_time,
+            location: nextEvent.location_name,
+            flyer: nextEvent.cover_image_url ?? null,
+            is_registered: myEventIds.has(nextEvent.event_id),
+          }
           : null
       );
 
@@ -119,7 +119,7 @@ export default function HomeScreen() {
   };
 
   const handleActionPress = (route: string) => router.push(route as any);
-  
+
   const handleHeroAction = (action: 'check-in' | 'rsvp') => {
     if (action === 'check-in') router.push('/check-in');
     else if (featuredEvent) router.push(`/event/${featuredEvent.id}`);
@@ -142,7 +142,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent />
-      
+
       <LinearGradient
         colors={isDark ? ['#1a1a1a', '#000000'] : ['#FFFFFF', '#F5F5F5']}
         style={StyleSheet.absoluteFill}
@@ -157,13 +157,13 @@ export default function HomeScreen() {
       >
         {/* 1. Hero Event */}
         {loading ? (
-            <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 100 }} />
+          <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 100 }} />
         ) : featuredEvent ? (
-            <HeroEventCard
-                event={featuredEvent}
-                onPress={() => router.push(`/event/${featuredEvent.id}`)}
-                onAction={handleHeroAction}
-            />
+          <HeroEventCard
+            event={featuredEvent}
+            onPress={() => router.push(`/event/${featuredEvent.id}`)}
+            onAction={handleHeroAction}
+          />
         ) : null}
 
         {/* 2. Quick Actions */}
@@ -171,33 +171,33 @@ export default function HomeScreen() {
 
         {/* 3. Live Intel */}
         {liveIntel && (
-            <LiveIntel
-                title={liveIntel.title}
-                message={liveIntel.message}
-                onPress={() => router.push('/notifications')}
-            />
+          <LiveIntel
+            title={liveIntel.title}
+            message={liveIntel.message}
+            onPress={() => router.push('/notifications')}
+          />
         )}
 
         {/* 4. Mission Log */}
-        <MissionLog 
-            events={missionEvents} 
-            onPress={(id) => router.push(`/event/${id}`)}
+        <MissionLog
+          events={missionEvents}
+          onPress={(id) => router.push(`/event/${id}`)}
         />
 
         {/* 5. Rank Trajectory */}
         <RankTrajectory
-            currentPoints={profile?.points ?? 0}
-            rankTitle={rankTitle}
-            nextRankThreshold={nextRankThreshold}
-            onPress={() => router.push('/(tabs)/leaderboard')}
+          currentPoints={profile?.points ?? 0}
+          rankTitle={rankTitle}
+          nextRankThreshold={nextRankThreshold}
+          onPress={() => router.push('/(tabs)/leaderboard')}
         />
 
         {/* 6. Admin Controls (Hidden) */}
         {isAdmin && (
-            <AdminControls 
-                onDebug={() => router.push('/_sitemap')}
-                onAdmin={() => router.push('/admin')}
-            />
+          <AdminControls
+            onDebug={() => router.push('/_sitemap')}
+            onAdmin={() => router.push('/admin')}
+          />
         )}
 
       </ScrollView>
