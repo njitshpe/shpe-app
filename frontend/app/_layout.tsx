@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Providers
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -123,6 +124,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Rule 1: No session → redirect to welcome
     if (!session && !inAuthGroup) {
+      // Save the intended destination for deep link handling
+      if (pathname && pathname !== '/' && !pathname.includes('welcome')) {
+        AsyncStorage.setItem('pendingDeepLink', pathname).catch(err =>
+          console.error('[AuthGuard] Failed to save pending deep link:', err)
+        );
+      }
       replaceIfNeeded('/(auth)/welcome');
       return;
     }
@@ -173,7 +180,22 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     // Rule 5: Has session + onboarding completed → should be in app
     if (session && onboardingCompleted) {
       if (inAuthGroup || inOnboarding || inAlumniOnboarding || inGuestOnboarding || inRoleSelection) {
-        replaceIfNeeded('/home');
+        // Check for pending deep link after onboarding
+        AsyncStorage.getItem('pendingDeepLink')
+          .then(pendingLink => {
+            if (pendingLink) {
+              // Clear the saved link
+              AsyncStorage.removeItem('pendingDeepLink');
+              // Navigate to the saved destination
+              router.replace(pendingLink);
+            } else {
+              replaceIfNeeded('/home');
+            }
+          })
+          .catch(err => {
+            console.error('[AuthGuard] Failed to retrieve pending deep link:', err);
+            replaceIfNeeded('/home');
+          });
         return;
       }
       // If we are not in app (e.g. root), go to home
