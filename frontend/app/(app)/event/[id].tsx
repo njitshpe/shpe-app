@@ -83,6 +83,7 @@ const ScaleButton = ({ onPress, disabled, style, children }: { onPress?: () => v
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  console.log('[EventDetail] Incoming ID:', id);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { events, isCurrentUserAdmin, deleteEventAdmin, refetchEvents } = useEvents();
@@ -265,6 +266,7 @@ export default function EventDetailScreen() {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await shareService.shareEvent({
+      id: event.id,
       title: event.title,
       startTimeISO: event.startTimeISO,
       endTimeISO: event.endTimeISO,

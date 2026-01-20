@@ -1,7 +1,9 @@
 import { Share, Platform } from 'react-native';
+import * as Linking from 'expo-linking';
 import { formatDateHeader, formatTime } from '../utils/date';
 
 export interface ShareEventData {
+  id?: string;
   title: string;
   startTimeISO: string;
   endTimeISO: string;
@@ -20,13 +22,21 @@ class ShareService {
    */
   async shareEvent(event: ShareEventData): Promise<boolean> {
     try {
-      const message = this.buildShareMessage(event);
+      // Generate deep link if not provided
+      let deepLink = event.deepLink;
+      if (!deepLink && event.id) {
+        deepLink = Linking.createURL(`/event/${event.id}`);
+        console.log('[ShareService] Generated deep link:', deepLink);
+        console.log('[ShareService] Event ID used:', event.id);
+      }
+
+      const message = this.buildShareMessage({ ...event, deepLink });
 
       const result = await Share.share(
         {
           message: Platform.OS === 'ios' ? message : message,
           title: event.title,
-          url: event.deepLink, // iOS only, will be ignored on Android
+          url: deepLink, // iOS only, will be ignored on Android
         },
         {
           dialogTitle: `Share ${event.title}`, // Android only
@@ -91,12 +101,18 @@ class ShareService {
       parts.push('');
     }
 
-    // Deep link or app promotion
+    // Links
+    parts.push('📲 View in App:');
     if (event.deepLink) {
-      parts.push(`🔗 ${event.deepLink}`);
+      parts.push(event.deepLink);
     } else {
-      parts.push('Shared from SHPE App');
+      // Allow fallback if deepLink wasn't passed or generated (shouldn't happen with new logic)
+      parts.push('Open SHPE App to view details');
     }
+
+    // TODO: Replace with actual App Store / Play Store link
+    // parts.push('');
+    // parts.push('Download the app: https://shpe-njit.org/app');
 
     return parts.join('\n');
   }
