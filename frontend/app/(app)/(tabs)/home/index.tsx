@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { eventsService, notificationService } from '@/services';
 import { fetchAnnouncementPosts } from '@/lib/feedService';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HeroEventCard } from '@/components/home/HeroEventCard';
+import { HeroEventSkeleton } from '@/components/home/HeroEventSkeleton';
 import { QuickActions } from '@/components/home/QuickActions';
 import { LiveIntel } from '@/components/home/LiveIntel';
 import { MissionLog } from '@/components/home/MissionLog';
@@ -152,12 +153,17 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            progressViewOffset={80}
+          />
         }
       >
         {/* 1. Hero Event */}
         {loading ? (
-          <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 100 }} />
+          <HeroEventSkeleton />
         ) : featuredEvent ? (
           <HeroEventCard
             event={featuredEvent}
