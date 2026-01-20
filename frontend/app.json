@@ -15,8 +15,8 @@
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
-      "buildNumber": "6",
-      "supportsTablet": true,
+      "buildNumber": "7",
+      "supportsTablet": false,
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
