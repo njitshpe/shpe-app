@@ -382,7 +382,7 @@ export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onComme
                         const mentionName = part.substring(1).trim();
 
                         const taggedUser = post.taggedUsers.find(
-                            u => {
+                            (u) => {
                                 const fullName = `${u.firstName}${u.lastName}`.toLowerCase();
                                 const spacedName = `${u.firstName} ${u.lastName}`.toLowerCase();
                                 const search = mentionName.toLowerCase();

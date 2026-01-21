@@ -47,7 +47,7 @@ export default function FeedScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
-    const { posts, isLoading, isRefreshing, error, hasMore, loadMore, refresh, removePost } = useFeed();
+    const { posts, isLoading, isRefreshing, error, loadMore, refresh, removePost } = useFeed();
     const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
 
     // Listen for refresh events (e.g. from creating a post)
@@ -86,7 +86,8 @@ export default function FeedScreen() {
     ), [handleCommentPress, router, removePost]);
 
     const renderHeader = () => (
-        <View style={[styles.header, { paddingTop: insets.top + SPACING.sm }]}>
+        <View style={[styles.header, { paddingTop: insets.top + SPACING.sm }]}
+        >
             {/* Glass background effect */}
             {isDark && (
                 <View style={[StyleSheet.absoluteFill, styles.headerGlass]} />

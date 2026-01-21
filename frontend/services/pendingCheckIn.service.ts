@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { jwtDecode } from 'jwt-decode';
+import { Buffer } from 'buffer';
 
 export interface PendingCheckIn {
     token: string;
@@ -7,6 +7,26 @@ export interface PendingCheckIn {
     scannedAt: string; // ISO string
     expiresAt: string; // ISO string
 }
+
+const decodeJwtPayload = (token: string): Record<string, unknown> => {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+        throw new Error('Invalid token');
+    }
+
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const json = typeof globalThis.atob === 'function'
+        ? globalThis.atob(padded)
+        : Buffer.from(padded, 'base64').toString('utf-8');
+    const parsed = JSON.parse(json);
+
+    if (!parsed || typeof parsed !== 'object') {
+        throw new Error('Invalid token payload');
+    }
+
+    return parsed as Record<string, unknown>;
+};
 
 export class PendingCheckInService {
     private static readonly STORAGE_KEY = 'pending_check_in_data';
@@ -21,14 +41,14 @@ export class PendingCheckInService {
             // Decode token to get event details (for UI display)
             // The token payload structure from backend:
             // { event_id, event_name, iat, exp, type: "check_in" }
-            const decoded: any = jwtDecode(token);
+            const decoded = decodeJwtPayload(token);
 
             const now = new Date();
             const expiresAt = new Date(now.getTime() + this.TTL_MS);
 
             const pendingData: PendingCheckIn = {
                 token,
-                eventName: decoded.event_name || 'Event',
+                eventName: typeof decoded.event_name === 'string' ? decoded.event_name : 'Event',
                 scannedAt: now.toISOString(),
                 expiresAt: expiresAt.toISOString(),
             };
