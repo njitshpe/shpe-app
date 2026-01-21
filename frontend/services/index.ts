@@ -14,6 +14,7 @@ export { blockService } from './block.service';
 export { reportService } from './report.service';
 export { adminRoleService } from './adminRole.service';
 export { leaderboardService } from './leaderboard.service';
+export { committeeService } from './committee.service';
 export type {
   RankActionType,
   RankActionMetadata,
