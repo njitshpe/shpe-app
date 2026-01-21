@@ -91,6 +91,102 @@ class EventsService {
       };
     }
   }
+
+  /**
+   * Fetch events for a specific committee by slug
+   * Events are linked to committees via the committee_id foreign key
+   */
+  async getCommitteeEvents(committeeSlug: string): Promise<ServiceResponse<EventDB[]>> {
+    try {
+      // First, get the committee UUID from the slug
+      const { data: committee, error: committeeError } = await supabase
+        .from('committees')
+        .select('id')
+        .eq('slug', committeeSlug)
+        .single();
+
+      if (committeeError || !committee) {
+        return {
+          success: false,
+          error: createError(
+            'Committee not found',
+            'NOT_FOUND',
+            undefined,
+            committeeError?.message
+          ),
+        };
+      }
+
+      // Fetch events for this committee
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('committee_id', committee.id)
+        .eq('is_active', true)
+        .order('start_time', { ascending: false });
+
+      return handleSupabaseError(data, error);
+    } catch (error) {
+      return {
+        success: false,
+        error: createError(
+          'Failed to fetch committee events',
+          'DATABASE_ERROR',
+          undefined,
+          error instanceof Error ? error.message : String(error)
+        ),
+      };
+    }
+  }
+
+  /**
+   * Fetch upcoming events for a specific committee
+   */
+  async getCommitteeUpcomingEvents(committeeSlug: string): Promise<ServiceResponse<EventDB[]>> {
+    try {
+      // First, get the committee UUID from the slug
+      const { data: committee, error: committeeError } = await supabase
+        .from('committees')
+        .select('id')
+        .eq('slug', committeeSlug)
+        .single();
+
+      if (committeeError || !committee) {
+        return {
+          success: false,
+          error: createError(
+            'Committee not found',
+            'NOT_FOUND',
+            undefined,
+            committeeError?.message
+          ),
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+
+      // Fetch upcoming events for this committee
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('committee_id', committee.id)
+        .eq('is_active', true)
+        .gte('end_time', nowIso)
+        .order('start_time', { ascending: true });
+
+      return handleSupabaseError(data, error);
+    } catch (error) {
+      return {
+        success: false,
+        error: createError(
+          'Failed to fetch committee upcoming events',
+          'DATABASE_ERROR',
+          undefined,
+          error instanceof Error ? error.message : String(error)
+        ),
+      };
+    }
+  }
 }
 
 export const eventsService = new EventsService();
