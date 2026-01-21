@@ -4,28 +4,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING, RADIUS } from '@/constants/colors';
 
-interface LiveIntelProps {
+interface AnnouncementsProps {
   title: string;
   message: string;
   onPress?: () => void;
 }
 
-export function LiveIntel({ title, message, onPress }: LiveIntelProps) {
+export function Announcements({ title, message, onPress }: AnnouncementsProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionHeader}>LIVE INTEL</Text>
+      <Text style={styles.sectionHeader}>ANNOUNCEMENTS</Text>
       
       <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
         <LinearGradient
-          // Subtle Red/Orange tint for "Alert" feel, fading to black
-          colors={['rgba(255, 69, 58, 0.15)', 'rgba(255, 69, 58, 0.02)']}
+          // Subtle yellow fade tint for "Alert" feel, fading to black
+          colors={['rgba(212, 175, 55, 0.18)', 'rgba(212, 175, 55, 0.05)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.card}
         >
           <View style={styles.iconColumn}>
             <View style={styles.iconHalo}>
-              <Ionicons name="megaphone" size={20} color="#FF453A" />
+              <Ionicons name="megaphone" size={20} color="#D4AF37" />
             </View>
           </View>
 
@@ -36,7 +36,7 @@ export function LiveIntel({ title, message, onPress }: LiveIntelProps) {
             </Text>
           </View>
 
-          <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+          <Ionicons name="chevron-forward" size={16} color="rgba(212,175,55,0.3)" />
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 69, 58, 0.3)', // Red border accent
+    borderColor: 'rgba(212, 175, 55,0.3)', // border accent
     gap: 16,
   },
   iconColumn: {
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 69, 58, 0.2)',
+    backgroundColor: 'rgba(212, 175, 55, 0.2)', // subtle gold tint
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    color: '#FF453A', // System Red
+    color: '#D4AF37', 
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.5,

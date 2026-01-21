@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -11,12 +11,12 @@ import { eventsService, notificationService, rankService } from '@/services';
 import { fetchAnnouncementPosts } from '@/lib/feedService';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HeroEventCard } from '@/components/home/HeroEventCard';
-import { HeroEventSkeleton } from '@/components/home/HeroEventSkeleton';
 import { QuickActions } from '@/components/home/QuickActions';
-import { LiveIntel } from '@/components/home/LiveIntel';
+import { Announcements } from '@/components/home/Announcements';
+import { Committees } from '@/components/home/Committees';
 import { MissionLog } from '@/components/home/MissionLog';
 import { RankTrajectory } from '@/components/home/RankTrajectory';
-import { AdminControls } from '@/components/home/AdminControls'; // New Import
+import { AdminControls } from '@/components/home/AdminControls';
 
 interface HeroEvent {
   id: string;
@@ -43,9 +43,9 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const [refreshing, setRefreshing] = useState(false);
-  const [featuredEvent, setFeaturedEvent] = useState<HeroEvent | null>(null);
+  const [featuredEvents, setFeaturedEvents] = useState<HeroEvent[]>([]);
   const [missionEvents, setMissionEvents] = useState<MissionEvent[]>([]);
-  const [liveIntel, setLiveIntel] = useState<{ title: string; message: string } | null>(null);
+  const [announcement, setAnnouncement] = useState<{ title: string; message: string } | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPoints, setCurrentPoints] = useState(0);
@@ -68,20 +68,17 @@ export default function HomeScreen() {
       const myEvents = myEventsResponse.success ? myEventsResponse.data : [];
       const myEventIds = new Set(myEvents.map((event) => event.event_id));
 
-      const nextEvent = upcomingEvents[0];
-      setFeaturedEvent(
-        nextEvent
-          ? {
-            id: nextEvent.event_id,
-            title: nextEvent.name,
-            start_time: nextEvent.start_time,
-            end_time: nextEvent.end_time,
-            location: nextEvent.location_name,
-            flyer: nextEvent.cover_image_url ?? null,
-            is_registered: myEventIds.has(nextEvent.event_id),
-          }
-          : null
-      );
+      // Take up to 3 upcoming events for the carousel
+      const heroEvents = upcomingEvents.slice(0, 3).map((event) => ({
+        id: event.event_id,
+        title: event.name,
+        start_time: event.start_time,
+        end_time: event.end_time,
+        location: event.location_name,
+        flyer: event.cover_image_url ?? null,
+        is_registered: myEventIds.has(event.event_id),
+      }));
+      setFeaturedEvents(heroEvents);
 
       setMissionEvents(
         myEvents.map((event) => ({
@@ -94,19 +91,19 @@ export default function HomeScreen() {
 
       if (announcementsResponse.success && announcementsResponse.data.length > 0) {
         const latestAlert = announcementsResponse.data[0];
-        setLiveIntel({
+        setAnnouncement({
           title: latestAlert.title?.trim() || 'Announcement',
           message: latestAlert.content,
         });
       } else if (announcementsResponse.success) {
-        setLiveIntel(null);
+        setAnnouncement(null);
       }
 
       setUnreadCount(typeof badgeCount === 'number' ? badgeCount : 0);
       setCurrentPoints(rankResponse.success ? rankResponse.data.points_total : 0);
     } catch (error) {
       console.error(error);
-      setFeaturedEvent(null);
+      setFeaturedEvents([]);
     } finally {
       setLoading(false);
     }
@@ -124,9 +121,9 @@ export default function HomeScreen() {
 
   const handleActionPress = (route: string) => router.push(route as any);
 
-  const handleHeroAction = (action: 'check-in' | 'rsvp') => {
+  const handleHeroAction = (eventId: string, action: 'check-in' | 'rsvp') => {
     if (action === 'check-in') router.push('/check-in');
-    else if (featuredEvent) router.push(`/event/${featuredEvent.id}`);
+    else router.push(`/event/${eventId}`);
   };
 
   const { rankTitle, nextRankThreshold } = useMemo(() => {
@@ -165,34 +162,37 @@ export default function HomeScreen() {
       >
         {/* 1. Hero Event */}
         {loading ? (
-          <HeroEventSkeleton />
-        ) : featuredEvent ? (
-          <HeroEventCard
-            event={featuredEvent}
-            onPress={() => router.push(`/event/${featuredEvent.id}`)}
-            onAction={handleHeroAction}
-          />
+            <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 100 }} />
+        ) : featuredEvents.length > 0 ? (
+            <HeroEventCard
+                events={featuredEvents}
+                onPress={(eventId) => router.push(`/event/${eventId}`)}
+                onAction={handleHeroAction}
+            />
         ) : null}
 
         {/* 2. Quick Actions */}
         <QuickActions onPress={handleActionPress} />
 
-        {/* 3. Live Intel */}
-        {liveIntel && (
-          <LiveIntel
-            title={liveIntel.title}
-            message={liveIntel.message}
-            onPress={() => router.push('/notifications')}
-          />
+        {/* 3. Announcements */}
+        {announcement && (
+            <Announcements
+                title={announcement.title}
+                message={announcement.message}
+                onPress={() => router.push('/notifications')}
+            />
         )}
 
-        {/* 4. Mission Log */}
+        {/* 4. Committees */}
+        <Committees onPress={(committeeId) => router.push(`/committees/${committeeId}` as any)} />
+
+        {/* 5. Mission Log */}
         <MissionLog
-          events={missionEvents}
-          onPress={(id) => router.push(`/event/${id}`)}
+            events={missionEvents}
+            onPress={(id) => router.push(`/event/${id}`)}
         />
 
-        {/* 5. Rank Trajectory */}
+        {/* 6. Rank Trajectory */}
         <RankTrajectory
           currentPoints={currentPoints}
           rankTitle={rankTitle}
@@ -200,7 +200,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/(tabs)/leaderboard')}
         />
 
-        {/* 6. Admin Controls (Hidden) */}
+        {/* 7. Admin Controls (Hidden) */}
         {isAdmin && (
           <AdminControls
             onDebug={() => router.push('/_sitemap')}

@@ -7,16 +7,16 @@ import { SPACING } from '@/constants/colors';
 const ACTIONS = [
   // 1. Check In (Green - Access)
   { id: 'check-in', label: 'CHECK IN', icon: 'qr-code', color: '#32D74B' },
-  
-  // 2. Alerts (Red - Notification) - Moved here
+
+  // 2. My Events (Blue - Schedule)
+  { id: 'my-events', label: 'MY EVENTS', icon: 'calendar', color: '#0A84FF' },
+
+  // 3. Alerts (Red - Notification)
   { id: 'alerts', label: 'ALERTS', icon: 'notifications', color: '#FF453A' },
-  
-  // 3. Calendar (Blue - Schedule)
-  { id: 'calendar', label: 'CALENDAR', icon: 'calendar', color: '#0A84FF' },
-  
+
   // 4. Ranking (Gold - Achievement)
   { id: 'rank', label: 'RANKING', icon: 'trophy', color: '#FFD700' },
-  
+
 ];
 
 interface QuickActionsProps {
@@ -28,7 +28,7 @@ export function QuickActions({ onPress }: QuickActionsProps) {
   const getRoute = (id: string) => {
     switch(id) {
       case 'check-in': return '/check-in';
-      case 'calendar': return '/(tabs)/calendar';
+      case 'my-events': return '/my-events';
       case 'rank': return '/(tabs)/leaderboard';
       case 'alerts': return '/notifications';
       default: return '/';

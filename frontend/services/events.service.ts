@@ -17,7 +17,7 @@ class EventsService {
         .from('events')
         .select('*')
         .eq('is_active', true)
-        .gte('start_time', nowIso)
+        .gte('end_time', nowIso) // Include events that are currently happening
         .order('start_time', { ascending: true });
 
       return handleSupabaseError(data, error);
@@ -43,7 +43,7 @@ class EventsService {
         .eq('event_attendance.user_id', userId)
         .in('event_attendance.status', ['going', 'confirmed'])
         .eq('is_active', true)
-        .gte('start_time', nowIso)
+        .gte('end_time', nowIso) // Include events that are currently happening
         .order('start_time', { ascending: true });
 
       if (error) {
