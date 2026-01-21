@@ -1,3 +1,371 @@
+IMPORTANT: ADDED SQL's
+-- 1) Committees (minimal)
+create table if not exists public.committees (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+);
+
+-- 2) Committee members (admin-approved)
+create table if not exists public.committee_members (
+  committee_id uuid not null references public.committees(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending','approved','rejected','revoked')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz null,
+
+  primary key (committee_id, user_id)
+);
+
+-- Useful indexes
+create index if not exists committee_members_user_id_idx
+  on public.committee_members (user_id);
+
+create index if not exists committee_members_committee_status_idx
+  on public.committee_members (committee_id, status);
+
+
+
+
+
+
+alter table public.events
+add column if not exists committee_id uuid
+references public.committees(id) on delete set null;
+
+create index if not exists events_committee_id_idx
+  on public.events (committee_id);
+
+
+
+alter table public.committees enable row level security;
+alter table public.committee_members enable row level security;
+
+
+create policy "Authenticated can view committees"
+on public.committees
+for select
+to authenticated
+using (true);
+
+
+create policy "Users can request to join committee"
+on public.committee_members
+for insert
+to authenticated
+with check (
+  user_id = auth.uid()
+  and status = 'pending'
+  and decided_at is null
+);
+
+
+
+create policy "Users can view own committee membership"
+on public.committee_members
+for select
+to authenticated
+using (user_id = auth.uid());
+
+
+
+
+
+
+create policy "Admins can view all committee memberships"
+on public.committee_members
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.admin_roles ar
+    where ar.user_id = auth.uid()
+      and ar.revoked_at is null
+  )
+);
+
+create policy "Admins can update committee memberships"
+on public.committee_members
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.admin_roles ar
+    where ar.user_id = auth.uid()
+      and ar.revoked_at is null
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.admin_roles ar
+    where ar.user_id = auth.uid()
+      and ar.revoked_at is null
+  )
+);
+
+
+
+
+
+create policy "Users can cancel pending request"
+on public.committee_members
+for delete
+to authenticated
+using (user_id = auth.uid() and status = 'pending');
+
+
+
+create policy "Committee members can view approved roster for their committee"
+on public.committee_members
+for select
+to authenticated
+using (
+  status = 'approved'
+  and (
+    -- viewer is approved in same committee
+    exists (
+      select 1
+      from public.committee_members me
+      where me.committee_id = committee_members.committee_id
+        and me.user_id = auth.uid()
+        and me.status = 'approved'
+    )
+    -- OR viewer is admin
+    or exists (
+      select 1
+      from public.admin_roles ar
+      where ar.user_id = auth.uid()
+        and ar.revoked_at is null
+    )
+  )
+);
+
+
+
+alter table public.committee_members
+add column if not exists application jsonb;
+
+alter policy "Users can request to join committee"
+on public.committee_members
+to authenticated
+with check (
+  user_id = auth.uid()
+  and status = 'pending'
+  and decided_at is null
+);
+
+
+
+
+alter table public.committee_members
+add constraint application_is_object
+check (application is null or jsonb_typeof(application) = 'object');
+
+select
+  policyname,
+  tablename,
+  cmd,
+  roles,
+  qual,
+  with_check
+from pg_policies
+where tablename = 'committee_members';
+
+
+events.committee_id is null
+OR exists (
+  select 1
+  from public.committee_members cm
+  where cm.committee_id = events.committee_id
+    and cm.user_id = auth.uid()
+    and cm.status = 'approved'
+)
+OR exists (
+  select 1
+  from public.admin_roles ar
+  where ar.user_id = auth.uid()
+    and ar.revoked_at is null
+)
+
+
+select
+  policyname,
+  cmd,
+  roles,
+  qual
+from pg_policies
+where tablename = 'events'
+order by cmd, policyname;
+
+
+
+
+
+
+alter policy "Authenticated users can view active events"
+on public.events
+to authenticated
+using (
+  (is_active = true) and (deleted_at is null)
+  and
+  (
+    committee_id is null
+    or exists (
+      select 1
+      from public.committee_members cm
+      where cm.committee_id = events.committee_id
+        and cm.user_id = auth.uid()
+        and cm.status = 'approved'
+    )
+    or exists (
+      select 1
+      from public.admin_roles ar
+      where ar.user_id = auth.uid()
+        and ar.revoked_at is null
+    )
+  )
+);
+
+
+create index if not exists committee_members_committee_user_status_idx
+on public.committee_members (committee_id, user_id, status);
+
+
+
+
+
+
+
+-- 1) is_admin()
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+set row_security = off
+as $$
+  select exists (
+    select 1
+    from public.admin_roles ar
+    where ar.user_id = auth.uid()
+      and ar.revoked_at is null
+  );
+$$;
+
+-- 2) is_approved_committee_member(committee_id)
+create or replace function public.is_approved_committee_member(p_committee_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+set row_security = off
+as $$
+  select exists (
+    select 1
+    from public.committee_members cm
+    where cm.committee_id = p_committee_id
+      and cm.user_id = auth.uid()
+      and cm.status = 'approved'
+  );
+$$;
+
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.is_approved_committee_member(uuid) to authenticated;
+
+
+
+
+
+
+
+drop policy if exists "Committee members can view approved roster for their committee"
+on public.committee_members;
+
+create policy "Committee members can view approved roster for their committee"
+on public.committee_members
+for select
+to authenticated
+using (
+  status = 'approved'
+  and (
+    public.is_admin()
+    or public.is_approved_committee_member(committee_id)
+  )
+);
+
+
+
+alter policy "Authenticated users can view active events"
+on public.events
+to authenticated
+using (
+  (is_active = true) and (deleted_at is null)
+  and (
+    committee_id is null
+    or public.is_admin()
+    or public.is_approved_committee_member(committee_id)
+  )
+);
+
+
+alter policy "Admins can view all committee memberships"
+on public.committee_members
+using (public.is_admin());
+
+alter policy "Admins can update committee memberships"
+on public.committee_members
+using (public.is_admin())
+with check (public.is_admin());
+
+
+
+select policyname, cmd, qual
+from pg_policies
+where tablename in ('committee_members','events')
+order by tablename, cmd, policyname;
+
+
+
+
+
+alter policy "Admins can update committee memberships"
+on public.committee_members
+to authenticated
+using (is_admin())
+with check (is_admin());
+
+
+select policyname, cmd, with_check
+from pg_policies
+where tablename = 'committee_members'
+  and policyname = 'Users can request to join committee';
+
+
+
+alter policy "Admins can view all events"
+on public.events
+to authenticated
+using (is_admin());
+
+alter policy "Admins can update events"
+on public.events
+to authenticated
+using (is_admin());
+
+alter policy "Admins can insert events"
+on public.events
+to authenticated
+with check (is_admin());
+
+
+create index if not exists committee_members_lookup_idx
+on public.committee_members (committee_id, user_id, status);
+
+
+
 This was done:
 is this something that I can implement to the profile page? it would be just for the background behind the profile picture and be subtle. it would use the profile picture the user uses. 
     <View style={styles.container}>
@@ -1585,159 +1953,6 @@ Back button with blur background
 Committee name and full description
 Proper light/dark mode support
 Theme-adaptive status bar
-
-
-
-
-Important: Recently added SQL
--- 1) Committees (minimal)
-create table if not exists public.committees (
-  id uuid primary key default gen_random_uuid(),
-  slug text not null unique,
-);
-
--- 2) Committee members (admin-approved)
-create table if not exists public.committee_members (
-  committee_id uuid not null references public.committees(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  status text not null default 'pending'
-    check (status in ('pending','approved','rejected','revoked')),
-  created_at timestamptz not null default now(),
-  decided_at timestamptz null,
-
-  primary key (committee_id, user_id)
-);
-
--- Useful indexes
-create index if not exists committee_members_user_id_idx
-  on public.committee_members (user_id);
-
-create index if not exists committee_members_committee_status_idx
-  on public.committee_members (committee_id, status);
-
-
-
-
-
-
-alter table public.events
-add column if not exists committee_id uuid
-references public.committees(id) on delete set null;
-
-create index if not exists events_committee_id_idx
-  on public.events (committee_id);
-
-
-
-alter table public.committees enable row level security;
-alter table public.committee_members enable row level security;
-
-
-create policy "Authenticated can view committees"
-on public.committees
-for select
-to authenticated
-using (true);
-
-
-create policy "Users can request to join committee"
-on public.committee_members
-for insert
-to authenticated
-with check (
-  user_id = auth.uid()
-  and status = 'pending'
-  and decided_at is null
-);
-
-
-
-create policy "Users can view own committee membership"
-on public.committee_members
-for select
-to authenticated
-using (user_id = auth.uid());
-
-
-
-
-
-
-create policy "Admins can view all committee memberships"
-on public.committee_members
-for select
-to authenticated
-using (
-  exists (
-    select 1
-    from public.admin_roles ar
-    where ar.user_id = auth.uid()
-      and ar.revoked_at is null
-  )
-);
-
-create policy "Admins can update committee memberships"
-on public.committee_members
-for update
-to authenticated
-using (
-  exists (
-    select 1
-    from public.admin_roles ar
-    where ar.user_id = auth.uid()
-      and ar.revoked_at is null
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.admin_roles ar
-    where ar.user_id = auth.uid()
-      and ar.revoked_at is null
-  )
-);
-
-
-
-
-
-create policy "Users can cancel pending request"
-on public.committee_members
-for delete
-to authenticated
-using (user_id = auth.uid() and status = 'pending');
-
-
-
-create policy "Committee members can view approved roster for their committee"
-on public.committee_members
-for select
-to authenticated
-using (
-  status = 'approved'
-  and (
-    -- viewer is approved in same committee
-    exists (
-      select 1
-      from public.committee_members me
-      where me.committee_id = committee_members.committee_id
-        and me.user_id = auth.uid()
-        and me.status = 'approved'
-    )
-    -- OR viewer is admin
-    or exists (
-      select 1
-      from public.admin_roles ar
-      where ar.user_id = auth.uid()
-        and ar.revoked_at is null
-    )
-  )
-);
-
-
-
-
-
 
 use context.md to read the SQL i added to supabase. I want to implement a feature in the 13 committee pages that replicates the eventfeed.tsx look, except that this specific feed would only display events for that specific committee.
 I'll start by reading the context.md file to understand the SQL structure you've added.

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -41,6 +41,12 @@ export const JoinQuestionnaireModal: React.FC<JoinQuestionnaireModalProps> = ({
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!visible) {
+      setErrors({});
+    }
+  }, [visible]);
 
   const updateAnswer = (key: string, value: any) => {
     setAnswers(prev => ({ ...prev, [key]: value }));
