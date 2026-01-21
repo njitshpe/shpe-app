@@ -1,0 +1,1 @@
+export { CommitteeHeroHeader } from './CommitteeHeroHeader';
