@@ -8,6 +8,7 @@ import {
     RefreshControl,
     Alert,
     Platform,
+    ImageBackground,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -251,8 +252,23 @@ export default function PublicProfileScreen() {
 
     return (
         <View style={styles.root}>
-            <StatusBar style="light" translucent />
-            <LinearGradient colors={['#1a1a1a', '#000000']} style={StyleSheet.absoluteFill} />
+            <StatusBar style={isDark ? 'light' : 'dark'} translucent />
+
+            {profile?.profile_picture_url ? (
+                <ImageBackground
+                    source={{ uri: profile.profile_picture_url }}
+                    style={StyleSheet.absoluteFill}
+                    blurRadius={Platform.OS === 'android' ? 25 : 35}
+                >
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)' }]} />
+                    {Platform.OS === 'ios' && (
+                        <BlurView intensity={60} style={StyleSheet.absoluteFill} tint={isDark ? 'dark' : 'light'} />
+                    )}
+                </ImageBackground>
+            ) : (
+                <LinearGradient colors={isDark ? ['#1a1a1a', '#000000'] : ['#FFFFFF', '#F5F5F5']} style={StyleSheet.absoluteFill} />
+            )}
+
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 <Stack.Screen options={{ headerShown: false }} />
 
