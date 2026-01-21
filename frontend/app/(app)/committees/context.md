@@ -4536,3 +4536,821 @@ shpetinas.tsx
 treasurer.tsx
 webmaster.tsx
 Each page now shows a button instead of the inline member list. Tapping the button opens a slide-up modal with the full searchable member list.
+
+
+
+
+No tasks in progress
+
+
+please pick up on this and execute successfully:
+use context.md to read the SQL i added to supabase. I want each of the 13 committee pages's request to join committee to bring up a full screen questionaire to submit their request. 
+Some basic questions are these:
+UCID
+Phone Number
+Please tell us about other organizations where you have volunteered or served as a board member (current or past).
+What is your history with SHPE?
+
+You can try this example:
+Where the questions go
+
+Frontend only as a config object keyed by slug.
+
+Example shape (recommended):
+
+each question has a stable key (used as the JSON field name in answers)
+
+UI renders based on type
+
+export const COMMITTEE_JOIN_FORMS: Record<string, {
+  title: string;
+  questions: Array<{
+    key: string;
+    label: string;
+    type: 'text' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'number';
+    required?: boolean;
+    options?: string[]; // select/multiselect
+    maxLen?: number;
+  }>;
+}> = {
+  marketing: {
+    title: "Marketing Committee",
+    questions: [
+      { key: "experience", label: "Any marketing/social experience?", type: "textarea", required: true, maxLen: 800 },
+      { key: "tools", label: "Tools you know", type: "multiselect", options: ["Canva","Adobe","Figma","CapCut","Other"] },
+      { key: "availability", label: "Weekly availability", type: "text", required: true }
+    ]
+  },
+  webmaster: {
+    title: "Webmaster",
+    questions: [
+      { key: "stack", label: "Tech you’re comfortable with", type: "textarea", required: true },
+      { key: "github", label: "GitHub username", type: "text", required: true },
+      { key: "projects", label: "Link a project (optional)", type: "text" }
+    ]
+  }
+  // ...
+};
+Show less
+I'll start by reading the context.md file to understand the SQL schema you've set up, then implement the full-screen questionnaire feature.
+
+Read context.md
+Let me read it in chunks, focusing on the SQL schema portion.
+
+Read context.md
+Let me continue reading more of the context.md to find the SQL schema.
+
+Grep "CREATE TABLE|INSERT INTO|committee_join|join_request" (in /home/jossue/dev/shpe-app/frontend/app/(app)/committees/context.md)
+1 line of output
+Read context.md (lines 2801-3100)
+Let me search for the SQL schema for committee_join or join requests.
+
+Read context.md (lines 3101-3600)
+Let me continue reading to find the SQL schema for join requests.
+
+Read context.md (lines 3601-4100)
+Let me continue to find the SQL schema.
+
+Read context.md (lines 4101-4600)
+Let me continue to find the SQL schema for join requests.
+
+Read context.md (lines 4301-4800)
+Grep "committee_members|join_request|answers|questionnaire|CREATE" (in /home/jossue/dev/shpe-app/frontend/app/(app)/committees/context.md)
+23 lines of output
+Now I can see the schema. Let me read that section to understand the full structure including the answers field.
+
+Read context.md (lines 1591-1790)
+Now I understand the SQL schema. The committee_members table has: committee_id, user_id, status, created_at, decided_at. I need to add an answers column to store the questionnaire responses.
+
+Let me now look at the current committee page structure and the JoinCommitteePrompt component to understand how to implement the questionnaire.
+
+Read JoinCommitteePrompt.tsx
+Now let me look at the committee service to understand how join requests work.
+
+Read committee.service.ts
+Now let me also check one of the committee pages to understand the current structure.
+
+Read marketing.tsx
+Now I understand the full picture. I need to:
+
+Create a config object for committee join forms with the questionnaire questions
+Create a full-screen questionnaire modal component
+Modify the JoinCommitteePrompt to open the questionnaire modal when "Request to Join" is pressed
+Update the committee service to accept answers when submitting a join request
+Add an answers column to the Supabase table (you'll need to run this SQL)
+Let me create a todo list and implement this feature.
+
+Update Todos
+
+Create COMMITTEE_JOIN_FORMS config with questionnaire definitions
+
+Create JoinQuestionnaireModal full-screen component
+
+Update committee.service.ts to accept answers in requestToJoin
+
+Update JoinCommitteePrompt to open questionnaire modal
+
+Export new components from committees index
+Write committeeJoinForms.ts
+490 lines
+/**
+ * Committee Join Forms Configuration
+ *
+ * Each committee has a custom questionnaire that users fill out when requesting to join.
+ * The answers are stored as JSON in the committee_members.answers column.
+ */
+
+export interface JoinFormQuestion {
+  key: string;           // Unique key used as the JSON field name in answers
+  label: string;         // Display label for the question
+  type: 'text' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'number';
+  required?: boolean;    // Whether the field is required
+  options?: string[];    // Options for select/multiselect types
+  maxLen?: number;       // Maximum character length for text/textarea
+  placeholder?: string;  // Placeholder text
+}
+
+export interface JoinFormConfig {
+  title: string;
+  description?: string;
+  questions: JoinFormQuestion[];
+}
+
+// Common questions used across all committees
+const COMMON_QUESTIONS: JoinFormQuestion[] = [
+  {
+    key: 'ucid',
+    label: 'UCID',
+    type: 'text',
+    required: true,
+    placeholder: 'e.g., abc123',
+    maxLen: 20,
+  },
+  {
+    key: 'phone',
+    label: 'Phone Number',
+    type: 'text',
+    required: true,
+    placeholder: '(xxx) xxx-xxxx',
+    maxLen: 20,
+  },
+  {
+    key: 'volunteer_experience',
+    label: 'Please tell us about other organizations where you have volunteered or served as a board member (current or past)',
+    type: 'textarea',
+    required: true,
+    maxLen: 1000,
+    placeholder: 'Describe your volunteer and leadership experience...',
+  },
+  {
+    key: 'shpe_history',
+    label: 'What is your history with SHPE?',
+    type: 'textarea',
+    required: true,
+    maxLen: 1000,
+    placeholder: 'Tell us about your involvement with SHPE...',
+  },
+];
+
+export const COMMITTEE_JOIN_FORMS: Record<string, JoinFormConfig> = {
+  marketing: {
+    title: 'Marketing Committee Application',
+    description: 'Help create promotional materials and design SHPE merchandise.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'experience',
+        label: 'Do you have any marketing or social media experience?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your marketing experience...',
+      },
+      {
+        key: 'tools',
+        label: 'Which design/editing tools are you familiar with?',
+        type: 'multiselect',
+        options: ['Canva', 'Adobe Photoshop', 'Adobe Illustrator', 'Figma', 'CapCut', 'Premiere Pro', 'Other'],
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  webmaster: {
+    title: 'Webmaster Committee Application',
+    description: 'Maintain and develop the NJIT SHPE website and mobile app.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'stack',
+        label: 'What technologies are you comfortable with?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'e.g., React, TypeScript, Node.js, Python...',
+      },
+      {
+        key: 'github',
+        label: 'GitHub Username',
+        type: 'text',
+        required: true,
+        placeholder: 'Your GitHub username',
+        maxLen: 50,
+      },
+      {
+        key: 'projects',
+        label: 'Link a project you\'ve worked on (optional)',
+        type: 'text',
+        placeholder: 'https://github.com/...',
+        maxLen: 200,
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  'public-relations': {
+    title: 'Public Relations Committee Application',
+    description: 'Promote SHPE\'s mission, manage social media, and capture events.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'social_experience',
+        label: 'Do you have experience managing social media accounts?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your social media experience...',
+      },
+      {
+        key: 'photography',
+        label: 'Do you have photography or videography experience?',
+        type: 'textarea',
+        maxLen: 500,
+        placeholder: 'Describe your photography/video skills...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  'event-coordinator': {
+    title: 'Event Coordinator Application',
+    description: 'Plan, coordinate, and manage NJIT SHPE events.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'event_experience',
+        label: 'Do you have experience planning or coordinating events?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe any event planning experience...',
+      },
+      {
+        key: 'flexibility',
+        label: 'Are you able to help with event setup/cleanup and run last-minute errands?',
+        type: 'select',
+        required: true,
+        options: ['Yes, I\'m flexible', 'Sometimes', 'Limited availability'],
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  'external-vp': {
+    title: 'External VP Committee Application',
+    description: 'Build relationships with corporate partners and external organizations.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'networking_experience',
+        label: 'Do you have experience with professional networking or corporate outreach?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your networking experience...',
+      },
+      {
+        key: 'communication_skills',
+        label: 'How would you rate your professional communication skills?',
+        type: 'select',
+        required: true,
+        options: ['Excellent', 'Good', 'Developing'],
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability for meetings (in-person or virtual)?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  'internal-vp': {
+    title: 'Internal VP Committee Application',
+    description: 'Build relationships with NJIT colleges, departments, and student organizations.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'campus_involvement',
+        label: 'What other NJIT organizations or departments are you involved with?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'List your campus involvements...',
+      },
+      {
+        key: 'collaboration_experience',
+        label: 'Do you have experience organizing collaborations between organizations?',
+        type: 'textarea',
+        maxLen: 500,
+        placeholder: 'Describe any collaboration experience...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  treasurer: {
+    title: 'Treasurer Committee Application',
+    description: 'Track finances, help with fundraising, and research grants.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'finance_experience',
+        label: 'Do you have experience with financial record-keeping or budgeting?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your finance experience...',
+      },
+      {
+        key: 'spreadsheet_skills',
+        label: 'Are you comfortable working with spreadsheets (Excel/Google Sheets)?',
+        type: 'select',
+        required: true,
+        options: ['Very comfortable', 'Somewhat comfortable', 'Learning'],
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  secretary: {
+    title: 'Secretary Committee Application',
+    description: 'Maintain inventory, help with attendance, and assist with newsletters.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'organization_skills',
+        label: 'How would you describe your organizational skills?',
+        type: 'textarea',
+        required: true,
+        maxLen: 500,
+        placeholder: 'Describe how you stay organized...',
+      },
+      {
+        key: 'office_hours',
+        label: 'Can you commit to regular office hours in the SHPE office?',
+        type: 'select',
+        required: true,
+        options: ['Yes, I can commit', 'Sometimes', 'Limited availability'],
+      },
+      {
+        key: 'creative_interest',
+        label: 'Are you interested in helping create the biweekly newsletter?',
+        type: 'select',
+        options: ['Very interested', 'Somewhat interested', 'Not really'],
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  outreach: {
+    title: 'Outreach Committee Application',
+    description: 'Plan and coordinate volunteering events for the community.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'volunteer_passion',
+        label: 'Why are you passionate about community outreach?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Tell us about your passion for helping others...',
+      },
+      {
+        key: 'outreach_ideas',
+        label: 'Do you have any ideas for outreach events or partnerships?',
+        type: 'textarea',
+        maxLen: 500,
+        placeholder: 'Share any ideas you have...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  'pre-college': {
+    title: 'Pre-College Committee Application',
+    description: 'Coordinate DDC events and outreach to pre-college students.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'teaching_experience',
+        label: 'Do you have experience working with or teaching younger students?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your experience with pre-college students...',
+      },
+      {
+        key: 'stem_passion',
+        label: 'Why do you want to help inspire the next generation of STEM students?',
+        type: 'textarea',
+        required: true,
+        maxLen: 500,
+        placeholder: 'Share your motivation...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  membership: {
+    title: 'Membership Development Application',
+    description: 'Oversee tutoring, first-year outreach, and member engagement.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'tutoring_experience',
+        label: 'Do you have experience tutoring or mentoring other students?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your tutoring/mentoring experience...',
+      },
+      {
+        key: 'subjects',
+        label: 'What subjects are you comfortable helping others with?',
+        type: 'text',
+        maxLen: 300,
+        placeholder: 'e.g., Calculus, Physics, Programming...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  shpetinas: {
+    title: 'SHPEtinas Committee Application',
+    description: 'Empower women and Latinas in STEM through community and support.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'empowerment_passion',
+        label: 'Why do you want to be part of SHPEtinas?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Share why this community matters to you...',
+      },
+      {
+        key: 'event_ideas',
+        label: 'Do you have ideas for events or initiatives to support women in STEM?',
+        type: 'textarea',
+        maxLen: 500,
+        placeholder: 'Share any ideas you have...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+
+  internshpe: {
+    title: 'InternSHPE Application',
+    description: 'Develop technical skills and gain hands-on industry experience.',
+    questions: [
+      ...COMMON_QUESTIONS,
+      {
+        key: 'career_goals',
+        label: 'What are your career goals and how can InternSHPE help you achieve them?',
+        type: 'textarea',
+        required: true,
+        maxLen: 800,
+        placeholder: 'Describe your career aspirations...',
+      },
+      {
+        key: 'skills_to_develop',
+        label: 'What skills are you most interested in developing?',
+        type: 'textarea',
+        required: true,
+        maxLen: 500,
+        placeholder: 'List skills you want to learn or improve...',
+      },
+      {
+        key: 'availability',
+        label: 'What is your weekly availability?',
+        type: 'text',
+        required: true,
+        placeholder: 'e.g., Mon/Wed 3-5pm, flexible weekends',
+        maxLen: 200,
+      },
+    ],
+  },
+};
+
+/**
+ * Get the join form configuration for a committee
+ * Falls back to a default form if no specific config exists
+ */
+export const getJoinFormConfig = (committeeSlug: string): JoinFormConfig => {
+  return COMMITTEE_JOIN_FORMS[committeeSlug] || {
+    title: 'Committee Application',
+    questions: COMMON_QUESTIONS,
+  };
+};
+Update Todos
+
+Create COMMITTEE_JOIN_FORMS config with questionnaire definitions
+
+Create JoinQuestionnaireModal full-screen component
+
+Update committee.service.ts to accept answers in requestToJoin
+
+Update JoinCommitteePrompt to open questionnaire modal
+
+Export new components from committees index
+Write JoinQuestionnaireModal.tsx
+588 lines
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+
+
+
+Edited
+useCommitteeMembership.ts
+  error: string | null;
+  requestToJoin: () => Promise<{ success: boolean; error?: string }>;
+  requestToJoin: (answers?: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
+  cancelRequest: () => Promise<{ success: boolean; error?: string }>;
+
+  const requestToJoin = useCallback(async () => {
+  const requestToJoin = useCallback(async (answers?: Record<string, any>) => {
+    if (!user?.id) {
+
+    const result = await committeeService.requestToJoin(committeeSlug, user.id);
+    const result = await committeeService.requestToJoin(committeeSlug, user.id, answers);
+    if (result.success) {
+Edited
+committee.service.ts
+   */
+  async requestToJoin(committeeSlug: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  async requestToJoin(
+    committeeSlug: string,
+    userId: string,
+    answers?: Record<string, any>
+  ): Promise<{ success: boolean; error?: string }> {
+    const committeeUUID = await this.getCommitteeUUID(committeeSlug);
+        status: 'pending',
+        answers: answers ?? null,
+      });
+Edited
+JoinCommitteePrompt.tsx
+import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { CommitteeInfo } from '@/utils/committeeUtils';
+import { getJoinFormConfig } from '@/config/committeeJoinForms';
+import { JoinQuestionnaireModal } from './JoinQuestionnaireModal';
+
+  status: MembershipStatus;
+  onRequestJoin: () => Promise<{ success: boolean; error?: string }>;
+  onRequestJoin: (answers?: Record<string, any>) => Promise<{ success: boolean; error?: string }>;
+  onCancelRequest: () => Promise<{ success: boolean; error?: string }>;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQuestionnaireOpen, setIsQuestionnaireOpen] = useState(false);
+  const formConfig = useMemo(() => getJoinFormConfig(committee.id), [committee.id]);
+
+  const handleJoin = async () => {
+    setIsSubmitting(true);
+    await onRequestJoin();
+    setIsSubmitting(false);
+  const handleJoin = () => {
+    setIsQuestionnaireOpen(true);
+  };
+      {renderContent()}
+      <JoinQuestionnaireModal
+        visible={isQuestionnaireOpen}
+        onClose={() => setIsQuestionnaireOpen(false)}
+        onSubmit={onRequestJoin}
+        committee={committee}
+        formConfig={formConfig}
+      />
+    </View>
+Hooked up the full-screen questionnaire flow to the existing committee join UI, and plumbed answers through the membership hook/service so submissions can store the form payload.
+
+Details
+
+Added questionnaire modal wiring + config lookup in JoinCommitteePrompt.tsx, so “Request to Join” opens the full-screen form per committee slug.
+Updated useCommitteeMembership and committee.service to accept optional answers and include them in the committee_members insert (useCommitteeMembership.ts, committee.service.ts).
+Note: the insert now sends an answers field. If your Supabase table doesn’t already have committee_members.answers (json/jsonb), you’ll need to add it or the insert will fail.
+
+Next steps
+
+If needed, add answers jsonb to committee_members in Supabase.
+Run a quick type check/build to confirm no TS issues.
+3 files changed
++24
+-10
+Undo
+
+Review
+JoinCommitteePrompt.tsx
++15
+-6
+useCommitteeMembership.ts
++3
+-3
+committee.service.ts
++6
+-1
+amazing work. please do a sanity check of the changes made to ensure this branch is ready to merge with main-dev
+
+
+
+
+
+Findings
+
+High: committee_members.answers is written during join requests, but the SQL in context.md does not add this column; the insert will fail at runtime if the column doesn’t exist. committee.service.ts (line 172)
+Medium: If validation errors are shown and the user closes the modal while answers is empty, errors are not cleared on close; reopening the form can show stale error messages immediately. JoinQuestionnaireModal.tsx (line 100)
+Open questions / assumptions
+
+Is there a migration in Supabase adding committee_members.answers (json/jsonb)? If not, this branch isn’t merge-ready.
+Do you want the questionnaire to always clear errors on close, even when no answers are present?
+Change summary
+
+No uncommitted changes in the working tree.
+I did not run tests; consider a quick build/typecheck before merge.
+If you want, I can apply a small fix to clear errors on close, and/or add the SQL migration for answers.
+
+prepare me for a rebase with main-dev
+
+1) Add the missing column (migration SQL)
+
+Your code writes committee_members.answers during join requests, so you must add it. Use jsonb.
+
+alter table public.committee_members
+add column if not exists answers jsonb;
+
+-- optional safety: ensure it's an object when present
+alter table public.committee_members
+add constraint committee_members_answers_is_object
+check (answers is null or jsonb_typeof(answers) = 'object');
+
+RLS impact
+
+No policy changes needed. Your existing INSERT policy will allow inserting answers as part of the row.
+
+2) Fix the stale validation errors on close (small UI patch)
+
+In JoinQuestionnaireModal.tsx, when the modal closes, clear errors unconditionally (don’t depend on whether answers is empty). Something like:
+
+useEffect(() => {
+  if (!visible) {
+    setErrors({});
+    // optionally reset answers too if desired:
+    // setAnswers({});
+  }
+}, [visible]);
+
+
+Or if you have an explicit onClose() handler:
+
+const handleClose = () => {
+  setErrors({});
+  onClose();
+};
+
+
+Recommendation: clear errors on close always. It’s the expected UX and prevents stale error state.
+
+Edited
+JoinQuestionnaireModal.tsx
+import React, { useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+
+  useEffect(() => {
+    if (!visible) {
+      setErrors({});
+    }
+  }, [visible]);
+
+  const updateAnswer = (key: string, value: any) => {
+Created
+20260117120000_add_committee_members_answers.sql
+alter table public.committee_members
+add column if not exists answers jsonb;
+
+alter table public.committee_members
+add constraint committee_members_answers_is_object
+check (answers is null or jsonb_typeof(answers) = 'object');
+Added the migration for committee_members.answers and ensured the questionnaire modal clears validation errors whenever it closes, so the join flow won’t fail at insert time and UX is clean.
+
+Details
+
+Migration adds answers jsonb with an object-only check constraint: 20260117120000_add_committee_members_answers.sql.
+Cleared stale validation errors on modal close using an effect watching visible: JoinQuestionnaireModal.tsx.
+Next steps
+
+Run git fetch origin and git rebase origin/main-dev.
+If Supabase migrations are applied manually, run the new SQL in your environment before testing joins.
+2 files changed
++13
+-1
+Undo
+
+Review
+JoinQuestionnaireModal.tsx
++7
+-1
+20260117120000_add_committee_members_answers.sql
++6
+-0
