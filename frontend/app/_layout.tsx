@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
+import { Slot, SplashScreen, useSegments, useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Providers
@@ -20,6 +20,8 @@ import { UpdatePasswordSheet } from '@/components/auth/UpdatePasswordSheet';
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
 import { notificationService } from '@/services/notification.service';
 import { rankService } from '@/services/rank.service';
+
+void SplashScreen.preventAutoHideAsync();
 
 /**
  * Helper to format action types into user-friendly text
@@ -262,8 +264,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
  * AnimatedSplash wraps everything to provide the Luma-style splash animation.
  */
 export default function RootLayout() {
+  const onLayoutRootView = useCallback(() => {
+    void SplashScreen.hideAsync();
+  }, []);
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AnimatedSplash>
         <ThemeProvider>
           <ErrorBoundary>
