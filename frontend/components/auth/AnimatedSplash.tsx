@@ -280,7 +280,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
   }, [phase, isReady, onAnimationComplete]);
 
   const contextValue = React.useMemo(() => ({ setReady }), [setReady]);
-  const GlowComponent = !isExpoGo && Canvas ? SkiaGlow : FallbackGlow;
+  const GlowComponent = FallbackGlow;
 
   return (
     <SplashReadyContext.Provider value={contextValue}>
