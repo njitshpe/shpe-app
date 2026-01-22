@@ -36,13 +36,14 @@ export default function GuestOnboardingWizard() {
   const { user, updateUserMetadata } = useAuth();
   const confettiRef = useRef<ConfettiCannon>(null);
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const shouldSkipIdentity = !!(user?.user_metadata?.first_name && user?.user_metadata?.last_name);
+  const [currentStep, setCurrentStep] = useState(shouldSkipIdentity ? 1 : 0);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Creating Guest Pass...');
 
   const [formData, setFormData] = useState<GuestFormData>({
-    firstName: '',
-    lastName: '',
+    firstName: user?.user_metadata?.first_name || '',
+    lastName: user?.user_metadata?.last_name || '',
     university: '',
     major: '',
     graduationYear: new Date().getFullYear().toString(),
