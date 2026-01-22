@@ -134,12 +134,6 @@ export const GeneralSettings = () => {
         return;
       }
 
-      // Debug logging
-      console.log('[delete-account] Function URL:', functionUrl);
-      console.log('[delete-account] Token (first 20 chars):', refreshedSession.session.access_token.substring(0, 20));
-      console.log('[delete-account] API Key present:', !!supabaseAnonKey);
-      console.log('[delete-account] API Key (first 10 chars):', supabaseAnonKey?.substring(0, 10));
-
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
@@ -149,12 +143,9 @@ export const GeneralSettings = () => {
         },
       });
 
-      console.log('[delete-account] Response status:', response.status);
-
       const data: DeleteAccountResponse = await response.json();
 
       if (!response.ok) {
-        console.error('Delete account error:', data);
         const errorMessage = (data as any)?.error || 'An error occurred while deleting your account. Please try again or contact support.';
         Alert.alert(
           'Deletion Failed',
@@ -165,7 +156,6 @@ export const GeneralSettings = () => {
       }
 
       if (!data?.success) {
-        console.error('Delete account failed:', data);
         Alert.alert(
           'Deletion Failed',
           (data as any)?.error || 'Unable to delete account. Please try again.',
@@ -175,8 +165,6 @@ export const GeneralSettings = () => {
       }
 
       // Success - sign out and navigate to login
-      console.log('Account deleted successfully:', data.deletionSummary);
-
       Alert.alert(
         'Account Deleted',
         'Your account has been permanently deleted. You will now be signed out.',
@@ -192,7 +180,6 @@ export const GeneralSettings = () => {
         { cancelable: false }
       );
     } catch (error) {
-      console.error('Delete account exception:', error);
       Alert.alert(
         'Unexpected Error',
         'An unexpected error occurred. Please try again.',

@@ -909,8 +909,6 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
             };
         }
 
-        console.log('Attempting to delete comment:', { commentId, userId: user.id });
-
         // Try hard delete first for now
         const { error, data } = await supabase
             .from('feed_comments')
@@ -918,20 +916,6 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
             .eq('id', commentId)
             .eq('user_id', user.id)
             .select();
-
-        console.log('Delete comment response:', { error, data });
-
-        if (error) {
-            console.error('Supabase delete error:', error);
-            throw error;
-        }
-
-        // Check if any row was actually updated
-        if (!data || data.length === 0) {
-            console.warn('No comment was deleted. Verify undefined ID or permissions.');
-            // We won't throw here to avoid breaking UI if it was already deleted, 
-            // but it's good to know.
-        }
 
         if (error) {
             return {
