@@ -415,17 +415,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // If we have full name from Apple (only on first sign in), update Supabase user metadata
           if (credential.fullName) {
             const nameData: Record<string, any> = {};
-            if (credential.fullName.givenName) nameData.full_name = credential.fullName.givenName;
-            if (credential.fullName.familyName) nameData.full_name += ` ${credential.fullName.familyName}`;
+            const fullName = [
+              credential.fullName.givenName,
+              credential.fullName.familyName,
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .trim();
 
-            // We can also store the raw name parts
+            if (fullName) nameData.full_name = fullName;
             if (credential.fullName.givenName) nameData.first_name = credential.fullName.givenName;
             if (credential.fullName.familyName) nameData.last_name = credential.fullName.familyName;
 
             if (Object.keys(nameData).length > 0) {
-              await supabase.auth.updateUser({
-                data: nameData
+              const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+                data: nameData,
               });
+              if (updateError) {
+                console.warn('[Apple Auth] Failed to persist name metadata:', updateError.message);
+              } else if (updateData.user) {
+                setUser(updateData.user);
+              }
             }
           }
           return { error: null };
