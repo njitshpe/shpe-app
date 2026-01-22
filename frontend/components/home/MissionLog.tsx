@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SPACING, RADIUS } from '@/constants/colors';
+import { SPACING } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Placeholder Interface
 interface MyEvent {
@@ -18,19 +19,28 @@ interface MissionLogProps {
 }
 
 export function MissionLog({ events, onPress }: MissionLogProps) {
+  const { theme, isDark } = useTheme();
+
   if (!events || events.length === 0) return null;
+
+  const gradientColors = isDark
+    ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)'] as const
+    : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.01)'] as const;
+
+  // Accent color for dates (gold/orange)
+  const accentColor = '#FFD700';
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.header}>MISSION LOG</Text>
+        <Text style={[styles.header, { color: theme.subtext }]}>MISSION LOG</Text>
         <TouchableOpacity>
-            <Text style={styles.seeAll}>SEE ALL</Text>
+          <Text style={[styles.seeAll, { color: isDark ? accentColor : theme.primary }]}>SEE ALL</Text>
         </TouchableOpacity>
       </View>
-      
-      <ScrollView 
-        horizontal 
+
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -40,37 +50,37 @@ export function MissionLog({ events, onPress }: MissionLogProps) {
           const day = dateObj.getDate();
 
           return (
-            <TouchableOpacity 
-              key={event.id} 
+            <TouchableOpacity
+              key={event.id}
               activeOpacity={0.7}
               onPress={() => onPress(event.id)}
             >
               <LinearGradient
-                colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
-                style={styles.card}
+                colors={gradientColors}
+                style={[styles.card, { borderColor: theme.border }]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
                 {/* Date Block */}
                 <View style={styles.dateBlock}>
-                  <Text style={styles.dateMonth}>{month}</Text>
-                  <Text style={styles.dateDay}>{day}</Text>
+                  <Text style={[styles.dateMonth, { color: isDark ? accentColor : theme.primary }]}>{month}</Text>
+                  <Text style={[styles.dateDay, { color: theme.text }]}>{day}</Text>
                 </View>
 
                 {/* Divider Line */}
-                <View style={styles.divider} />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
                 {/* Info Block */}
                 <View style={styles.infoBlock}>
-                  <Text style={styles.title} numberOfLines={1}>{event.title.toUpperCase()}</Text>
+                  <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{event.title.toUpperCase()}</Text>
                   <View style={styles.locationRow}>
-                    <Ionicons name="location-sharp" size={10} color="rgba(255,255,255,0.5)" />
-                    <Text style={styles.location} numberOfLines={1}>{event.location}</Text>
+                    <Ionicons name="location-sharp" size={10} color={theme.subtext} />
+                    <Text style={[styles.location, { color: theme.subtext }]} numberOfLines={1}>{event.location}</Text>
                   </View>
                 </View>
 
                 {/* Arrow */}
-                <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+                <Ionicons name="chevron-forward" size={16} color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
               </LinearGradient>
             </TouchableOpacity>
           );
@@ -92,13 +102,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   header: {
-    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
   },
   seeAll: {
-    color: '#FFD700',
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,
@@ -108,14 +116,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    width: 220, // Wide enough for text
+    width: 220,
     height: 70,
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   dateBlock: {
     alignItems: 'center',
@@ -123,19 +130,16 @@ const styles = StyleSheet.create({
     width: 30,
   },
   dateMonth: {
-    color: '#FFD700',
     fontSize: 9,
     fontWeight: '800',
   },
   dateDay: {
-    color: '#FFF',
     fontSize: 18,
     fontWeight: '700',
   },
   divider: {
     width: 1,
     height: '50%',
-    backgroundColor: 'rgba(255,255,255,0.1)',
     marginHorizontal: 12,
   },
   infoBlock: {
@@ -144,7 +148,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    color: '#FFF',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -155,7 +158,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   location: {
-    color: 'rgba(255,255,255,0.5)',
     fontSize: 10,
     fontWeight: '600',
   },

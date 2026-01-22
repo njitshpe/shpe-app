@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS } from '@/constants/colors';
+import { SPACING } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface RankTrajectoryProps {
   currentPoints: number;
@@ -12,38 +13,46 @@ interface RankTrajectoryProps {
 }
 
 export function RankTrajectory({ currentPoints, rankTitle, nextRankThreshold, onPress }: RankTrajectoryProps) {
+  const { theme, isDark } = useTheme();
   const progress = Math.min(Math.max(currentPoints / nextRankThreshold, 0), 1);
   const pointsNeeded = nextRankThreshold - currentPoints;
 
+  const gradientColors = isDark
+    ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)'] as const
+    : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.01)'] as const;
+
+  // Accent color for ranking (gold)
+  const accentColor = '#FFD700';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>RANK TRAJECTORY</Text>
-      
+      <Text style={[styles.header, { color: theme.subtext }]}>RANK TRAJECTORY</Text>
+
       <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
         <LinearGradient
-          colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
-          style={styles.card}
+          colors={gradientColors}
+          style={[styles.card, { borderColor: theme.border }]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
           {/* Top Row: Rank & Icon */}
           <View style={styles.topRow}>
             <View style={styles.rankInfo}>
-              <View style={styles.iconHalo}>
-                <Ionicons name="trophy" size={16} color="#FFD700" />
+              <View style={[styles.iconHalo, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255, 215, 0, 0.2)' }]}>
+                <Ionicons name="trophy" size={16} color={accentColor} />
               </View>
-              <Text style={styles.rankTitle}>{rankTitle.toUpperCase()}</Text>
+              <Text style={[styles.rankTitle, { color: isDark ? accentColor : theme.primary }]}>{rankTitle.toUpperCase()}</Text>
             </View>
             <Text style={styles.pointsDisplay}>
-              <Text style={{color: '#FFF'}}>{currentPoints}</Text>
-              <Text style={{color: 'rgba(255,255,255,0.4)'}}> / {nextRankThreshold} PTS</Text>
+              <Text style={{color: theme.text}}>{currentPoints}</Text>
+              <Text style={{color: theme.subtext}}> / {nextRankThreshold} PTS</Text>
             </Text>
           </View>
 
           {/* Progress Bar */}
-          <View style={styles.progressTrack}>
+          <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
             <LinearGradient
-              colors={['#FFD700', '#FFA500']} // Gold Gradient
+              colors={['#FFD700', '#FFA500']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.progressFill, { width: `${progress * 100}%` }]}
@@ -52,12 +61,12 @@ export function RankTrajectory({ currentPoints, rankTitle, nextRankThreshold, on
 
           {/* Footer Text */}
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>
-              {pointsNeeded > 0 
-                ? `${pointsNeeded} POINTS TO NEXT TIER` 
+            <Text style={[styles.footerText, { color: theme.subtext }]}>
+              {pointsNeeded > 0
+                ? `${pointsNeeded} POINTS TO NEXT TIER`
                 : "MAXIMUM RANK ACHIEVED"}
             </Text>
-            <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.3)" />
+            <Ionicons name="chevron-forward" size={12} color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
           </View>
 
         </LinearGradient>
@@ -69,10 +78,9 @@ export function RankTrajectory({ currentPoints, rankTitle, nextRankThreshold, on
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.xxl + 20, // Extra padding at bottom for scroll
+    marginBottom: SPACING.xxl + 20,
   },
   header: {
-    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -83,7 +91,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     gap: 16,
   },
   topRow: {
@@ -100,12 +107,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   rankTitle: {
-    color: '#FFD700',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1,
@@ -117,7 +122,6 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -131,7 +135,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: {
-    color: 'rgba(255,255,255,0.5)',
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1,

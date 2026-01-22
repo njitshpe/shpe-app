@@ -24,9 +24,14 @@ interface HeroEventCardProps {
 }
 
 export function HeroEventCard({ events, onPress, onAction }: HeroEventCardProps) {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList<Event>>(null);
+
+  // Theme-aware colors
+  const gradientColors = isDark
+    ? ['transparent', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)', '#000000'] as const
+    : ['transparent', 'rgba(255,255,255,0.1)', 'rgba(255,255,255,0.85)', '#F7FAFF'] as const;
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -55,43 +60,44 @@ export function HeroEventCard({ events, onPress, onAction }: HeroEventCardProps)
             resizeMode="cover"
           >
             <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)', '#000000']}
+              colors={gradientColors}
               locations={[0, 0.4, 0.65, 1]}
               style={styles.gradient}
             >
               <View style={styles.content}>
-                <Text style={styles.metadata}>
+                <Text style={[styles.metadata, { color: isDark ? '#cdcdcd' : '#666666' }]}>
                   {isHappeningNow ? (
-                    <Text style={{color: '#34C759'}}>● HAPPENING NOW</Text>
+                    <Text style={{color: theme.success}}>● HAPPENING NOW</Text>
                   ) : (
-                    <>UPCOMING • <Text style={{color: '#FFF'}}>{start.toLocaleDateString()}</Text></>
+                    <>UPCOMING • <Text style={{color: theme.text}}>{start.toLocaleDateString()}</Text></>
                   )}
                 </Text>
 
-                <Text style={styles.title} numberOfLines={2}>
+                <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
                   {event.title.toUpperCase()}
                 </Text>
-              
+
                 <TouchableOpacity
                   onPress={() => onAction(event.id, isHappeningNow ? 'check-in' : 'rsvp')}
                   activeOpacity={0.8}
                 >
-                  <BlurView intensity={40} tint="dark" style={[
+                  <BlurView intensity={40} tint={isDark ? "dark" : "light"} style={[
                     styles.glassButton,
-                    isHappeningNow && { borderColor: '#34C759' }
+                    { borderColor: isHappeningNow ? theme.success : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)') }
                   ]}>
                     <View style={[
                       styles.buttonContent,
-                      isHappeningNow && { backgroundColor: 'rgba(52, 199, 89, 0.2)' }
+                      { backgroundColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)' },
+                      isHappeningNow && { backgroundColor: isDark ? 'rgba(52, 199, 89, 0.2)' : 'rgba(52, 199, 89, 0.3)' }
                     ]}>
-                      <Text style={styles.buttonText}>
+                      <Text style={[styles.buttonText, { color: theme.text }]}>
                         {isHappeningNow ? 'SCAN QR CODE' : event.is_registered ? 'VIEW TICKET' : 'RSVP NOW'}
                       </Text>
                     </View>
                   </BlurView>
                 </TouchableOpacity>
 
-                <Text style={styles.footerText}>
+                <Text style={[styles.footerText, { color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)' }]}>
                   {event.location}
                 </Text>
 
@@ -101,7 +107,8 @@ export function HeroEventCard({ events, onPress, onAction }: HeroEventCardProps)
                       key={index}
                       style={[
                         styles.dot,
-                        index === activeIndex && styles.activeDot,
+                        { backgroundColor: isDark ? '#ffffff33' : '#00000033' },
+                        index === activeIndex && [styles.activeDot, { backgroundColor: isDark ? '#c2c2c2' : '#555555' }],
                       ]}
                     />
                   ))}
@@ -116,7 +123,7 @@ export function HeroEventCard({ events, onPress, onAction }: HeroEventCardProps)
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <FlatList
         ref={flatListRef}
         data={events}
@@ -137,7 +144,6 @@ const styles = StyleSheet.create({
   container: {
     height: SCREEN_HEIGHT * 0.65,
     width: '100%',
-    backgroundColor: '#000',
   },
   cardWrapper: {
     width: SCREEN_WIDTH,
@@ -158,7 +164,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metadata: {
-    color: '#cdcdcd',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -167,13 +172,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '900',
-    color: '#FFF',
     textAlign: 'center',
     letterSpacing: -0.5,
     lineHeight: 36,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 10,
   },
   carouselDots: {
     flexDirection: 'row',
@@ -184,32 +185,26 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#ffffff33',
   },
   activeDot: {
-    backgroundColor: '#c2c2c2', // Gold active dot
-    width: 24, // Elongated active dot
+    width: 24,
   },
   glassButton: {
     borderRadius: 30,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
   },
   buttonContent: {
     paddingHorizontal: 32,
     paddingVertical: 14,
-    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   buttonText: {
-    color: '#FFF',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
   footerText: {
-    color: 'rgba(255,255,255,0.5)',
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.5,
