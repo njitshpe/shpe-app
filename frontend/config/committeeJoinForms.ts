@@ -2,11 +2,11 @@
  * Committee Join Forms Configuration
  *
  * Each committee has a custom questionnaire that users fill out when requesting to join.
- * The answers are stored as JSON in the committee_members.answers column.
+ * The answers are stored as JSON in the committee_members.application column.
  */
 
 export interface JoinFormQuestion {
-  key: string;           // Unique key used as the JSON field name in answers
+  key: string;           // Unique key used as the JSON field name in application
   label: string;         // Display label for the question
   type: 'text' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'number';
   required?: boolean;    // Whether the field is required
@@ -29,14 +29,14 @@ const COMMON_QUESTIONS: JoinFormQuestion[] = [
     type: 'text',
     required: true,
     placeholder: 'e.g., abc123',
-    maxLen: 20,
+    maxLen: 8,
   },
   {
     key: 'phone',
     label: 'Phone Number',
-    type: 'text',
+    type: 'number',
     required: true,
-    placeholder: '(xxx) xxx-xxxx',
+    placeholder: 'e.g., 1234567890',
     maxLen: 20,
   },
   {

@@ -57,6 +57,10 @@ export function ReportModal({
       Alert.alert('Protocol Error', 'Select a classification to proceed.');
       return;
     }
+    if (!targetId) {
+      Alert.alert('Submission Failed', 'Missing report target. Please try again.');
+      return;
+    }
 
     setIsLoading(true);
     const result = await reportService.submitReport({
@@ -80,7 +84,7 @@ export function ReportModal({
           [{ text: 'Dismiss', onPress: handleClose }]
         );
       } else {
-        Alert.alert('Submission Failed', 'Network protocol error. Please try again.');
+        Alert.alert('Submission Failed', result.error?.message || 'Network protocol error. Please try again.');
       }
     }
   };
@@ -130,9 +134,9 @@ export function ReportModal({
                 <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 199, 89, 0.1)' }]}>
                   <Ionicons name="shield-checkmark" size={48} color={theme.success} />
                 </View>
-                <Text style={[styles.successTitle, { color: theme.text }]}>REPORT LOGGED</Text>
+                <Text style={[styles.successTitle, { color: theme.text }]}>REPORT SUBMITTED</Text>
                 <Text style={[styles.successMessage, { color: theme.subtext }]}>
-                  Protocol initiated. Our moderation team has been notified.
+                  Thank you for reporting. Your report will be reviewed within 24-72 hours.
                 </Text>
               </View>
             ) : (
