@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 10,
   },
   socialButton: {
     flex: 1,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   guestButton: { // Added style
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 10,
     padding: 8,
   },
   guestButtonText: {
