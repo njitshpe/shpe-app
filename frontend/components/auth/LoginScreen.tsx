@@ -9,12 +9,19 @@ interface LoginScreenProps {
   onGoogleLogin?: () => void;
   onAppleLogin?: () => void;
   onEmailLogin?: () => void;
+  onGuestScan?: () => void;
+  onContinueWithPhone?: () => void;
+  onContinueWithEmail?: () => void;
+  onGuestLogin?: () => void;
 }
 
 export function LoginScreen({
   onGoogleLogin,
   onAppleLogin,
   onEmailLogin,
+  onGuestScan,
+  onContinueWithPhone, // Add this
+  onContinueWithEmail, // Add this
 }: LoginScreenProps) {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -56,6 +63,16 @@ export function LoginScreen({
           </TouchableOpacity>
         </View>
 
+        {/* Guest Scan Button */}
+        <TouchableOpacity
+          style={styles.guestButton}
+          onPress={onGuestScan}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="qr-code-outline" size={20} color="#9E9E9E" style={styles.socialIcon} />
+          <Text style={styles.guestButtonText}>Scan Check-in QR</Text>
+        </TouchableOpacity>
+
         {/* Footer Legal Text */}
         <Text style={styles.footer}>
           By continuing, you agree to our
@@ -95,7 +112,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9E9E9E',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
     lineHeight: 20,
   },
   primaryButton: {
@@ -120,7 +137,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 10,
   },
   socialButton: {
     flex: 1,
@@ -146,5 +163,16 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: '#DFDFDF',
+  },
+  guestButton: { // Added style
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    padding: 8,
+  },
+  guestButtonText: {
+    color: '#9E9E9E',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

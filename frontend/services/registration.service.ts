@@ -31,22 +31,22 @@ class RegistrationService {
 
     // Use upsert to handle re-registration
     const { error } = await supabase
-    .from('event_attendance')
-    .upsert({
-      event_id: eventUUID,
-      user_id: userId,
-      rsvp_at: new Date().toISOString(),
-      status: 'going',
-      answers: answers
-    }, {
-      onConflict: 'event_id, user_id'
-    });
+      .from('event_attendance')
+      .upsert({
+        event_id: eventUUID,
+        user_id: userId,
+        rsvp_at: new Date().toISOString(),
+        status: 'going',
+        answers: answers
+      }, {
+        onConflict: 'event_id, user_id'
+      });
 
-  if (error) {
-    console.error('Supabase RSVP failed:', error);
-    throw new Error(error.message);
+    if (error) {
+      console.error('Supabase RSVP failed:', error);
+      throw new Error(error.message);
+    }
   }
-}
 
   private flattenProfileData(profile: any): UserProfile {
     if (!profile) return profile;
@@ -104,7 +104,10 @@ class RegistrationService {
    */
   async isRegistered(eventSlug: string): Promise<boolean> {
     try {
-      const userId = await this.getUserId();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const userId = user.id;
       const eventUUID = await this.getEventUUID(eventSlug);
 
       if (!eventUUID) return false;
@@ -121,7 +124,7 @@ class RegistrationService {
         return false;
       }
 
-      return data?.status === 'going';
+      return data?.status === 'going' || data?.status === 'confirmed';
     } catch (error) {
       console.error('Failed to check registration:', error);
       return false;

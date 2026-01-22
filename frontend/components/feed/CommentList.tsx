@@ -10,12 +10,14 @@ import {
     Platform,
     Image,
     Alert,
+    ActionSheetIOS,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useComments } from '@/hooks/feed';
 import { formatRelativeTime } from '@/utils/feed';
+import { ReportModal } from '@/components/shared/ReportModal';
 import type { FeedCommentUI } from '@/types/feed';
 
 interface CommentListProps {
@@ -24,11 +26,12 @@ interface CommentListProps {
 }
 
 export function CommentList({ postId, currentUserId }: CommentListProps) {
-    const { theme } = useTheme();
+    const { theme, isDark } = useTheme();
     const headerHeight = useHeaderHeight();
     const { comments, isLoading, isCreating, addComment, removeComment } = useComments(postId);
     const [commentText, setCommentText] = useState('');
     const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
+    const [reportingComment, setReportingComment] = useState<{ id: string; authorName: string } | null>(null);
 
     const handleSubmit = async () => {
         if (!commentText.trim()) return;
@@ -53,6 +56,46 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
                 },
             ]
         );
+    };
+
+    const handleCommentOptions = (comment: FeedCommentUI) => {
+        const isAuthor = currentUserId === comment.userId;
+        const authorName = `${comment.author.firstName} ${comment.author.lastName}`;
+
+        if (isAuthor) {
+            // Author can only delete
+            handleDelete(comment.id);
+        } else {
+            // Non-author can report
+            if (Platform.OS === 'ios') {
+                ActionSheetIOS.showActionSheetWithOptions(
+                    {
+                        options: ['Cancel', 'Report Comment'],
+                        destructiveButtonIndex: 1,
+                        cancelButtonIndex: 0,
+                        userInterfaceStyle: isDark ? 'dark' : 'light',
+                    },
+                    (buttonIndex) => {
+                        if (buttonIndex === 1) {
+                            setReportingComment({ id: comment.id, authorName });
+                        }
+                    }
+                );
+            } else {
+                Alert.alert(
+                    'Comment Options',
+                    'Choose an action',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                            text: 'Report',
+                            onPress: () => setReportingComment({ id: comment.id, authorName }),
+                            style: 'destructive',
+                        },
+                    ]
+                );
+            }
+        }
     };
 
     const renderComment = ({ item, isReply = false, depth = 0 }: { item: FeedCommentUI; isReply?: boolean; depth?: number }) => (
@@ -94,9 +137,13 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
                             </TouchableOpacity>
                         )}
 
-                        {currentUserId === item.userId && (
+                        {currentUserId === item.userId ? (
                             <TouchableOpacity onPress={() => handleDelete(item.id)}>
                                 <Ionicons name="trash-outline" size={16} color={theme.error} />
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity onPress={() => handleCommentOptions(item)}>
+                                <Ionicons name="ellipsis-horizontal" size={16} color={theme.subtext} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -181,6 +228,15 @@ export function CommentList({ postId, currentUserId }: CommentListProps) {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* Report Modal for Comments */}
+            <ReportModal
+                visible={reportingComment !== null}
+                onClose={() => setReportingComment(null)}
+                targetType="comment"
+                targetId={reportingComment?.id || ''}
+                targetName={reportingComment?.authorName}
+            />
         </KeyboardAvoidingView>
     );
 }

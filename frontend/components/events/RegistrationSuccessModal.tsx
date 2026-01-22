@@ -80,31 +80,39 @@ export default function RegistrationSuccessModal({
           <Animated.View
             style={[
               styles.content,
-              dynamicStyles.content,
               {
+                backgroundColor: isDark ? 'rgba(30,30,30,0.2)' : 'rgba(255,255,255,0.25)',
                 transform: [{ scale: scaleAnim }],
               },
             ]}
           >
-            {/* Close Button */}
-            <Pressable style={[styles.closeButton, dynamicStyles.closeButton]} onPress={onClose}>
-              <Ionicons name="close" size={24} color={dynamicStyles.iconColor} />
-            </Pressable>
+            <BlurView
+              intensity={80}
+              tint={isDark ? "dark" : "light"}
+              style={StyleSheet.absoluteFill}
+            />
 
-            {/* Success Icon - Big Green Check Circle */}
-            <View style={styles.iconContainer}>
-              <View style={styles.checkCircle}>
-                <Ionicons name="checkmark" size={64} color="#FFFFFF" />
+            <View style={styles.cardContent}>
+              {/* Close Button */}
+              <Pressable style={[styles.closeButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} onPress={onClose}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </Pressable>
+
+              {/* Success Icon - Big Green Check Circle */}
+              <View style={styles.iconContainer}>
+                <View style={styles.checkCircle}>
+                  <Ionicons name="checkmark" size={64} color="#FFFFFF" />
+                </View>
               </View>
+
+              {/* Title */}
+              <Text style={[styles.title, dynamicStyles.title]}>You're In</Text>
+
+              {/* Subtitle */}
+              <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
+                Thank you. We look forward to seeing you!
+              </Text>
             </View>
-
-            {/* Title */}
-            <Text style={[styles.title, dynamicStyles.title]}>You're In</Text>
-
-            {/* Subtitle */}
-            <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
-              Thank you. We look forward to seeing you!
-            </Text>
           </Animated.View>
         </Animated.View>
       </BlurView>
@@ -121,21 +129,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   content: {
+    width: '100%',
+    maxWidth: 340,
     borderRadius: 32,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  cardContent: {
     padding: 40,
     alignItems: 'center',
-    width: SCREEN_WIDTH - 80,
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 20,
+    width: '100%',
+    zIndex: 1,
   },
   closeButton: {
     position: 'absolute',

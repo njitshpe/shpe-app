@@ -1,75 +1,88 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabsLayout() {
-    const { theme } = useTheme();
+    const { theme, isDark } = useTheme();
 
     return (
         <Tabs
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: theme.primary,
-                tabBarInactiveTintColor: theme.subtext,
+                tabBarActiveTintColor: '#a8a8a8',
+                tabBarInactiveTintColor: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', // Dimmed for inactive
                 tabBarStyle: {
-                    backgroundColor: theme.card,
-                    borderTopColor: theme.border,
-                    borderTopWidth: 1,
-
-                    // iOS needs more height + padding to clear the Home Bar
-                    height: Platform.OS === 'ios' ? 85 : 60,
-                    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
+                    position: 'absolute', // Float over content
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)', // Glassy background
+                    borderTopWidth: 0, // No border for cleaner look
+                    elevation: 0, // Remove shadow on Android
+                    height: Platform.OS === 'ios' ? 85 : 70,
                     paddingTop: 10,
+                    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
                 },
+                tabBarBackground: () => (
+                    // Blur Effect for Glass UI
+                    <BlurView 
+                        intensity={80} 
+                        tint={isDark ? 'dark' : 'light'} 
+                        style={StyleSheet.absoluteFill} 
+                    />
+                ),
                 tabBarLabelStyle: {
-                    fontSize: 12,
-                    fontWeight: '600',
+                    fontSize: 10,
+                    fontWeight: '700',
+                    letterSpacing: 0.5,
+                    marginTop: 4,
                 },
             }}
         >
             <Tabs.Screen
                 name="home/index"
                 options={{
-                    title: 'Home',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="home" size={size} color={color} />
+                    title: 'HOME',
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
                     ),
                 }}
             />
             <Tabs.Screen
                 name="calendar/index"
                 options={{
-                    title: 'Events',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="calendar" size={size} color={color} />
+                    title: 'EVENTS',
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} />
                     ),
                 }}
             />
             <Tabs.Screen
                 name="feed/index"
                 options={{
-                    title: 'Feed',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="newspaper" size={size} color={color} />
+                    title: 'FEED',
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "newspaper" : "newspaper-outline"} size={22} color={color} />
                     ),
                 }}
             />
             <Tabs.Screen
                 name="leaderboard/index"
                 options={{
-                    title: 'Rank',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="trophy" size={size} color={color} />
+                    title: 'RANK',
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "trophy" : "trophy-outline"} size={22} color={color} />
                     ),
                 }}
             />
             <Tabs.Screen
                 name="profile/index"
                 options={{
-                    title: 'Profile',
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="person" size={size} color={color} />
+                    title: 'PROFILE',
+                    tabBarIcon: ({ color, focused }) => (
+                        <Ionicons name={focused ? "person" : "person-outline"} size={22} color={color} />
                     ),
                 }}
             />

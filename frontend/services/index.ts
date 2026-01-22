@@ -14,6 +14,8 @@ export { blockService } from './block.service';
 export { reportService } from './report.service';
 export { adminRoleService } from './adminRole.service';
 export { leaderboardService } from './leaderboard.service';
+export { committeeService } from './committee.service';
+export { adminCommitteeService } from './adminCommittee.service';
 export type {
   RankActionType,
   RankActionMetadata,
@@ -29,3 +31,4 @@ export type { RoleType, AdminRole } from './adminRole.service';
 // Event-driven points system
 export { eventBus } from './eventBus.service';
 export type { ActionType, ActionEvent } from './eventBus.service';
+export { PendingCheckInService } from './pendingCheckIn.service';

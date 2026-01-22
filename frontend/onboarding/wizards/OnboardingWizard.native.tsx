@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
+import { PendingCheckInService } from '@/services/pendingCheckIn.service';
+import { CheckInTokenService } from '@/services/checkInToken.service';
 import { SHADOWS, SPACING, RADIUS } from '@/constants/colors';
 import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
 import WizardLayout from '../components/WizardLayout.native';
@@ -47,14 +49,15 @@ export default function OnboardingWizard() {
   const { theme } = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const shouldSkipIdentity = !!(user?.user_metadata?.first_name && user?.user_metadata?.last_name);
+  const [currentStep, setCurrentStep] = useState(shouldSkipIdentity ? 1 : 0);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Saving...');
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
 
   const [formData, setFormData] = useState<OnboardingFormData>({
-    firstName: '',
-    lastName: '',
+    firstName: user?.user_metadata?.first_name || '',
+    lastName: user?.user_metadata?.last_name || '',
     ucid: '',
     major: '',
     graduationYear: DEFAULT_GRAD_YEAR,
@@ -108,13 +111,13 @@ export default function OnboardingWizard() {
         'You need a profile to join events. Are you sure?',
         [
           { text: 'Stay', style: 'cancel' },
-          { 
-            text: 'Exit', 
-            style: 'destructive', 
+          {
+            text: 'Exit',
+            style: 'destructive',
             onPress: async () => {
               await updateUserMetadata({ user_type: null });
               router.replace('/role-selection');
-            } 
+            }
           }
         ]
       );
@@ -175,19 +178,6 @@ export default function OnboardingWizard() {
         resumeUrl = storagePath;
         resumeName = formData.resumeFile.name;
         updateFormData({ resumeUrl, resumeName });
-
-        const { error: resumeUpdateError } = await supabase
-          .from('user_profiles')
-          .update({
-            resume_url: resumeUrl,
-            resume_name: resumeName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-
-        if (resumeUpdateError) {
-          console.error('Resume profile update error:', resumeUpdateError);
-        }
       }
 
       setLoadingMessage("Finalizing profile...");
@@ -204,7 +194,7 @@ export default function OnboardingWizard() {
         university: 'NJIT',
         bio: formData.bio?.trim() || '',
         // REFACTORED: Pass interests directly as they match the DB enum now
-        interests: formData.interests as InterestType[], 
+        interests: formData.interests as InterestType[],
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
         portfolio_url: formData.portfolioUrl?.trim() || undefined,
         phone_number: formData.phoneNumber?.trim() || undefined,
@@ -219,19 +209,43 @@ export default function OnboardingWizard() {
 
       let result = await profileService.createProfile(user.id, profileData);
 
-      // If create fails, try update (idempotency)
-      if (!result.success) {
-        console.log('Create failed, trying update...', result.error);
+      // If create fails because profile already exists, try update (idempotency)
+      if (!result.success && result.error?.code === 'ALREADY_EXISTS') {
+        console.log('Profile exists, updating instead...', result.error);
         result = await profileService.updateProfile(user.id, profileData);
       }
 
       if (!result.success) {
         console.error('FINAL SAVE ERROR:', result.error);
-        throw new Error(result.error?.message || "Database save failed");
+        // Show user-friendly error message
+        const errorMessage = result.error?.code === 'UNIQUE_VIOLATION'
+          ? result.error.message
+          : (result.error?.message || "Database save failed");
+        throw new Error(errorMessage);
       }
 
       // 4. PRE-LOAD APP STATE & SUCCESS
       await updateUserMetadata({ onboarding_completed: true });
+
+      // Process pending check-in
+      const pending = await PendingCheckInService.get();
+      if (pending) {
+        setLoadingMessage(`Checking in to ${pending.eventName}...`);
+        try {
+          const result = await CheckInTokenService.validateCheckIn(pending.token);
+          if (result.success) {
+            // We can optionally show toast or alert here, or just let them find out on home screen
+            // But explicit confirmation is better
+            Alert.alert('Check-in Successful! 🎟️', `You are now checked in to ${pending.eventName}!`);
+          } else {
+            Alert.alert('Check-in Failed', result.error || 'Could not verify check-in.');
+          }
+        } catch (err) {
+          console.error('Pending check-in failed', err);
+        }
+        await PendingCheckInService.clear();
+      }
+
       setIsSaving(false);
       setShowBadgeCelebration(true);
 

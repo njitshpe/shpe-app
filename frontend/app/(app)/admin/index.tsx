@@ -23,7 +23,7 @@ import { AnnouncementModal } from '@/components/admin/AnnouncementModal';
 export default function AdminDashboard() {
     const router = useRouter();
     const { theme, isDark } = useTheme();
-    const { events, isCurrentUserAdmin, createEvent } = useEvents();
+    const { events, isCurrentUserAdmin, refetchEvents } = useEvents();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -60,11 +60,11 @@ export default function AdminDashboard() {
     const pastEvents = events.filter((e) => e.status === 'past');
 
     const handleCreateEvent = async (data: CreateEventData) => {
-        const success = await createEvent(data);
-        if (success) {
-            setShowCreateModal(false);
-        }
-        return success;
+        // AdminEventForm handles the API call internally.
+        // We just need to refresh the list and close the modal.
+        await refetchEvents();
+        setShowCreateModal(false);
+        return true;
     };
 
     // Handle sending announcement from Modal
@@ -126,6 +126,24 @@ export default function AdminDashboard() {
                 {/* Quick Actions */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, dynamicStyles.text]}>Quick Actions</Text>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.actionButton,
+                            dynamicStyles.card,
+                            { borderLeftWidth: 4, borderLeftColor: theme.primary }
+                        ]}
+                        onPress={() => router.push('/admin/committee-requests')}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                            <Ionicons name="people-outline" size={24} color={theme.primary} />
+                            <View>
+                                <Text style={[styles.actionButtonText, dynamicStyles.text]}>Review Committee Requests</Text>
+                                <Text style={{ fontSize: 12, color: theme.subtext }}>Approve or reject join applications</Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                             style={[

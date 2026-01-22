@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { profileService } from '@/services/profile.service';
 import { storageService } from '@/services/storage.service';
+import { PendingCheckInService } from '@/services/pendingCheckIn.service';
+import { CheckInTokenService } from '@/services/checkInToken.service';
 import { SHADOWS, SPACING, RADIUS } from '@/constants/colors';
 import BadgeUnlockOverlay from '@/components/shared/BadgeUnlockOverlay';
 import WizardLayout from '../components/WizardLayout.native';
@@ -47,14 +49,15 @@ export default function AlumniOnboardingWizard() {
   const { theme } = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const shouldSkipIdentity = !!(user?.user_metadata?.first_name && user?.user_metadata?.last_name);
+  const [currentStep, setCurrentStep] = useState(shouldSkipIdentity ? 1 : 0);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Finalizing...');
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
 
   const [formData, setFormData] = useState<AlumniFormData>({
-    firstName: '',
-    lastName: '',
+    firstName: user?.user_metadata?.first_name || '',
+    lastName: user?.user_metadata?.last_name || '',
     profilePhoto: null,
     major: '',
     degreeType: 'BS',
@@ -102,13 +105,13 @@ export default function AlumniOnboardingWizard() {
         'Your profile will not be saved.',
         [
           { text: 'Stay', style: 'cancel' },
-          { 
-            text: 'Exit', 
-            style: 'destructive', 
+          {
+            text: 'Exit',
+            style: 'destructive',
             onPress: async () => {
               await updateUserMetadata({ user_type: null });
               router.replace('/role-selection');
-            } 
+            }
           }
         ]
       );
@@ -149,22 +152,22 @@ export default function AlumniOnboardingWizard() {
       const profileData = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
-        
+
         // Alumni Specifics
         university: 'NJIT',
         major: formData.major.trim(),
         degree_type: formData.degreeType,
         graduation_year: parseInt(formData.graduationYear, 10),
-        
+
         company: formData.company.trim(),
         job_title: formData.jobTitle.trim(),
         industry: formData.industry.trim(),
         linkedin_url: formData.linkedinUrl?.trim() || undefined,
-        
+
         bio: formData.bio?.trim() || '',
         mentorship_available: formData.isMentor,
         mentorship_ways: formData.isMentor ? formData.mentorshipWays : [],
-        
+
         profile_picture_url: profilePictureUrl,
         user_type: 'alumni' as const,
         interests: [], // Alumni might not select student interests, or we add a step later
@@ -189,7 +192,26 @@ export default function AlumniOnboardingWizard() {
       }
 
       // 4. Success
+      // 4. Success
       await updateUserMetadata({ onboarding_completed: true });
+
+      // Process pending check-in
+      const pending = await PendingCheckInService.get();
+      if (pending) {
+        setLoadingMessage(`Checking in to ${pending.eventName}...`);
+        try {
+          const result = await CheckInTokenService.validateCheckIn(pending.token);
+          if (result.success) {
+            Alert.alert('Check-in Successful! 🎟️', `You are now checked in to ${pending.eventName}!`);
+          } else {
+            Alert.alert('Check-in Failed', result.error || 'Could not verify check-in.');
+          }
+        } catch (err) {
+          console.error('Pending check-in failed', err);
+        }
+        await PendingCheckInService.clear();
+      }
+
       setIsSaving(false);
       setShowBadgeCelebration(true); // Triggers "Alumni" Badge
 
@@ -219,7 +241,7 @@ export default function AlumniOnboardingWizard() {
     >
       <View style={styles.stepsContainer}>
         <AnimatePresence>
-          
+
           {/* Step 0: Identity (Shared with Student) */}
           {currentStep === 0 && (
             <MotiView key="step-0" {...transitionConfig} style={styles.stepWrapper}>

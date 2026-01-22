@@ -165,6 +165,7 @@ export default function MapPreview({
                 coordinate={{ latitude: latitude!, longitude: longitude! }}
                 title={locationName}
                 description={address}
+                pinColor="red"
               />
             )}
           </MapView>
