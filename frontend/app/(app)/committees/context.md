@@ -4617,10 +4617,10 @@ Let me continue to find the SQL schema for join requests.
 Read context.md (lines 4301-4800)
 Grep "committee_members|join_request|answers|questionnaire|CREATE" (in /home/jossue/dev/shpe-app/frontend/app/(app)/committees/context.md)
 23 lines of output
-Now I can see the schema. Let me read that section to understand the full structure including the answers field.
+Now I can see the schema. Let me read that section to understand the full structure including the application field.
 
 Read context.md (lines 1591-1790)
-Now I understand the SQL schema. The committee_members table has: committee_id, user_id, status, created_at, decided_at. I need to add an answers column to store the questionnaire responses.
+Now I understand the SQL schema. The committee_members table has: committee_id, user_id, status, created_at, decided_at. I need to add an application column to store the questionnaire responses.
 
 Let me now look at the current committee page structure and the JoinCommitteePrompt component to understand how to implement the questionnaire.
 
@@ -4637,7 +4637,7 @@ Create a config object for committee join forms with the questionnaire questions
 Create a full-screen questionnaire modal component
 Modify the JoinCommitteePrompt to open the questionnaire modal when "Request to Join" is pressed
 Update the committee service to accept answers when submitting a join request
-Add an answers column to the Supabase table (you'll need to run this SQL)
+Add an application column to the Supabase table (you'll need to run this SQL)
 Let me create a todo list and implement this feature.
 
 Update Todos
@@ -4657,7 +4657,7 @@ Write committeeJoinForms.ts
  * Committee Join Forms Configuration
  *
  * Each committee has a custom questionnaire that users fill out when requesting to join.
- * The answers are stored as JSON in the committee_members.answers column.
+ * The answers are stored as JSON in the committee_members.application column.
  */
 
 export interface JoinFormQuestion {
@@ -5229,11 +5229,11 @@ Details
 
 Added questionnaire modal wiring + config lookup in JoinCommitteePrompt.tsx, so “Request to Join” opens the full-screen form per committee slug.
 Updated useCommitteeMembership and committee.service to accept optional answers and include them in the committee_members insert (useCommitteeMembership.ts, committee.service.ts).
-Note: the insert now sends an answers field. If your Supabase table doesn’t already have committee_members.answers (json/jsonb), you’ll need to add it or the insert will fail.
+Note: the insert now sends an application field. If your Supabase table doesn’t already have committee_members.application (json/jsonb), you’ll need to add it or the insert will fail.
 
 Next steps
 
-If needed, add answers jsonb to committee_members in Supabase.
+If needed, add application jsonb to committee_members in Supabase.
 Run a quick type check/build to confirm no TS issues.
 3 files changed
 +24
@@ -5258,11 +5258,11 @@ amazing work. please do a sanity check of the changes made to ensure this branch
 
 Findings
 
-High: committee_members.answers is written during join requests, but the SQL in context.md does not add this column; the insert will fail at runtime if the column doesn’t exist. committee.service.ts (line 172)
+High: committee_members.application is written during join requests, but the SQL in context.md does not add this column; the insert will fail at runtime if the column doesn’t exist. committee.service.ts (line 172)
 Medium: If validation errors are shown and the user closes the modal while answers is empty, errors are not cleared on close; reopening the form can show stale error messages immediately. JoinQuestionnaireModal.tsx (line 100)
 Open questions / assumptions
 
-Is there a migration in Supabase adding committee_members.answers (json/jsonb)? If not, this branch isn’t merge-ready.
+Is there a migration in Supabase adding committee_members.application (json/jsonb)? If not, this branch isn’t merge-ready.
 Do you want the questionnaire to always clear errors on close, even when no answers are present?
 Change summary
 
@@ -5274,10 +5274,10 @@ prepare me for a rebase with main-dev
 
 1) Add the missing column (migration SQL)
 
-Your code writes committee_members.answers during join requests, so you must add it. Use jsonb.
+Your code writes committee_members.application during join requests, so you must add it. Use jsonb.
 
 alter table public.committee_members
-add column if not exists answers jsonb;
+add column if not exists application jsonb;
 
 -- optional safety: ensure it's an object when present
 alter table public.committee_members
@@ -5327,16 +5327,16 @@ import {
 Created
 20260117120000_add_committee_members_answers.sql
 alter table public.committee_members
-add column if not exists answers jsonb;
+add column if not exists application jsonb;
 
 alter table public.committee_members
 add constraint committee_members_answers_is_object
 check (answers is null or jsonb_typeof(answers) = 'object');
-Added the migration for committee_members.answers and ensured the questionnaire modal clears validation errors whenever it closes, so the join flow won’t fail at insert time and UX is clean.
+Added the migration for committee_members.application and ensured the questionnaire modal clears validation errors whenever it closes, so the join flow won’t fail at insert time and UX is clean.
 
 Details
 
-Migration adds answers jsonb with an object-only check constraint: 20260117120000_add_committee_members_answers.sql.
+Migration adds application jsonb with an object-only check constraint: 20260117120000_add_committee_members_answers.sql.
 Cleared stale validation errors on modal close using an effect watching visible: JoinQuestionnaireModal.tsx.
 Next steps
 

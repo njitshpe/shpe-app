@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
-import { supabase, supabaseAnonKey } from '@/lib/supabase';
+import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Disclaimer } from './Disclaimer';
 import { LEGAL_URLS } from '@/constants/legal';
@@ -123,26 +123,42 @@ export const GeneralSettings = () => {
         return;
       }
 
-      // Call the delete-account edge function
-      // In React Native, we must explicitly pass the Authorization header
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${session.access_token}`,
-      };
+      // Call the delete-account edge function using fetch directly
+      // supabase.functions.invoke can fail to pass headers correctly in React Native
+      const functionUrl = `${supabaseUrl}/functions/v1/delete-account`;
 
-      if (supabaseAnonKey) {
-        headers.apikey = supabaseAnonKey;
+      // Force refresh the session to ensure we have a fresh token
+      const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshedSession.session) {
+        Alert.alert('Error', 'Session expired. Please log in again.');
+        return;
       }
 
-      const { data, error } = await supabase.functions.invoke<DeleteAccountResponse>(
-        'delete-account',
-        { headers }
-      );
+      // Debug logging
+      console.log('[delete-account] Function URL:', functionUrl);
+      console.log('[delete-account] Token (first 20 chars):', refreshedSession.session.access_token.substring(0, 20));
+      console.log('[delete-account] API Key present:', !!supabaseAnonKey);
+      console.log('[delete-account] API Key (first 10 chars):', supabaseAnonKey?.substring(0, 10));
 
-      if (error) {
-        console.error('Delete account error:', error);
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${refreshedSession.session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+        },
+      });
+
+      console.log('[delete-account] Response status:', response.status);
+
+      const data: DeleteAccountResponse = await response.json();
+
+      if (!response.ok) {
+        console.error('Delete account error:', data);
+        const errorMessage = data?.error || 'An error occurred while deleting your account. Please try again or contact support.';
         Alert.alert(
           'Deletion Failed',
-          'An error occurred while deleting your account. Please try again or contact support.',
+          errorMessage,
           [{ text: 'OK' }]
         );
         return;

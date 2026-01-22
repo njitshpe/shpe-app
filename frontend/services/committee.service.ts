@@ -185,7 +185,7 @@ class CommitteeService {
         committee_id: committeeUUID,
         user_id: userId,
         status: 'pending',
-        answers: answers ?? null,
+        application: answers ?? null,
       });
 
     if (error) {
