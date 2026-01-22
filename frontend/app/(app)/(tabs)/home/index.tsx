@@ -12,6 +12,7 @@ import { fetchAnnouncementPosts } from '@/lib/feedService';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HeroEventCard } from '@/components/home/HeroEventCard';
 import { HeroEventSkeleton } from '@/components/home/HeroEventSkeleton';
+import { HomeScreenSkeleton } from '@/components/home/HomeScreenSkeleton';
 import { QuickActions } from '@/components/home/QuickActions';
 import { Committees } from '@/components/home/Committees';
 import { Announcements } from '@/components/home/Announcements';
@@ -39,7 +40,7 @@ interface MissionEvent {
 
 export default function HomeScreen() {
   const { theme, isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, profileLoading } = useAuth();
   const { isCurrentUserAdmin, isCurrentUserSuperAdmin } = useEvents();
   const router = useRouter();
 
@@ -145,6 +146,20 @@ export default function HomeScreen() {
 
   // --- Role Check ---
   const isAdmin = isCurrentUserAdmin || isCurrentUserSuperAdmin;
+
+  // Show full skeleton when initial data is loading (after splash fades)
+  // This ensures users see a polished loading state instead of a black screen
+  const showFullSkeleton = loading || profileLoading;
+
+  if (showFullSkeleton) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" translucent />
+        <HomeScreenSkeleton />
+        <HomeHeader hasUnreadNotifications={false} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
