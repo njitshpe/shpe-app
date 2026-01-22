@@ -1,40 +1,47 @@
-import { EventDB, EventUI } from '../types/events';
+import { Event, EventDB, EventTag } from '@/types/events';
 
 /**
- * Maps a Supabase EventDB (database schema) to EventUI (frontend schema)
+ * Maps a Supabase EventDB (database schema) to Event (frontend schema)
  */
-export function mapEventDBToUI(event: EventDB): EventUI {
+export function mapEventDBToUI(event: EventDB): Event {
   const isPast = new Date(event.end_time) < new Date();
 
   return {
     id: event.event_id || event.id,
+    uuid: event.id,
     title: event.name,
-    description: event.description,
+    description: event.description ?? undefined,
     startTimeISO: event.start_time,
     endTimeISO: event.end_time,
-    locationName: event.location || '',
-    address: event.location,
-    latitude: undefined,  // Not in EventDB schema
-    longitude: undefined, // Not in EventDB schema
-    coverImageUrl: undefined,  // Not in EventDB schema
-    hostName: null,  // Not in EventDB schema
-    tags: [],  // Not in EventDB schema
-    priceLabel: undefined,  // Not in EventDB schema
-    capacityLabel: event.max_attendees ? `${event.max_attendees} spots` : undefined,
+    locationName: event.location_name,
+    address: event.location_address ?? undefined,
+    latitude: event.latitude ?? undefined,
+    longitude: event.longitude ?? undefined,
+    coverImageUrl: event.cover_image_url ?? undefined,
+    tags: [] as EventTag[],
     status: isPast ? 'past' : 'upcoming',
+    registration_questions: event.registration_questions ?? [],
+    points: event.points ?? 0,
+    requiresRsvp: event.requires_rsvp ?? false,
+    eventLimit: event.event_limit ?? undefined,
   };
 }
 
 /**
- * Maps EventUI (frontend schema) to EventDB (database schema) - partial for updates
+ * Maps Event (frontend schema) to EventDB (database schema) - partial for updates
  */
-export function mapEventUIToDB(event: EventUI): Partial<EventDB> {
+export function mapEventUIToDB(event: Event): Partial<EventDB> {
   return {
     event_id: event.id,
     name: event.title,
-    description: event.description,
-    location: event.address || event.locationName,
+    description: event.description ?? undefined,
+    location_name: event.locationName,
+    location_address: event.address ?? undefined,
     start_time: event.startTimeISO,
     end_time: event.endTimeISO,
+    cover_image_url: event.coverImageUrl ?? null,
+    requires_rsvp: event.requiresRsvp,
+    event_limit: event.eventLimit ?? undefined,
+    points: event.points,
   };
 }

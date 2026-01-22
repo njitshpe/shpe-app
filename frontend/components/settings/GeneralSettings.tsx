@@ -155,7 +155,7 @@ export const GeneralSettings = () => {
 
       if (!response.ok) {
         console.error('Delete account error:', data);
-        const errorMessage = data?.error || 'An error occurred while deleting your account. Please try again or contact support.';
+        const errorMessage = (data as any)?.error || 'An error occurred while deleting your account. Please try again or contact support.';
         Alert.alert(
           'Deletion Failed',
           errorMessage,
@@ -168,7 +168,7 @@ export const GeneralSettings = () => {
         console.error('Delete account failed:', data);
         Alert.alert(
           'Deletion Failed',
-          data?.error || 'Unable to delete account. Please try again.',
+          (data as any)?.error || 'Unable to delete account. Please try again.',
           [{ text: 'OK' }]
         );
         return;

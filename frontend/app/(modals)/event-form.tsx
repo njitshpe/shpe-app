@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEvents } from '@/contexts/EventsContext';
-import { Event } from '@/data/mockEvents';
+import { Event } from '@/types/events';
 
 export default function EventFormScreen() {
   const router = useRouter();
@@ -31,10 +31,7 @@ export default function EventFormScreen() {
   const [locationName, setLocationName] = useState(existingEvent?.locationName || '');
   const [address, setAddress] = useState(existingEvent?.address || '');
   const [coverImageUrl, setCoverImageUrl] = useState(existingEvent?.coverImageUrl || '');
-  const [hostName, setHostName] = useState(existingEvent?.hostName || 'SHPE NJIT');
   const [tags, setTags] = useState(existingEvent?.tags?.join(', ') || '');
-  const [priceLabel, setPriceLabel] = useState(existingEvent?.priceLabel || '');
-  const [capacityLabel, setCapacityLabel] = useState(existingEvent?.capacityLabel || '');
   const [status, setStatus] = useState<'upcoming' | 'past'>(
     existingEvent?.status || 'upcoming'
   );
@@ -62,6 +59,7 @@ export default function EventFormScreen() {
 
     const eventData: Event = {
       id: isEditMode && existingEvent ? existingEvent.id : `evt-${Date.now()}`,
+      uuid: existingEvent?.uuid ?? String(Date.now()),
       title: title.trim(),
       description: description.trim() || undefined,
       startTimeISO: startTimeISO.trim(),
@@ -69,11 +67,12 @@ export default function EventFormScreen() {
       locationName: locationName.trim() || 'TBD',
       address: address.trim() || undefined,
       coverImageUrl: coverImageUrl.trim() || undefined,
-      hostName: hostName.trim(),
-      tags: parsedTags,
-      priceLabel: priceLabel.trim() || undefined,
-      capacityLabel: capacityLabel.trim() || undefined,
+      tags: parsedTags as Event['tags'],
       status,
+      registration_questions: existingEvent?.registration_questions ?? [],
+      points: existingEvent?.points ?? 50,
+      requiresRsvp: existingEvent?.requiresRsvp ?? false,
+      eventLimit: existingEvent?.eventLimit,
     };
 
     if (isEditMode && existingEvent) {
@@ -191,18 +190,6 @@ export default function EventFormScreen() {
           />
         </View>
 
-        {/* Host Name */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Host Name</Text>
-          <TextInput
-            style={styles.input}
-            value={hostName}
-            onChangeText={setHostName}
-            placeholder="SHPE NJIT"
-            placeholderTextColor="#6B7280"
-          />
-        </View>
-
         {/* Tags */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Tags (comma-separated)</Text>
@@ -211,18 +198,6 @@ export default function EventFormScreen() {
             value={tags}
             onChangeText={setTags}
             placeholder="General Meeting, Networking, All Majors"
-            placeholderTextColor="#6B7280"
-          />
-        </View>
-
-        {/* Capacity Label */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Capacity Label</Text>
-          <TextInput
-            style={styles.input}
-            value={capacityLabel}
-            onChangeText={setCapacityLabel}
-            placeholder="Limited spots"
             placeholderTextColor="#6B7280"
           />
         </View>

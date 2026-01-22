@@ -102,7 +102,7 @@ export default function ResumePreview({ file, onRemove, showRemove = false, styl
             enablePaging={false}
             horizontal={false}
             onLoadComplete={() => setIsLoading(false)}
-            onError={(error) => {
+            onError={(error: any) => {
               console.error('PDF preview error:', error);
               setIsLoading(false);
               setHasError(true);
@@ -149,7 +149,7 @@ export default function ResumePreview({ file, onRemove, showRemove = false, styl
           <PdfComponent
             source={source}
             trustAllCerts={false}
-            onError={(error) => console.error('PDF viewer error:', error)}
+            onError={(error: any) => console.error('PDF viewer error:', error)}
             style={styles.viewerPdf}
           />
         </View>

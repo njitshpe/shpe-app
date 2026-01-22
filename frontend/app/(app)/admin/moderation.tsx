@@ -50,24 +50,6 @@ export default function ModerationScreen() {
         }
     }, [isSuperAdmin]);
 
-    // Load reports
-    const loadReports = useCallback(async () => {
-        if (!isSuperAdmin) return;
-
-        const response = await reportService.fetchReports(
-            filter === 'all' ? undefined : filter
-        );
-
-        if (response.success) {
-            setReports(response.data);
-            await loadTargetSummaries(response.data);
-        } else {
-            Alert.alert('Error', response.error?.message || 'Failed to load reports');
-        }
-        setLoading(false);
-        setRefreshing(false);
-    }, [isSuperAdmin, filter, loadTargetSummaries]);
-
     const loadTargetSummaries = useCallback(async (items: Report[]) => {
         const userIds = items.filter((r) => r.target_type === 'user').map((r) => r.target_id);
         const postIds = items.filter((r) => r.target_type === 'post').map((r) => r.target_id);
@@ -116,6 +98,24 @@ export default function ModerationScreen() {
 
         setTargetSummaries(summaries);
     }, []);
+
+    // Load reports
+    const loadReports = useCallback(async () => {
+        if (!isSuperAdmin) return;
+
+        const response = await reportService.fetchReports(
+            filter === 'all' ? undefined : filter
+        );
+
+        if (response.success) {
+            setReports(response.data);
+            await loadTargetSummaries(response.data);
+        } else {
+            Alert.alert('Error', response.error?.message || 'Failed to load reports');
+        }
+        setLoading(false);
+        setRefreshing(false);
+    }, [isSuperAdmin, filter, loadTargetSummaries]);
 
     // Load reports when filter changes
     useEffect(() => {

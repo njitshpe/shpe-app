@@ -54,9 +54,9 @@ function ProfileStrengthBar({ percentage }: { percentage: number }) {
   };
 
   const getColor = () => {
-    if (percentage <= 33) return ['#333333', '#666666']; // Dark Grey
-    if (percentage <= 66) return ['#999999', '#CCCCCC']; // Light Grey
-    return ['#FFFFFF', '#E2E8F0']; // Pure White
+    if (percentage <= 33) return ['#333333', '#666666'] as const; // Dark Grey
+    if (percentage <= 66) return ['#999999', '#CCCCCC'] as const; // Light Grey
+    return ['#FFFFFF', '#E2E8F0'] as const; // Pure White
   };
 
   return (

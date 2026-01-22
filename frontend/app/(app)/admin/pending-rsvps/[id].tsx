@@ -226,10 +226,7 @@ export default function ReviewRSVPScreen() {
                     initials={(card.user_profile.first_name?.[0] || '') + (card.user_profile.last_name?.[0] || '')}
                     displayName={`${card.user_profile.first_name} ${card.user_profile.last_name}`}
                     subtitle={card.user_profile.major || 'No Major'}
-                    secondarySubtitle={card.user_profile.graduation_year ? `Class of ${card.user_profile.graduation_year}` : undefined}
-                    isDark={isDark}
-                    themeText={theme.text}
-                    themeSubtext={theme.subtext}
+                    secondarySubtitle={card.user_profile.graduation_year ? `Class of ${card.user_profile.graduation_year}` : null}
                     userTypeBadge={tier}
                   />
               </View>

@@ -49,7 +49,7 @@ class AdminRoleService {
       });
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       if (!data.success) {
@@ -104,7 +104,7 @@ class AdminRoleService {
       });
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       if (!data.success) {
@@ -154,7 +154,7 @@ class AdminRoleService {
       });
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<AdminRole[]>(null, error);
       }
 
       if (!data.success) {

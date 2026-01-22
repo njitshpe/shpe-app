@@ -47,7 +47,7 @@ class EventsService {
         .order('start_time', { ascending: true });
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<EventDB[]>(null, error);
       }
 
       const events = (data ?? []).map((row: any) => {
