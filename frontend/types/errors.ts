@@ -123,11 +123,28 @@ export function mapSupabaseError(error: unknown): AppError {
       );
 
     case 'email_exists':
-    case '23505': // PostgreSQL unique violation
       return createError(
         'An account with this email already exists.',
         'EMAIL_ALREADY_IN_USE',
         'email'
+      );
+
+    case '23505': // PostgreSQL unique violation
+      // Check if the error message mentions specific fields
+      if (err.message?.includes('ucid')) {
+        return createError(
+          'This UCID is already registered to another account.',
+          'UNIQUE_VIOLATION',
+          'ucid',
+          err.message
+        );
+      }
+      // Default to profile already exists (id constraint)
+      return createError(
+        'A profile already exists for this account.',
+        'ALREADY_EXISTS',
+        undefined,
+        err.message
       );
 
     case 'weak_password':
