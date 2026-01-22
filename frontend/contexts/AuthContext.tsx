@@ -371,8 +371,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('[Apple Auth] Step 2: Generating nonce...');
-      // 1. Generate a random nonce
-      const rawNonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // 1. Generate a cryptographically secure random nonce
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const rawNonce = Array.from(randomBytes)
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
 
       console.log('[Apple Auth] Step 3: Hashing nonce...');
       // 2. Hash the nonce (SHA-256)
