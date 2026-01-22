@@ -67,7 +67,7 @@ class ReportService {
             error: createError('You already reported this.', 'ALREADY_EXISTS'),
           };
         }
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       return { success: true, data: undefined };
@@ -102,7 +102,7 @@ class ReportService {
       const { data, error } = await query;
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<Report[]>(null, error);
       }
 
       return { success: true, data: data || [] };
@@ -186,7 +186,7 @@ class ReportService {
       const { data, error } = await query;
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<Report[]>(null, error);
       }
 
       return { success: true, data: data || [] };
@@ -236,7 +236,7 @@ class ReportService {
         .eq('id', reportId);
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       return { success: true, data: undefined };
@@ -264,7 +264,7 @@ class ReportService {
         .eq('id', postId);
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       return { success: true, data: undefined };

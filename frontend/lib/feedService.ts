@@ -936,7 +936,12 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
         if (error) {
             return {
                 success: false,
-                error: createError('Failed to delete comment', 'DATABASE_ERROR', undefined, error.message),
+                error: createError(
+                    'Failed to delete comment',
+                    'DATABASE_ERROR',
+                    undefined,
+                    (error as any).message
+                ),
             };
         }
 

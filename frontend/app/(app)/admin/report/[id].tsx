@@ -98,8 +98,9 @@ export default function ReportDetailScreen() {
                 .single();
 
             if (!cancelledRef.cancelled && comment) {
-                const authorName = comment.author
-                    ? `${comment.author.first_name} ${comment.author.last_name}`.trim()
+                const author = Array.isArray(comment.author) ? comment.author[0] : comment.author;
+                const authorName = author
+                    ? `${(author as any).first_name} ${(author as any).last_name}`.trim()
                     : 'Unknown Author';
                 setReportedComment({
                     author: authorName || 'Unknown Author',

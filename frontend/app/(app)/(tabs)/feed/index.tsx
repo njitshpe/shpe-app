@@ -33,7 +33,9 @@ export default function FeedScreen() {
     const listTopPadding = headerHeight + 12;
     const listBottomPadding = 24 + insets.bottom;
     const feedBackground = isDark ? '#0A0A0A' : '#FAFAFA';
-    const gradientColors = isDark ? ['#0B0B0B', '#000000'] : ['#FFFFFF', '#F1F4FA'];
+    const gradientColors = isDark
+        ? (['#0B0B0B', '#000000'] as const)
+        : (['#FFFFFF', '#F1F4FA'] as const);
     const headerBackground = isDark ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.95)';
     const headerBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 

@@ -152,7 +152,7 @@ class ProfileService {
             }
 
             if (fetchError) {
-                return handleSupabaseError(null, fetchError);
+                return handleSupabaseError<UserProfile>(null, fetchError);
             }
 
             // Merge existing profile_data with new updates

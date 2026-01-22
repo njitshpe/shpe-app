@@ -99,13 +99,13 @@ export function useRank(): UseRankResult {
 
         if (response.success && response.data) {
           setTier(response.data.tier);
-          setPointsTotal(response.data.newBalance);
+          setPointsTotal((response.data as any).newBalance);
           setSeasonId(response.data.season_id);
           setPointsToNextTier(response.data.points_to_next_tier);
 
           return {
             success: true,
-            pointsAwarded: response.data.transaction.amount,
+            pointsAwarded: (response.data as any).transaction.amount,
           };
         } else {
           setError(response.error || null);
