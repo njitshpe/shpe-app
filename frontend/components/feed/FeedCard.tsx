@@ -1,17 +1,6 @@
-import React, { useState, useRef, useEffect, memo } from 'react';
-import {
-    View,
-    Text,
-    Image,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    StyleSheet,
-    Alert,
-    ActionSheetIOS,
-    Platform,
-    Animated,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert, ActionSheetIOS, Platform, FlatList, useWindowDimensions, LayoutChangeEvent } from 'react-native';
+import { MotiView } from 'moti';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -21,40 +10,8 @@ import { useBlock } from '@/contexts/BlockContext';
 import { useLikes } from '@/hooks/feed';
 import { formatRelativeTime } from '@/utils/feed';
 import { ReportModal } from '@/components/shared/ReportModal';
-import { SPACING, RADIUS } from '@/constants/colors';
+import { GradientAvatarBorder } from './GradientAvatarBorder';
 import type { FeedPostUI } from '@/types/feed';
-
-// Design System Constants
-const DESIGN = {
-    // Obsidian Glass
-    cardBackground: 'rgba(255,255,255,0.05)',
-    cardBorder: 'rgba(255,255,255,0.1)',
-    cardBorderRadius: 20,
-
-    // Platinum Accent
-    platinum: '#E0E0E0',
-    platinumDark: '#A0A0A0',
-    platinumBackground: 'rgba(224, 224, 224, 0.15)',
-    platinumGradient: ['#E0E0E0', '#A0A0A0'] as const,
-
-    // Avatar Rank Ring Colors
-    rankPlatinum: ['#E0E0E0', '#C0C0C0', '#E0E0E0'] as const,
-    rankSilver: ['#C0C0C0', '#A8A8A8', '#C0C0C0'] as const,
-    rankBronze: ['#CD7F32', '#8B4513', '#CD7F32'] as const,
-
-    // Typography Colors
-    textPrimary: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textTertiary: 'rgba(255,255,255,0.4)',
-
-    // Light mode equivalents
-    lightCardBackground: 'rgba(255,255,255,0.95)',
-    lightCardBorder: 'rgba(0,0,0,0.08)',
-
-    // Animation
-    entranceDelay: 80,
-    entranceDuration: 400,
-};
 
 interface FeedCardProps {
     post: FeedPostUI;
@@ -62,14 +19,15 @@ interface FeedCardProps {
     onEdit?: (post: FeedPostUI) => void;
     onCommentPress?: (postId: string) => void;
     compact?: boolean;
-    index?: number; // For staggered animation
+    index?: number;
 }
 
-export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = false, index = 0 }: FeedCardProps) {
+export function FeedCard({ post, onDelete, onEdit, onCommentPress, compact = false, index }: FeedCardProps) {
     const { theme, isDark } = useTheme();
+    const { width: screenWidth } = useWindowDimensions();
 
-    // Darker card background to match the rest of the UI
-    const cardBackground = isDark ? 'rgba(18, 18, 20, 0.85)' : theme.card;
+    const cardBackground = isDark ? '#000000' : '#FFFFFF';
+    const dividerColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
     const { user } = useAuth();
     const { isUserBlocked } = useBlock();
     const router = useRouter();
@@ -81,31 +39,12 @@ export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onComme
         post.likeCount
     );
     const [showReportModal, setShowReportModal] = useState(false);
-
-    // Animation refs
-    const likeScale = useRef(new Animated.Value(1)).current;
-    const entranceAnim = useRef(new Animated.Value(0)).current;
-    const doubleTapHeartScale = useRef(new Animated.Value(0)).current;
-    const doubleTapHeartOpacity = useRef(new Animated.Value(0)).current;
-
-    // Double tap tracking
-    const lastTapRef = useRef<number>(0);
-    const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
-
-    // Staggered entrance animation
-    useEffect(() => {
-        const delay = index * DESIGN.entranceDelay;
-        const timeout = setTimeout(() => {
-            Animated.spring(entranceAnim, {
-                toValue: 1,
-                friction: 8,
-                tension: 40,
-                useNativeDriver: true,
-            }).start();
-        }, delay);
-
-        return () => clearTimeout(timeout);
-    }, [index, entranceAnim]);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [cardWidth, setCardWidth] = useState<number | null>(null);
+    const authorName = `${post.author.firstName} ${post.author.lastName}`;
+    const showCarousel = post.imageUrls.length > 1 && !compact;
+    const hasCaption = post.content.trim().length > 0;
+    const staggerDelay = typeof index === 'number' ? Math.min(index * 60, 360) : 0;
 
     const handleAuthorPress = () => {
         if (isBlocked) {
@@ -123,6 +62,7 @@ export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onComme
 
     const handleOptionsPress = () => {
         if (isAuthor) {
+            // Author options: Edit and Delete
             if (Platform.OS === 'ios') {
                 ActionSheetIOS.showActionSheetWithOptions(
                     {
@@ -151,6 +91,7 @@ export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onComme
                 );
             }
         } else {
+            // Non-author options: Report
             if (Platform.OS === 'ios') {
                 ActionSheetIOS.showActionSheetWithOptions(
                     {
@@ -195,418 +136,241 @@ export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onComme
 
     const handleLike = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        // Bounce animation
-        Animated.sequence([
-            Animated.spring(likeScale, {
-                toValue: 1.3,
-                friction: 3,
-                tension: 200,
-                useNativeDriver: true,
-            }),
-            Animated.spring(likeScale, {
-                toValue: 1,
-                friction: 3,
-                tension: 200,
-                useNativeDriver: true,
-            }),
-        ]).start();
-
         toggleLike();
     };
 
-    // Double tap to like handler
-    const handleDoubleTap = () => {
-        const now = Date.now();
-        const DOUBLE_TAP_DELAY = 300;
-
-        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-            // Double tap detected
-            if (!isLiked) {
-                toggleLike();
-            }
-
-            // Show heart animation
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setShowDoubleTapHeart(true);
-
-            // Reset animation values
-            doubleTapHeartScale.setValue(0);
-            doubleTapHeartOpacity.setValue(1);
-
-            // Animate heart
-            Animated.parallel([
-                Animated.spring(doubleTapHeartScale, {
-                    toValue: 1,
-                    friction: 3,
-                    tension: 100,
-                    useNativeDriver: true,
-                }),
-                Animated.sequence([
-                    Animated.delay(600),
-                    Animated.timing(doubleTapHeartOpacity, {
-                        toValue: 0,
-                        duration: 300,
-                        useNativeDriver: true,
-                    }),
-                ]),
-            ]).start(() => {
-                setShowDoubleTapHeart(false);
-            });
-
-            lastTapRef.current = 0;
-        } else {
-            lastTapRef.current = now;
+    const handleCardLayout = (event: LayoutChangeEvent) => {
+        const { width } = event.nativeEvent.layout;
+        if (width && width !== cardWidth) {
+            setCardWidth(width);
         }
     };
 
-    // Render the cinematic image layout with double-tap support
-    const renderImages = () => {
-        const images = post.imageUrls;
-        if (images.length === 0) return null;
+    const resolvedWidth = cardWidth ?? screenWidth;
+    const imageWidth = Math.max(resolvedWidth, 1);
+    const imageCountLabel = post.imageUrls.length > 1
+        ? (compact ? `+${post.imageUrls.length - 1}` : `${activeImageIndex + 1}/${post.imageUrls.length}`)
+        : '';
+    const likeLabel = likeCount === 1 ? 'like' : 'likes';
+    const commentLabel = post.commentCount === 1 ? 'comment' : 'comments';
 
-        const maxDisplay = compact ? 1 : 4;
-        const displayImages = images.slice(0, maxDisplay);
-        const extraCount = images.length - maxDisplay;
-
-        const renderImageContent = () => {
-            // Single image - Hero layout
-            if (images.length === 1) {
-                return (
-                    <Image
-                        source={{ uri: images[0] }}
-                        style={styles.heroImage}
-                        resizeMode="cover"
-                    />
-                );
-            }
-
-            // Two images - Side by side
-            if (images.length === 2) {
-                return (
-                    <View style={styles.twoImageGrid}>
-                        <Image
-                            source={{ uri: images[0] }}
-                            style={styles.halfImage}
-                            resizeMode="cover"
-                        />
-                        <Image
-                            source={{ uri: images[1] }}
-                            style={styles.halfImage}
-                            resizeMode="cover"
-                        />
-                    </View>
-                );
-            }
-
-            // Three images - Mosaic (1 large left, 2 stacked right)
-            if (images.length === 3) {
-                return (
-                    <View style={styles.mosaicGrid}>
-                        <Image
-                            source={{ uri: images[0] }}
-                            style={styles.mosaicLarge}
-                            resizeMode="cover"
-                        />
-                        <View style={styles.mosaicRight}>
-                            <Image
-                                source={{ uri: images[1] }}
-                                style={styles.mosaicSmall}
-                                resizeMode="cover"
-                            />
-                            <Image
-                                source={{ uri: images[2] }}
-                                style={styles.mosaicSmall}
-                                resizeMode="cover"
-                            />
-                        </View>
-                    </View>
-                );
-            }
-
-            // Four+ images - Grid with +N overlay
-            return (
-                <View style={styles.fourImageGrid}>
-                    {displayImages.map((url, idx) => (
-                        <View key={idx} style={styles.quarterImageWrapper}>
-                            <Image
-                                source={{ uri: url }}
-                                style={styles.quarterImage}
-                                resizeMode="cover"
-                            />
-                            {idx === 3 && extraCount > 0 && (
-                                <View style={styles.moreOverlay}>
-                                    <Text style={styles.moreOverlayText}>+{extraCount}</Text>
-                                </View>
-                            )}
-                        </View>
-                    ))}
-                </View>
-            );
-        };
-
-        return (
-            <TouchableWithoutFeedback onPress={handleDoubleTap}>
-                <View style={styles.imageContainer}>
-                    {renderImageContent()}
-
-                    {/* Double-tap heart overlay */}
-                    {showDoubleTapHeart && (
-                        <Animated.View
-                            style={[
-                                styles.doubleTapHeartContainer,
-                                {
-                                    opacity: doubleTapHeartOpacity,
-                                    transform: [{ scale: doubleTapHeartScale }],
-                                },
-                            ]}
-                            pointerEvents="none"
-                        >
-                            <Ionicons name="heart" size={80} color="#FFFFFF" />
-                        </Animated.View>
-                    )}
-                </View>
-            </TouchableWithoutFeedback>
-        );
+    const handleCarouselMomentumEnd = (event: { nativeEvent: { contentOffset: { x: number } } }) => {
+        if (!showCarousel || imageWidth === 0) {
+            return;
+        }
+        const nextIndex = Math.round(event.nativeEvent.contentOffset.x / imageWidth);
+        setActiveImageIndex(nextIndex);
     };
 
-    // Render content with mentions highlighted
-    const renderContent = () => {
-        return (
-            <Text style={[
-                styles.content,
-                { color: isDark ? DESIGN.textPrimary : theme.text }
-            ]}>
-                {post.content.split(/(@\w+\s?)/g).map((part, idx) => {
-                    if (part.startsWith('@')) {
-                        const mentionName = part.substring(1).trim();
+    const renderCaptionText = () => (
+        post.content.split(/(@\w+\s?)/g).map((part, index) => {
+            if (part.startsWith('@')) {
+                const mentionName = part.substring(1).trim();
 
-                        const taggedUser = post.taggedUsers.find(
-                            (u) => {
-                                const fullName = `${u.firstName}${u.lastName}`.toLowerCase();
-                                const spacedName = `${u.firstName} ${u.lastName}`.toLowerCase();
-                                const search = mentionName.toLowerCase();
-                                return fullName === search || spacedName === search;
-                            }
-                        );
-
-                        if (taggedUser) {
-                            return (
-                                <Text
-                                    key={idx}
-                                    style={[
-                                        styles.mention,
-                                        { color: isDark ? DESIGN.platinum : theme.primary }
-                                    ]}
-                                    onPress={() => router.push(`/profile/${taggedUser.id}`)}
-                                >
-                                    {part}
-                                </Text>
-                            );
-                        }
+                // Find the user with this name in taggedUsers
+                const taggedUser = post.taggedUsers.find(
+                    u => {
+                        const fullName = `${u.firstName}${u.lastName}`.toLowerCase();
+                        const spacedName = `${u.firstName} ${u.lastName}`.toLowerCase();
+                        const search = mentionName.toLowerCase();
+                        const match = fullName === search || spacedName === search;
+                        return match;
                     }
-                    return <Text key={idx}>{part}</Text>;
-                })}
-            </Text>
-        );
-    };
+                );
 
-    // Render avatar with gradient rank ring
-    const renderAvatar = () => {
-        const avatarContent = post.author.profilePictureUrl ? (
-            <Image
-                source={{ uri: post.author.profilePictureUrl }}
-                style={styles.avatar}
-            />
-        ) : (
-            <View style={[
-                styles.avatarPlaceholder,
-                { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : theme.border }
-            ]}>
-                <Ionicons
-                    name="person"
-                    size={18}
-                    color={isDark ? 'rgba(255,255,255,0.5)' : theme.subtext}
-                />
-            </View>
-        );
-
-        // Always show gold rank ring for active members
-        return (
-            <LinearGradient
-                colors={DESIGN.rankPlatinum}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatarRingGradient}
-            >
-                <View style={[
-                    styles.avatarInner,
-                    { backgroundColor: isDark ? '#0a0a0a' : '#FFFFFF' }
-                ]}>
-                    {avatarContent}
-                </View>
-            </LinearGradient>
-        );
-    };
-
-    // Card content
-    const cardContent = (
-        <View style={[
-            styles.cardInner,
-            isDark ? styles.cardInnerDark : styles.cardInnerLight,
-            // Remove border if event post (gradient border handles it)
-            post.event && isDark && { borderWidth: 0 },
-        ]}>
-            {/* Header Row */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.authorInfo} onPress={handleAuthorPress}>
-                    {/* Avatar with Rank Ring */}
-                    {renderAvatar()}
-
-                    {/* Name and Timestamp */}
-                    <View style={styles.authorDetails}>
-                        <Text style={[
-                            styles.authorName,
-                            { color: isDark ? DESIGN.textPrimary : theme.text }
-                        ]}>
-                            {post.author.firstName} {post.author.lastName}
+                if (taggedUser) {
+                    return (
+                        <Text
+                            key={index}
+                            style={{ color: theme.info, fontWeight: '600' }}
+                            onPress={() => router.push(`/profile/${taggedUser.id}`)}
+                        >
+                            {part}
                         </Text>
-                        <Text style={[
-                            styles.timestamp,
-                            { color: isDark ? DESIGN.textSecondary : theme.subtext }
-                        ]}>
-                            {formatRelativeTime(post.createdAt).toUpperCase()}
+                    );
+                }
+            }
+            return <Text key={index}>{part}</Text>;
+        })
+    );
+
+    return (
+        <MotiView
+            from={{ opacity: 0, translateY: 12 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+                type: 'timing',
+                duration: 350,
+                delay: staggerDelay,
+            }}
+            onLayout={handleCardLayout}
+            style={[styles.container, { backgroundColor: cardBackground, borderBottomColor: dividerColor }]}
+        >
+            {/* Header */}
+            <View style={[styles.header, styles.sectionPadding]}>
+                <TouchableOpacity style={styles.authorInfo} onPress={handleAuthorPress}>
+                    <GradientAvatarBorder tier={post.author.tier} size={36} borderWidth={2}>
+                        {post.author.profilePictureUrl ? (
+                            <Image
+                                source={{ uri: post.author.profilePictureUrl }}
+                                style={styles.avatar}
+                            />
+                        ) : (
+                            <View style={[styles.avatar, styles.avatarPlaceholder, { backgroundColor: theme.border }]}>
+                                <Ionicons name="person" size={18} color={theme.subtext} />
+                            </View>
+                        )}
+                    </GradientAvatarBorder>
+                    <View>
+                        <Text style={[styles.authorName, { color: theme.text }]} numberOfLines={1}>
+                            {authorName}
                         </Text>
                     </View>
                 </TouchableOpacity>
 
-                {/* Options Button */}
                 {!compact && (
-                    <TouchableOpacity
-                        onPress={handleOptionsPress}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        style={[
-                            styles.optionsButton,
-                            isDark && styles.optionsButtonDark
-                        ]}
-                    >
-                        <Ionicons
-                            name="ellipsis-horizontal"
-                            size={18}
-                            color={isDark ? DESIGN.textSecondary : theme.subtext}
-                        />
+                    <TouchableOpacity onPress={handleOptionsPress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                        <Ionicons name="ellipsis-horizontal" size={20} color={theme.subtext} />
                     </TouchableOpacity>
                 )}
             </View>
 
-            {/* Event Tag - Gold Pill Badge */}
             {post.event && (
-                <TouchableOpacity
-                    onPress={handleEventPress}
-                    style={[
-                        styles.eventTag,
-                        { backgroundColor: isDark ? DESIGN.platinumBackground : 'rgba(224, 224, 224, 0.12)' }
-                    ]}
-                    activeOpacity={0.7}
-                >
-                    <Ionicons
-                        name="calendar"
-                        size={12}
-                        color={DESIGN.platinum}
-                    />
-                    <Text style={styles.eventTagText}>
+                <TouchableOpacity style={[styles.eventRow, styles.sectionPadding]} onPress={handleEventPress}>
+                    <Ionicons name="location-outline" size={14} color={theme.subtext} />
+                    <Text style={[styles.eventText, { color: theme.subtext }]} numberOfLines={1}>
                         {post.event.name}
                     </Text>
-                    <Ionicons
-                        name="chevron-forward"
-                        size={12}
-                        color={DESIGN.platinum}
-                    />
                 </TouchableOpacity>
             )}
 
-            {/* Content */}
-            {renderContent()}
+            {/* Images */}
+            {post.imageUrls.length > 0 && (
+                <View style={[styles.mediaWrapper, { backgroundColor: isDark ? '#000000' : '#F1F1F1' }]}>
+                    {showCarousel ? (
+                        <FlatList
+                            data={post.imageUrls}
+                            keyExtractor={(_, imageIndex) => `${post.id}-${imageIndex}`}
+                            renderItem={({ item }) => (
+                                <Image
+                                    source={{ uri: item }}
+                                    style={[styles.carouselImage, { width: imageWidth, height: imageWidth }]}
+                                    resizeMode="cover"
+                                />
+                            )}
+                            horizontal
+                            pagingEnabled
+                            showsHorizontalScrollIndicator={false}
+                            onMomentumScrollEnd={handleCarouselMomentumEnd}
+                            getItemLayout={(_, imageIndex) => ({
+                                length: imageWidth,
+                                offset: imageWidth * imageIndex,
+                                index: imageIndex,
+                            })}
+                        />
+                    ) : (
+                        <Image
+                            source={{ uri: post.imageUrls[0] }}
+                            style={[styles.carouselImage, { width: imageWidth, height: imageWidth }]}
+                            resizeMode="cover"
+                        />
+                    )}
 
-            {/* Images - Cinematic Layout with Double-Tap */}
-            {renderImages()}
+                    {post.imageUrls.length > 1 && (
+                        <View style={styles.imageCountBadge}>
+                            <Text style={styles.imageCountText}>{imageCountLabel}</Text>
+                        </View>
+                    )}
 
-            {/* Tagged Users */}
-            {post.taggedUsers.length > 0 && (
-                <View style={styles.tagsContainer}>
-                    <Ionicons
-                        name="people-outline"
-                        size={14}
-                        color={isDark ? DESIGN.textTertiary : theme.subtext}
-                        style={{ marginTop: 1 }}
-                    />
-                    <View style={styles.tagsList}>
-                        {post.taggedUsers.map((taggedUser, idx) => (
-                            <TouchableOpacity
-                                key={taggedUser.id}
-                                onPress={() => router.push(`/profile/${taggedUser.id}`)}
-                            >
-                                <Text style={[
-                                    styles.tagsText,
-                                    { color: isDark ? DESIGN.platinum : theme.primary }
-                                ]}>
-                                    {taggedUser.firstName} {taggedUser.lastName}
-                                    {idx < post.taggedUsers.length - 1 ? ',' : ''}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    {showCarousel && (
+                        <View style={styles.pagination}>
+                            {post.imageUrls.map((_, dotIndex) => (
+                                <View
+                                    key={`${post.id}-dot-${dotIndex}`}
+                                    style={[
+                                        styles.paginationDot,
+                                        {
+                                            backgroundColor: dotIndex === activeImageIndex
+                                                ? theme.info
+                                                : (isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'),
+                                        },
+                                    ]}
+                                />
+                            ))}
+                        </View>
+                    )}
                 </View>
             )}
 
-            {/* Action Bar */}
             {!compact && (
-                <View style={[
-                    styles.actions,
-                    { borderTopColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }
-                ]}>
-                    {/* Like Button */}
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleLike}
-                        activeOpacity={0.7}
-                    >
-                        <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-                            <Ionicons
-                                name={isLiked ? 'heart' : 'heart-outline'}
-                                size={22}
-                                color={isLiked ? DESIGN.platinum : (isDark ? DESIGN.textSecondary : theme.subtext)}
-                            />
-                        </Animated.View>
-                        <Text style={[
-                            styles.actionText,
-                            { color: isDark ? DESIGN.textSecondary : theme.subtext },
-                            isLiked && { color: DESIGN.platinum }
-                        ]}>
-                            {likeCount}
-                        </Text>
+                <View style={[styles.actions, styles.sectionPadding]}>
+                    <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+                        <Ionicons
+                            name={isLiked ? 'heart' : 'heart-outline'}
+                            size={24}
+                            color={isLiked ? theme.error : theme.text}
+                        />
                     </TouchableOpacity>
 
-                    {/* Comment Button */}
                     <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => onCommentPress?.(post.id)}
-                        activeOpacity={0.7}
                     >
-                        <Ionicons
-                            name="chatbubble-outline"
-                            size={20}
-                            color={isDark ? DESIGN.textSecondary : theme.subtext}
-                        />
-                        <Text style={[
-                            styles.actionText,
-                            { color: isDark ? DESIGN.textSecondary : theme.subtext }
-                        ]}>
-                            {post.commentCount}
-                        </Text>
+                        <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
                     </TouchableOpacity>
                 </View>
             )}
+
+            <View style={[styles.meta, styles.sectionPadding]}>
+                {!compact && (
+                    <Text style={[styles.likesText, { color: theme.text }]}>
+                        {likeCount} {likeLabel}
+                    </Text>
+                )}
+
+                {hasCaption && (
+                    <Text style={[styles.captionText, { color: theme.text }]}>
+                        <Text style={styles.captionAuthor}>{authorName}</Text>{' '}
+                        {renderCaptionText()}
+                    </Text>
+                )}
+
+                {post.taggedUsers.length > 0 && (
+                    <View style={styles.tagsContainer}>
+                        <Ionicons name="pricetag" size={12} color={theme.subtext} style={styles.tagsIcon} />
+                        <View style={styles.tagsList}>
+                            {post.taggedUsers.map((user, taggedIndex) => (
+                                <TouchableOpacity
+                                    key={user.id}
+                                    onPress={() => router.push(`/profile/${user.id}`)}
+                                >
+                                    <Text style={[styles.tagsText, { color: theme.info }]}>
+                                        {user.firstName} {user.lastName}{taggedIndex < post.taggedUsers.length - 1 ? ',' : ''}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
+                {!compact && post.commentCount > 0 && (
+                    onCommentPress ? (
+                        <TouchableOpacity onPress={() => onCommentPress(post.id)}>
+                            <Text style={[styles.commentLink, { color: theme.subtext }]}>
+                                View all {post.commentCount} {commentLabel}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <Text style={[styles.commentLink, { color: theme.subtext }]}>
+                            {post.commentCount} {commentLabel}
+                        </Text>
+                    )
+                )}
+
+                <Text style={[styles.timestamp, { color: theme.subtext }]}>
+                    {formatRelativeTime(post.createdAt)}
+                </Text>
+            </View>
 
             {/* Report Modal */}
             <ReportModal
@@ -614,246 +378,125 @@ export const FeedCard = memo(function FeedCard({ post, onDelete, onEdit, onComme
                 onClose={() => setShowReportModal(false)}
                 targetType="post"
                 targetId={post.id}
-                targetName={`${post.author.firstName} ${post.author.lastName}`}
+                targetName={authorName}
             />
-        </View>
+        </MotiView>
     );
-
-    // Animated entrance wrapper
-    const entranceStyle = {
-        opacity: entranceAnim,
-        transform: [
-            {
-                translateY: entranceAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [30, 0],
-                }),
-            },
-        ],
-    };
-
-    // Event posts get gradient border wrapper
-    if (post.event && isDark) {
-        return (
-            <Animated.View style={entranceStyle}>
-                <LinearGradient
-                    colors={DESIGN.platinumGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.gradientBorderWrapper}
-                >
-                    {cardContent}
-                </LinearGradient>
-            </Animated.View>
-        );
-    }
-
-    // Normal posts
-    return (
-        <Animated.View style={entranceStyle}>
-            {cardContent}
-        </Animated.View>
-    );
-});
+}
 
 const styles = StyleSheet.create({
-    // Gradient border wrapper for event posts
-    gradientBorderWrapper: {
-        borderRadius: DESIGN.cardBorderRadius + 1,
-        padding: 1.5,
+    container: {
+        paddingBottom: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
     },
-
-    // Card Inner - Obsidian Glass
-    cardInner: {
-        borderRadius: DESIGN.cardBorderRadius,
-        padding: SPACING.md,
-        borderWidth: 1,
-        overflow: 'hidden',
+    sectionPadding: {
+        paddingHorizontal: 16,
     },
-    cardInnerDark: {
-        backgroundColor: DESIGN.cardBackground,
-        borderColor: DESIGN.cardBorder,
-    },
-    cardInnerLight: {
-        backgroundColor: DESIGN.lightCardBackground,
-        borderColor: DESIGN.lightCardBorder,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-
-    // Header
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: SPACING.sm,
+        paddingTop: 12,
+        paddingBottom: 8,
     },
     authorInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: SPACING.sm,
+        gap: 10,
         flex: 1,
-    },
-
-    // Avatar with Rank Ring
-    avatarRingGradient: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        padding: 2,
-    },
-    avatarInner: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 22,
-        overflow: 'hidden',
     },
     avatar: {
-        width: '100%',
-        height: '100%',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
     },
     avatarPlaceholder: {
-        width: '100%',
-        height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
-    },
-
-    authorDetails: {
-        flex: 1,
     },
     authorName: {
         fontSize: 15,
         fontWeight: '600',
-        marginBottom: 2,
     },
-    timestamp: {
-        fontSize: 11,
-        fontWeight: '500',
-        letterSpacing: 0.5,
-    },
-    optionsButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    optionsButtonDark: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-
-    // Event Tag - Gold Pill
-    eventTag: {
+    eventRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        alignSelf: 'flex-start',
-        gap: 6,
-        paddingHorizontal: SPACING.sm + 2,
-        paddingVertical: 6,
-        borderRadius: RADIUS.full,
-        marginBottom: SPACING.sm,
+        gap: 8,
+        paddingBottom: 8,
     },
-    eventTagText: {
-        color: DESIGN.platinum,
+    eventText: {
+        fontSize: 13,
+        fontWeight: '500',
+        flexShrink: 1,
+    },
+    mediaWrapper: {
+        width: '100%',
+    },
+    carouselImage: {
+        width: '100%',
+        backgroundColor: '#000000',
+    },
+    imageCountBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    imageCountText: {
+        color: '#FFFFFF',
         fontSize: 12,
         fontWeight: '600',
     },
-
-    // Content
-    content: {
-        fontSize: 15,
-        lineHeight: 22,
-        marginBottom: SPACING.sm,
+    pagination: {
+        position: 'absolute',
+        bottom: 10,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 6,
     },
-    mention: {
+    paginationDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    actions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+        paddingTop: 12,
+    },
+    actionButton: {
+        paddingVertical: 2,
+    },
+    meta: {
+        paddingTop: 8,
+        paddingBottom: 12,
+    },
+    likesText: {
+        fontSize: 14,
         fontWeight: '600',
     },
-
-    // Image Layouts
-    imageContainer: {
-        borderRadius: RADIUS.lg,
-        overflow: 'hidden',
-        marginBottom: SPACING.sm,
-        position: 'relative',
+    captionText: {
+        fontSize: 14,
+        lineHeight: 20,
+        marginTop: 4,
     },
-    heroImage: {
-        width: '100%',
-        height: 280,
-        borderRadius: RADIUS.lg,
+    captionAuthor: {
+        fontWeight: '600',
     },
-    twoImageGrid: {
-        flexDirection: 'row',
-        gap: 3,
-    },
-    halfImage: {
-        flex: 1,
-        height: 200,
-        borderRadius: RADIUS.md,
-    },
-    mosaicGrid: {
-        flexDirection: 'row',
-        gap: 3,
-        height: 240,
-    },
-    mosaicLarge: {
-        flex: 1.2,
-        height: '100%',
-        borderRadius: RADIUS.md,
-    },
-    mosaicRight: {
-        flex: 0.8,
-        gap: 3,
-    },
-    mosaicSmall: {
-        flex: 1,
-        borderRadius: RADIUS.md,
-    },
-    fourImageGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 3,
-    },
-    quarterImageWrapper: {
-        width: '49%',
-        height: 140,
-        position: 'relative',
-    },
-    quarterImage: {
-        width: '100%',
-        height: '100%',
-        borderRadius: RADIUS.sm,
-    },
-    moreOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: RADIUS.sm,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    moreOverlayText: {
-        color: '#FFFFFF',
-        fontSize: 24,
-        fontWeight: '700',
-    },
-
-    // Double-tap heart overlay
-    doubleTapHeartContainer: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.1)',
-    },
-
-    // Tagged Users
     tagsContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         gap: 6,
-        marginBottom: SPACING.sm,
+        marginTop: 6,
+    },
+    tagsIcon: {
+        marginTop: 2,
     },
     tagsList: {
         flexDirection: 'row',
@@ -862,25 +505,16 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     tagsText: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '500',
     },
-
-    // Actions
-    actions: {
-        flexDirection: 'row',
-        gap: SPACING.xl,
-        paddingTop: SPACING.sm,
-        borderTopWidth: 1,
-        marginTop: SPACING.xs,
+    commentLink: {
+        fontSize: 13,
+        marginTop: 6,
     },
-    actionButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    actionText: {
-        fontSize: 14,
-        fontWeight: '600',
+    timestamp: {
+        fontSize: 11,
+        letterSpacing: 0.2,
+        marginTop: 6,
     },
 });
