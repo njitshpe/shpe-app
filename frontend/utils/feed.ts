@@ -20,6 +20,7 @@ export function mapFeedPostDBToUI(db: any): FeedPostUI {
             firstName: db.author?.first_name || '',
             lastName: db.author?.last_name || '',
             profilePictureUrl: resolveProfilePictureUrl(db.author?.profile_picture_url),
+            tier: db.author?.tier || db.author_tier || undefined,
         },
         likeCount: db.like_count || 0,
         commentCount: db.comment_count || 0,

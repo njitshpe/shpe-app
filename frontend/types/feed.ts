@@ -51,6 +51,7 @@ export interface FeedPostUI {
         firstName: string;
         lastName: string;
         profilePictureUrl?: string;
+        tier?: string; // Rank tier: 'unranked', 'bronze', 'silver', 'gold'
     };
     likeCount: number;
     commentCount: number;

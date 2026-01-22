@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const ACTIONS = [
   // 1. Check In (Green - Access)
@@ -24,7 +25,8 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ onPress }: QuickActionsProps) {
-  
+  const { theme, isDark } = useTheme();
+
   const getRoute = (id: string) => {
     switch(id) {
       case 'check-in': return '/check-in';
@@ -35,12 +37,16 @@ export function QuickActions({ onPress }: QuickActionsProps) {
     }
   };
 
+  const gradientColors = isDark
+    ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)'] as const
+    : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.01)'] as const;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>QUICK ACCESS</Text>
-      
-      <ScrollView 
-        horizontal 
+      <Text style={[styles.header, { color: theme.subtext }]}>QUICK ACCESS</Text>
+
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -51,16 +57,16 @@ export function QuickActions({ onPress }: QuickActionsProps) {
             onPress={() => onPress(getRoute(action.id))}
           >
             <LinearGradient
-              colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
-              style={styles.card}
+              colors={gradientColors}
+              style={[styles.card, { borderColor: theme.border }]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               {/* Icon Halo with dynamic color tint */}
-              <View style={[styles.iconHalo, { backgroundColor: `${action.color}20` }]}> 
+              <View style={[styles.iconHalo, { backgroundColor: `${action.color}20` }]}>
                 <Ionicons name={action.icon as any} size={24} color={action.color} />
               </View>
-              <Text style={styles.cardLabel}>{action.label}</Text>
+              <Text style={[styles.cardLabel, { color: theme.text }]}>{action.label}</Text>
             </LinearGradient>
           </TouchableOpacity>
         ))}
@@ -71,11 +77,10 @@ export function QuickActions({ onPress }: QuickActionsProps) {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: -30, 
+    marginTop: -30,
     marginBottom: 30,
   },
   header: {
-    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '700',
     marginLeft: SPACING.lg,
@@ -94,7 +99,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     gap: 10,
   },
   iconHalo: {
@@ -105,7 +109,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardLabel: {
-    color: '#FFF',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,

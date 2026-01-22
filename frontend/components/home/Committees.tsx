@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SPACING } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const COMMITTEES = [
   { id: 'external-vp', label: 'External VP', icon: 'globe-outline', color: '#5E5CE6' },
@@ -25,9 +26,15 @@ interface CommitteesProps {
 }
 
 export function Committees({ onPress }: CommitteesProps) {
+  const { theme, isDark } = useTheme();
+
+  const gradientColors = isDark
+    ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)'] as const
+    : ['rgba(0,0,0,0.04)', 'rgba(0,0,0,0.01)'] as const;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>COMMITTEES</Text>
+      <Text style={[styles.header, { color: theme.subtext }]}>COMMITTEES</Text>
 
       <View style={styles.listContent}>
         {COMMITTEES.map((committee) => (
@@ -37,16 +44,16 @@ export function Committees({ onPress }: CommitteesProps) {
             onPress={() => onPress(committee.id)}
           >
             <LinearGradient
-              colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
-              style={styles.card}
+              colors={gradientColors}
+              style={[styles.card, { borderColor: theme.border }]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <View style={[styles.iconHalo, { backgroundColor: `${committee.color}20` }]}>
                 <Ionicons name={committee.icon as any} size={20} color={committee.color} />
               </View>
-              <Text style={styles.cardLabel}>{committee.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
+              <Text style={[styles.cardLabel, { color: theme.text }]}>{committee.label}</Text>
+              <Ionicons name="chevron-forward" size={16} color={isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'} />
             </LinearGradient>
           </TouchableOpacity>
         ))}
@@ -61,7 +68,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
   header: {
-    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '700',
     marginBottom: SPACING.md,
@@ -78,7 +84,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     gap: 12,
   },
   iconHalo: {
@@ -90,7 +95,6 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     flex: 1,
-    color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
   },

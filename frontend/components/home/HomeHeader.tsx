@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface HomeHeaderProps {
   hasUnreadNotifications?: boolean;
@@ -9,16 +10,17 @@ interface HomeHeaderProps {
 
 export function HomeHeader({ hasUnreadNotifications = false }: HomeHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
-      
+
       {/* 1. Invisible Spacer (Left) */}
       <View style={styles.sideSection} />
 
       {/* 3. Right Indicator */}
       <View style={styles.sideSection}>
-        {hasUnreadNotifications && <View style={styles.notificationDot} />}
+        {hasUnreadNotifications && <View style={[styles.notificationDot, { backgroundColor: theme.error }]} />}
       </View>
     </View>
   );
@@ -45,6 +47,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FF453A',
   },
 });
