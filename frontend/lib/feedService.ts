@@ -9,6 +9,109 @@ import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateC
 import { checkPostRateLimit, recordPostCreation } from '../utils/rateLimiter';
 
 /**
+ * Compute current season_id (Spring = Jan-May, Summer = Jun-Aug, Fall = Sep-Dec)
+ */
+function getCurrentSeasonId(date: Date = new Date()): string {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-indexed
+
+    let season: string;
+    if (month >= 1 && month <= 5) {
+        season = 'Spring';
+    } else if (month >= 6 && month <= 8) {
+        season = 'Summer';
+    } else {
+        season = 'Fall';
+    }
+    return `${season}_${year}`;
+}
+
+export interface AnnouncementPost {
+    id: string;
+    title?: string | null;
+    content: string;
+    createdAt: string;
+}
+
+export async function fetchAnnouncementPosts(
+    limit: number = 20
+): Promise<ServiceResponse<AnnouncementPost[]>> {
+    try {
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select('id, title, content, created_at, is_announcement, is_active')
+            .eq('is_announcement', true)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            return { success: false, error: mapSupabaseError(error) };
+        }
+
+        const announcements = (data ?? []).map((row) => ({
+            id: row.id,
+            title: (row as any).title ?? null,
+            content: row.content,
+            createdAt: row.created_at,
+        }));
+
+        return { success: true, data: announcements };
+    } catch (error) {
+        return {
+            success: false,
+            error: createError(
+                'Failed to fetch announcements',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
+        };
+    }
+}
+
+export async function fetchLatestAnnouncement(): Promise<ServiceResponse<AnnouncementPost | null>> {
+    try {
+        const { data, error } = await supabase
+            .from('feed_posts')
+            .select('id, title, content, created_at, is_announcement, is_active')
+            .eq('is_announcement', true)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            return { success: false, error: mapSupabaseError(error) };
+        }
+
+        if (!data) {
+            return { success: true, data: null };
+        }
+
+        return {
+            success: true,
+            data: {
+                id: data.id,
+                title: (data as any).title ?? null,
+                content: data.content,
+                createdAt: data.created_at,
+            },
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: createError(
+                'Failed to fetch latest announcement',
+                'UNKNOWN_ERROR',
+                undefined,
+                error instanceof Error ? error.message : 'Unknown error'
+            ),
+        };
+    }
+}
+
+/**
  * Fetches a single post by ID
  */
 export async function fetchPostById(postId: string): Promise<ServiceResponse<FeedPostUI>> {
@@ -137,6 +240,40 @@ export async function fetchFeedPosts(
                 (authors ?? []).forEach((author: any) => authorsById.set(author.id, author));
             } else if (__DEV__) {
                 console.warn('[Feed] Failed to fetch authors:', authorsError);
+            }
+
+            // Fetch author tiers from points_balances
+            const currentSeasonId = getCurrentSeasonId();
+            const { data: balances, error: balancesError } = await supabase
+                .from('points_balances')
+                .select('user_id, points_total')
+                .in('user_id', userIds)
+                .eq('season_id', currentSeasonId);
+
+            if (!balancesError && balances) {
+                // Fetch tier thresholds
+                const { data: tiers } = await supabase
+                    .from('rank_tiers')
+                    .select('tier, min_points')
+                    .order('min_points', { ascending: true });
+
+                // Compute tier for each author
+                balances.forEach((balance: any) => {
+                    const author = authorsById.get(balance.user_id);
+                    if (author && tiers) {
+                        let tier = 'unranked';
+                        for (const t of tiers) {
+                            if (t.min_points <= balance.points_total) {
+                                tier = t.tier;
+                            } else {
+                                break;
+                            }
+                        }
+                        author.tier = tier;
+                    }
+                });
+            } else if (__DEV__ && balancesError) {
+                console.warn('[Feed] Failed to fetch author tiers:', balancesError);
             }
         }
 

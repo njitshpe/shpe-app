@@ -19,6 +19,36 @@ export function formatDateHeader(isoString: string): string {
   });
 }
 
+export function formatEventDetailDate(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+
+  const isToday = date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return 'Today';
+  }
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = date.getDate() === tomorrow.getDate() &&
+    date.getMonth() === tomorrow.getMonth() &&
+    date.getFullYear() === tomorrow.getFullYear();
+
+  if (isTomorrow) {
+    return 'Tomorrow';
+  }
+
+  // Format: "Monday, Jan 20"
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
 export function formatDateKey(isoString: string): string {
   const date = new Date(isoString);
   return date.toLocaleDateString('en-US', {

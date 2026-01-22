@@ -93,10 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.log('[AuthContext] Profile loaded successfully');
               }
             } else {
+              // Profile not found but session exists - account may be corrupted/deleted
+              console.warn('[AuthContext] Critical: Session exists but profile missing on startup. Force signing out.');
+              await supabase.auth.signOut();
               setProfile(null);
-              if (__DEV__) {
-                console.warn('[AuthContext] Profile fetch returned no data:', result.error);
-              }
             }
           } catch (error) {
             if (__DEV__) {
@@ -161,6 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (result.success && result.data) {
               setProfile(result.data);
             } else {
+              // Profile not found but session exists - account may be corrupted/deleted
+              console.warn('[AuthContext] Critical: Session exists but profile missing. Force signing out.');
+              await supabase.auth.signOut();
               setProfile(null);
             }
           } catch (error) {
@@ -354,15 +357,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithApple = async () => {
     try {
-      // 1. Generate a random nonce
-      const rawNonce = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      console.log('[Apple Auth] Step 1: Checking availability...');
+      // Check if Apple Authentication is available on this device
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      console.log('[Apple Auth] isAvailable:', isAvailable);
+      if (!isAvailable) {
+        return {
+          error: createError(
+            'Apple Sign In is not available on this device. Please use another sign-in method.',
+            'AUTH_ERROR'
+          )
+        };
+      }
 
+      console.log('[Apple Auth] Step 2: Generating nonce...');
+      // 1. Generate a cryptographically secure random nonce
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const rawNonce = Array.from(randomBytes)
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+
+      console.log('[Apple Auth] Step 3: Hashing nonce...');
       // 2. Hash the nonce (SHA-256)
       const hashedNonce = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         rawNonce
       );
+      console.log('[Apple Auth] Nonce hashed successfully');
 
+      console.log('[Apple Auth] Step 4: Requesting Apple credential...');
       // 3. Request credential from Apple with the HASHED nonce
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -371,9 +394,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ],
         nonce: hashedNonce,
       });
+      console.log('[Apple Auth] Got credential, hasIdentityToken:', !!credential.identityToken);
 
       // Sign in via Supabase.
       if (credential.identityToken) {
+        console.log('[Apple Auth] Step 5: Signing in with Supabase...');
         const { error, data } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
@@ -381,9 +406,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
+          console.log('[Apple Auth] Supabase error:', error.message);
           return { error: mapSupabaseError(error) };
         }
 
+        console.log('[Apple Auth] Supabase sign in successful, user:', !!data.user);
         if (data.user) {
           // If we have full name from Apple (only on first sign in), update Supabase user metadata
           if (credential.fullName) {
@@ -407,9 +434,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error: createError('No identity token received from Apple', 'AUTH_ERROR') };
     } catch (e: any) {
+      console.error('[Apple Auth] CAUGHT ERROR:', e);
+      console.error('[Apple Auth] Error code:', e.code);
+      console.error('[Apple Auth] Error message:', e.message);
+      console.error('[Apple Auth] Full error object:', JSON.stringify(e, null, 2));
       if (e.code === 'ERR_REQUEST_CANCELED') {
         // User canceled - not an error we need to show
         return { error: null };
+      }
+      // Handle specific Apple Authentication errors
+      if (e.code === 'ERR_REQUEST_UNKNOWN') {
+        return {
+          error: createError(
+            'Apple Sign In failed. Please check your Apple ID settings and try again.',
+            'AUTH_ERROR'
+          )
+        };
       }
       return { error: createError(e.message || 'Apple Sign In Failed', 'AUTH_ERROR') };
     }
@@ -508,6 +548,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.success && result.data) {
         setProfile(result.data);
       } else {
+        // Profile not found - this could mean the account was deleted or corrupted
+        // Check if we have an active session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Session exists but profile is missing - force sign out to break the loop
+          console.warn('[AuthContext] Critical: Session exists but profile missing. Force signing out.');
+          await supabase.auth.signOut();
+        }
         setProfile(null);
       }
     } catch (error) {
