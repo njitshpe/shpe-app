@@ -49,14 +49,15 @@ export default function AlumniOnboardingWizard() {
   const { theme } = useTheme();
   const confettiRef = useRef<ConfettiCannon>(null);
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const shouldSkipIdentity = !!(user?.user_metadata?.first_name && user?.user_metadata?.last_name);
+  const [currentStep, setCurrentStep] = useState(shouldSkipIdentity ? 1 : 0);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Finalizing...');
   const [showBadgeCelebration, setShowBadgeCelebration] = useState(false);
 
   const [formData, setFormData] = useState<AlumniFormData>({
-    firstName: '',
-    lastName: '',
+    firstName: user?.user_metadata?.first_name || '',
+    lastName: user?.user_metadata?.last_name || '',
     profilePhoto: null,
     major: '',
     degreeType: 'BS',
