@@ -30,6 +30,7 @@
         ],
         "NSCameraUsageDescription": "This app needs camera access to scan QR codes for event check-in.",
         "NSCalendarsUsageDescription": "This app needs calendar access to add events to your calendar.",
+        "NSCalendarsFullAccessUsageDescription": "This app needs full access to your calendar to check for conflicts and add events.",
         "NSCalendarsWriteOnlyAccessUsageDescription": "This app needs permission to add events to your calendar.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -79,7 +80,13 @@
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event QR codes."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "This app needs calendar access to add events to your calendar."
+        }
+      ]
     ],
     "extra": {
       "router": {},

@@ -1,5 +1,6 @@
 import * as Calendar from 'expo-calendar';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, Linking } from 'react-native';
+import { SHPE_COLORS } from '../constants/colors';
 
 export interface CalendarEvent {
   title: string;
@@ -47,11 +48,31 @@ class CalendarService {
         return defaultCalendar.id;
       }
 
-      // If no suitable calendar exists, create one (Android only)
-      if (Platform.OS === 'android') {
+      // If no suitable calendar exists, create one
+      if (Platform.OS === 'ios') {
+        const sources = await Calendar.getSourcesAsync();
+        const defaultSource = sources.find(
+          (source) => source.type === Calendar.SourceType.CALDAV && source.name === 'iCloud'
+        ) || sources.find(
+          (source) => source.type === Calendar.SourceType.LOCAL
+        );
+
+        if (defaultSource) {
+          const newCalendarId = await Calendar.createCalendarAsync({
+            title: 'SHPE Events',
+            color: SHPE_COLORS.sunsetOrange,
+            entityType: Calendar.EntityTypes.EVENT,
+            sourceId: defaultSource.id,
+            name: 'shpe-events',
+            ownerAccount: 'personal',
+            accessLevel: Calendar.CalendarAccessLevel.OWNER,
+          });
+          return newCalendarId;
+        }
+      } else if (Platform.OS === 'android') {
         const newCalendarId = await Calendar.createCalendarAsync({
           title: 'SHPE Events',
-          color: '#1C1C1E',
+          color: SHPE_COLORS.sunsetOrange,
           entityType: Calendar.EntityTypes.EVENT,
           sourceId: calendars[0]?.source?.id,
           source: calendars[0]?.source,
@@ -70,9 +91,9 @@ class CalendarService {
   }
 
   /**
-   * Add event to device calendar
+   * Add event to device calendar (Apple/Native)
    */
-  async addToCalendar(event: CalendarEvent): Promise<boolean> {
+  async addToDeviceCalendar(event: CalendarEvent): Promise<boolean> {
     try {
       // Request permissions
       const hasPermission = await this.requestPermissions();
@@ -111,7 +132,7 @@ class CalendarService {
         endDate: new Date(event.endDate),
         location: event.location || '',
         notes: event.notes || '',
-        timeZone: 'America/Los_Angeles', // Adjust based on your needs
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         alarms: [
           {
             relativeOffset: -60, // 1 hour before
@@ -151,6 +172,39 @@ class CalendarService {
         ]
       );
       return false;
+    }
+  }
+
+  /**
+   * Add event to Google Calendar via Web Intent
+   */
+  async addToGoogleCalendar(event: CalendarEvent): Promise<void> {
+    try {
+      const { title, startDate, endDate, location, notes } = event;
+
+      const start = new Date(startDate).toISOString().replace(/-|:|\.\d\d\d/g, "");
+      const end = new Date(endDate).toISOString().replace(/-|:|\.\d\d\d/g, "");
+
+      const baseUrl = "https://calendar.google.com/calendar/render";
+      const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: title,
+        dates: `${start}/${end}`,
+        details: notes || "",
+        location: location || "",
+      });
+
+      const url = `${baseUrl}?${params.toString()}`;
+
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Error", "Unable to open Google Calendar.");
+      }
+    } catch (error) {
+      console.error("Error opening Google Calendar:", error);
+      Alert.alert("Error", "Failed to open Google Calendar.");
     }
   }
 }
