@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useEvents } from '@/contexts/EventsContext';
+import { supabase } from '@/lib/supabase';
 import { reportService, adminService, type Report, type ReportStatus } from '@/services';
 
 export default function ModerationScreen() {
@@ -22,6 +23,7 @@ export default function ModerationScreen() {
     const { theme, isDark } = useTheme();
     const { isCurrentUserAdmin } = useEvents();
     const [reports, setReports] = useState<Report[]>([]);
+    const [targetSummaries, setTargetSummaries] = useState<Record<string, { title: string; subtitle?: string }>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState<ReportStatus | 'all'>('all');
@@ -48,6 +50,55 @@ export default function ModerationScreen() {
         }
     }, [isSuperAdmin]);
 
+    const loadTargetSummaries = useCallback(async (items: Report[]) => {
+        const userIds = items.filter((r) => r.target_type === 'user').map((r) => r.target_id);
+        const postIds = items.filter((r) => r.target_type === 'post').map((r) => r.target_id);
+        const commentIds = items.filter((r) => r.target_type === 'comment').map((r) => r.target_id);
+
+        const [usersResponse, postsResponse, commentsResponse] = await Promise.all([
+            userIds.length > 0
+                ? supabase.from('user_profiles').select('id, first_name, last_name, email').in('id', userIds)
+                : Promise.resolve({ data: [] }),
+            postIds.length > 0
+                ? supabase
+                      .from('feed_posts')
+                      .select('id, content, author:user_profiles!user_id(first_name, last_name)')
+                      .in('id', postIds)
+                : Promise.resolve({ data: [] }),
+            commentIds.length > 0
+                ? supabase
+                      .from('feed_comments')
+                      .select('id, content, author:user_profiles!user_id(first_name, last_name)')
+                      .in('id', commentIds)
+                : Promise.resolve({ data: [] }),
+        ]);
+
+        const summaries: Record<string, { title: string; subtitle?: string }> = {};
+
+        (usersResponse.data || []).forEach((user: any) => {
+            const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || 'Unknown User';
+            summaries[`user:${user.id}`] = { title: name, subtitle: user.email || undefined };
+        });
+
+        (postsResponse.data || []).forEach((post: any) => {
+            const author = post.author ? `${post.author.first_name} ${post.author.last_name}` : 'Unknown Author';
+            summaries[`post:${post.id}`] = {
+                title: `Post by ${author}`,
+                subtitle: post.content ? post.content.slice(0, 120) : 'No content',
+            };
+        });
+
+        (commentsResponse.data || []).forEach((comment: any) => {
+            const author = comment.author ? `${comment.author.first_name} ${comment.author.last_name}` : 'Unknown Author';
+            summaries[`comment:${comment.id}`] = {
+                title: `Comment by ${author}`,
+                subtitle: comment.content ? comment.content.slice(0, 120) : 'No content',
+            };
+        });
+
+        setTargetSummaries(summaries);
+    }, []);
+
     // Load reports
     const loadReports = useCallback(async () => {
         if (!isSuperAdmin) return;
@@ -58,12 +109,13 @@ export default function ModerationScreen() {
 
         if (response.success) {
             setReports(response.data);
+            await loadTargetSummaries(response.data);
         } else {
             Alert.alert('Error', response.error?.message || 'Failed to load reports');
         }
         setLoading(false);
         setRefreshing(false);
-    }, [isSuperAdmin, filter]);
+    }, [isSuperAdmin, filter, loadTargetSummaries]);
 
     // Load reports when filter changes
     useEffect(() => {
@@ -204,7 +256,13 @@ export default function ModerationScreen() {
                                     </View>
                                     <View style={styles.targetBadge}>
                                         <Ionicons
-                                            name={report.target_type === 'post' ? 'document-text' : 'person'}
+                                            name={
+                                                report.target_type === 'post'
+                                                    ? 'document-text'
+                                                    : report.target_type === 'comment'
+                                                        ? 'chatbubble-ellipses'
+                                                        : 'person'
+                                            }
                                             size={14}
                                             color={theme.subtext}
                                         />
@@ -335,6 +393,15 @@ const styles = StyleSheet.create({
     reportContent: {
         gap: 6,
         marginBottom: 12,
+    },
+    targetSummaryTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginTop: 6,
+    },
+    targetSummaryText: {
+        fontSize: 13,
+        marginTop: 4,
     },
     reasonText: {
         fontSize: 15,

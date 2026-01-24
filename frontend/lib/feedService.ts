@@ -8,6 +8,24 @@ import { createError, mapSupabaseError } from '../types/errors';
 import { mapFeedPostDBToUI, mapFeedCommentDBToUI, validatePostContent, validateCommentContent, validateImageUpload } from '../utils/feed';
 import { checkPostRateLimit, recordPostCreation } from '../utils/rateLimiter';
 
+/**
+ * Compute current season_id (Spring = Jan-May, Summer = Jun-Aug, Fall = Sep-Dec)
+ */
+function getCurrentSeasonId(date: Date = new Date()): string {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-indexed
+
+    let season: string;
+    if (month >= 1 && month <= 5) {
+        season = 'Spring';
+    } else if (month >= 6 && month <= 8) {
+        season = 'Summer';
+    } else {
+        season = 'Fall';
+    }
+    return `${season}_${year}`;
+}
+
 export interface AnnouncementPost {
     id: string;
     title?: string | null;
@@ -222,6 +240,40 @@ export async function fetchFeedPosts(
                 (authors ?? []).forEach((author: any) => authorsById.set(author.id, author));
             } else if (__DEV__) {
                 console.warn('[Feed] Failed to fetch authors:', authorsError);
+            }
+
+            // Fetch author tiers from points_balances
+            const currentSeasonId = getCurrentSeasonId();
+            const { data: balances, error: balancesError } = await supabase
+                .from('points_balances')
+                .select('user_id, points_total')
+                .in('user_id', userIds)
+                .eq('season_id', currentSeasonId);
+
+            if (!balancesError && balances) {
+                // Fetch tier thresholds
+                const { data: tiers } = await supabase
+                    .from('rank_tiers')
+                    .select('tier, min_points')
+                    .order('min_points', { ascending: true });
+
+                // Compute tier for each author
+                balances.forEach((balance: any) => {
+                    const author = authorsById.get(balance.user_id);
+                    if (author && tiers) {
+                        let tier = 'unranked';
+                        for (const t of tiers) {
+                            if (t.min_points <= balance.points_total) {
+                                tier = t.tier;
+                            } else {
+                                break;
+                            }
+                        }
+                        author.tier = tier;
+                    }
+                });
+            } else if (__DEV__ && balancesError) {
+                console.warn('[Feed] Failed to fetch author tiers:', balancesError);
             }
         }
 
@@ -857,8 +909,6 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
             };
         }
 
-        console.log('Attempting to delete comment:', { commentId, userId: user.id });
-
         // Try hard delete first for now
         const { error, data } = await supabase
             .from('feed_comments')
@@ -867,24 +917,15 @@ export async function deleteComment(commentId: string): Promise<ServiceResponse<
             .eq('user_id', user.id)
             .select();
 
-        console.log('Delete comment response:', { error, data });
-
-        if (error) {
-            console.error('Supabase delete error:', error);
-            throw error;
-        }
-
-        // Check if any row was actually updated
-        if (!data || data.length === 0) {
-            console.warn('No comment was deleted. Verify undefined ID or permissions.');
-            // We won't throw here to avoid breaking UI if it was already deleted, 
-            // but it's good to know.
-        }
-
         if (error) {
             return {
                 success: false,
-                error: createError('Failed to delete comment', 'DATABASE_ERROR', undefined, error.message),
+                error: createError(
+                    'Failed to delete comment',
+                    'DATABASE_ERROR',
+                    undefined,
+                    (error as any).message
+                ),
             };
         }
 

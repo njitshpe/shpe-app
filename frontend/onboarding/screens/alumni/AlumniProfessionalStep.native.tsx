@@ -201,7 +201,7 @@ export default function AlumniProfessionalStep({
 
     const result = professionalSchema.safeParse(data);
     if (!result.success) {
-      const firstError = result.error.errors[0]?.message || 'Please complete all fields.';
+      const firstError = (result.error as any).errors[0]?.message || 'Please complete all fields.';
       setError(firstError);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;

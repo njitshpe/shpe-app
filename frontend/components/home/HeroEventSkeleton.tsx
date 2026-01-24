@@ -8,6 +8,7 @@ import Animated, {
     withTiming,
     Easing,
 } from 'react-native-reanimated';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
  * Matches the exact layout of the real card for a seamless transition.
  */
 export function HeroEventSkeleton() {
+    const { theme, isDark } = useTheme();
     const shimmer = useSharedValue(0);
 
     useEffect(() => {
@@ -30,11 +32,20 @@ export function HeroEventSkeleton() {
         opacity: 0.3 + shimmer.value * 0.4,
     }));
 
+    // Theme-aware colors
+    const gradientColors = isDark
+        ? ['#1a1a1a', '#0d0d0d', '#000000'] as const
+        : ['#e5e5e5', '#f0f0f0', '#F7FAFF'] as const;
+
+    const skeletonColor = isDark ? '#2a2a2a' : '#d0d0d0';
+    const dotColor = isDark ? '#ffffff20' : '#00000020';
+    const activeDotColor = isDark ? '#ffffff40' : '#00000040';
+
     const SkeletonBlock = ({ width, height, style }: { width: number | string; height: number; style?: any }) => (
         <Animated.View
             style={[
                 styles.skeletonBlock,
-                { width, height },
+                { width, height, backgroundColor: skeletonColor },
                 animatedShimmer,
                 style,
             ]}
@@ -42,9 +53,9 @@ export function HeroEventSkeleton() {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
             <LinearGradient
-                colors={['#1a1a1a', '#0d0d0d', '#000000']}
+                colors={gradientColors}
                 style={styles.gradient}
             >
                 <View style={styles.content}>
@@ -59,9 +70,9 @@ export function HeroEventSkeleton() {
 
                     {/* Carousel dots skeleton */}
                     <View style={styles.dotsContainer}>
-                        <View style={[styles.dot, styles.activeDot]} />
-                        <View style={styles.dot} />
-                        <View style={styles.dot} />
+                        <View style={[styles.dot, styles.activeDot, { backgroundColor: activeDotColor }]} />
+                        <View style={[styles.dot, { backgroundColor: dotColor }]} />
+                        <View style={[styles.dot, { backgroundColor: dotColor }]} />
                     </View>
 
                     {/* CTA button skeleton */}
@@ -79,7 +90,6 @@ const styles = StyleSheet.create({
     container: {
         height: SCREEN_HEIGHT * 0.75,
         width: '100%',
-        backgroundColor: '#000',
     },
     gradient: {
         flex: 1,
@@ -92,7 +102,6 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     skeletonBlock: {
-        backgroundColor: '#2a2a2a',
         borderRadius: 8,
     },
     titleGroup: {
@@ -108,10 +117,8 @@ const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#ffffff20',
     },
     activeDot: {
-        backgroundColor: '#ffffff40',
         width: 24,
     },
     buttonSkeleton: {

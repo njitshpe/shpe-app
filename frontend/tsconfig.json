@@ -4,7 +4,29 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
-  }
+  },
+  "include": [
+    "./app",
+    "./components",
+    "./constants",
+    "./contexts",
+    "./hooks",
+    "./lib",
+    "./services",
+    "./types",
+    "./utils",
+    "./onboarding",
+    "./*.ts",
+    "./*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "supabase",
+    "../supabase"
+  ]
 }

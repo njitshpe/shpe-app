@@ -55,7 +55,7 @@ export function useEditProfile(initialData: UserProfile) {
       Alert.alert(firstError.title, firstError.message);
       return {
         success: false,
-        error: { message: 'Validation failed' }
+        error: { message: 'Validation failed', code: 'VALIDATION_ERROR' }
       };
     }
 

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { FeedCard } from './FeedCard';
 import type { FeedPostUI } from '@/types/feed';
 import { mapFeedPostDBToUI } from '@/utils/feed';
-import { fetchFeedPosts, likePost, unlikePost, deletePost } from '@/lib/feedService';
+import { fetchFeedPosts, deletePost } from '@/lib/feedService';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface FeedListProps {
@@ -63,31 +63,6 @@ export function FeedList({ userId, eventId, scrollEnabled = true, header, onScro
         }
     };
 
-    // Optimistic updates
-    const handleLike = async (postId: string) => {
-        // Optimistically update UI
-        setPosts(prev => prev.map(p => {
-            if (p.id === postId) {
-                return {
-                    ...p,
-                    isLikedByCurrentUser: !p.isLikedByCurrentUser,
-                    likeCount: p.isLikedByCurrentUser ? p.likeCount - 1 : p.likeCount + 1
-                };
-            }
-            return p;
-        }));
-
-        // Actual API call
-        const post = posts.find(p => p.id === postId);
-        if (post) {
-            if (post.isLikedByCurrentUser) {
-                await unlikePost(postId);
-            } else {
-                await likePost(postId);
-            }
-        }
-    };
-
     const handleDelete = async (postId: string) => {
         const { success } = await deletePost(postId);
         if (success) {
@@ -115,10 +90,10 @@ export function FeedList({ userId, eventId, scrollEnabled = true, header, onScro
         <FlatList
             data={posts}
             keyExtractor={item => item.id}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
                 <FeedCard
                     post={item}
-                    onLike={() => handleLike(item.id)}
+                    index={index}
                     onDelete={() => handleDelete(item.id)}
                 />
             )}

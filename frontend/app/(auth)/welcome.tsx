@@ -69,8 +69,9 @@ export default function WelcomeScreen() {
       if (error) {
         Alert.alert('Apple Sign In Error', error.message);
       }
-    } catch (err) {
-      Alert.alert('Apple Sign In Error', 'An unexpected error occurred');
+    } catch (err: any) {
+      console.error('Apple Sign In unexpected error:', err);
+      Alert.alert('Apple Sign In Error', err?.message || 'An unexpected error occurred. Please try again');
     }
   };
 

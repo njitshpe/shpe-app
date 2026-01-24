@@ -15,8 +15,9 @@
     },
     "ios": {
       "bundleIdentifier": "com.shpenjit.officialapp",
-      "buildNumber": "12",
+      "buildNumber": "14",
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
@@ -62,12 +63,13 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#000000",
           "image": "./assets/app-logo-white-transparent.png",
-          "imageWidth": 200
+          "imageWidth": 50
         }
       ],
       [

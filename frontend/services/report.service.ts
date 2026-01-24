@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { ServiceResponse } from '../types/errors';
 import { handleSupabaseError, createError } from '../types/errors';
 
-export type ReportTargetType = 'post' | 'user';
+export type ReportTargetType = 'post' | 'comment' | 'user';
 export type ReportReason = 'Spam' | 'Harassment' | 'Inappropriate' | 'Hate' | 'Other';
 export type ReportStatus = 'open' | 'reviewing' | 'actioned' | 'closed';
 
@@ -67,7 +67,7 @@ class ReportService {
             error: createError('You already reported this.', 'ALREADY_EXISTS'),
           };
         }
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       return { success: true, data: undefined };
@@ -102,7 +102,7 @@ class ReportService {
       const { data, error } = await query;
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<Report[]>(null, error);
       }
 
       return { success: true, data: data || [] };
@@ -186,7 +186,7 @@ class ReportService {
       const { data, error } = await query;
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<Report[]>(null, error);
       }
 
       return { success: true, data: data || [] };
@@ -236,7 +236,7 @@ class ReportService {
         .eq('id', reportId);
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       return { success: true, data: undefined };
@@ -264,7 +264,7 @@ class ReportService {
         .eq('id', postId);
 
       if (error) {
-        return handleSupabaseError(null, error);
+        return handleSupabaseError<void>(null, error);
       }
 
       return { success: true, data: undefined };
