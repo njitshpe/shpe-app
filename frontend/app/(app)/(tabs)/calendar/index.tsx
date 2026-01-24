@@ -167,30 +167,61 @@ export default function EventsScreen() {
                 </View>
             </Animated.View>
 
-            {/* Return to Current Month Button */}
-            {!isSameMonth(currentMonth, new Date()) && (
-                <BlurView
-                    intensity={80}
-                    tint={isDark ? 'dark' : 'light'}
-                    style={[styles.floatingButtonContainer, { bottom: 40 }]}
-                >
-                    <Pressable
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            const now = new Date();
-                            setCurrentMonth(now);
-                            setSelectedDate(null);
-                        }}
-                        style={({ pressed }) => [
-                            styles.floatingButton,
-                            { borderColor: theme.primary, opacity: pressed ? 0.8 : 1 }
-                        ]}
-                    >
-                        <Text style={[styles.floatingButtonText, { color: theme.primary }]}>
-                            Return to Current Month
-                        </Text>
-                    </Pressable>
-                </BlurView>
+
+
+            {/* Floating Action Buttons Container */}
+            {(selectedDate || !isSameMonth(currentMonth, new Date())) && (
+                <View style={styles.floatingActionsContainer} pointerEvents="box-none">
+                    {/* View Full Month Button */}
+                    {selectedDate && (
+                        <BlurView
+                            intensity={80}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={styles.floatingButtonWrapper}
+                        >
+                            <Pressable
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setSelectedDate(null);
+                                }}
+                                style={({ pressed }) => [
+                                    styles.floatingButton,
+                                    { borderColor: 'rgba(255, 255, 255, 0.4)', opacity: pressed ? 0.8 : 1 }
+                                ]}
+                            >
+                                <Text style={[styles.floatingButtonText, { color: '#007AFF' }]}>
+                                    View Full Month
+                                </Text>
+                            </Pressable>
+                        </BlurView>
+                    )}
+
+                    {/* Return to Current Month Button */}
+                    {!isSameMonth(currentMonth, new Date()) && (
+                        <BlurView
+                            intensity={80}
+                            tint={isDark ? 'dark' : 'light'}
+                            style={styles.floatingButtonWrapper}
+                        >
+                            <Pressable
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    const now = new Date();
+                                    setCurrentMonth(now);
+                                    setSelectedDate(null);
+                                }}
+                                style={({ pressed }) => [
+                                    styles.floatingButton,
+                                    { borderColor: 'rgba(255, 255, 255, 0.4)', opacity: pressed ? 0.8 : 1 }
+                                ]}
+                            >
+                                <Text style={[styles.floatingButtonText, { color: theme.primary }]}>
+                                    Return to Current Month
+                                </Text>
+                            </Pressable>
+                        </BlurView>
+                    )}
+                </View>
             )}
 
         </View>
@@ -236,12 +267,20 @@ const styles = StyleSheet.create({
     headerButton: {
         padding: 6,
     },
-    floatingButtonContainer: {
+    floatingActionsContainer: {
         position: 'absolute',
-        alignSelf: 'center',
+        bottom: 110,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12,
+        zIndex: 50,
+    },
+    floatingButtonWrapper: {
         borderRadius: 20,
         overflow: 'hidden',
-        zIndex: 50,
     },
     floatingButton: {
         paddingHorizontal: 16,
