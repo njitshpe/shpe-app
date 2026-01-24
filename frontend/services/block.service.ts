@@ -26,7 +26,7 @@ class BlockService {
                 .eq('blocker_id', user.id);
 
             if (error) {
-                return handleSupabaseError(null, error);
+                return handleSupabaseError<string[]>(null, error);
             }
 
             const blockedIds = data?.map(row => row.blocked_id) || [];
@@ -77,7 +77,7 @@ class BlockService {
                 if (error.code === '23505') { // Unique constraint violation
                     return { success: true, data: undefined };
                 }
-                return handleSupabaseError(null, error);
+                return handleSupabaseError<void>(null, error);
             }
 
             return { success: true, data: undefined };
@@ -115,7 +115,7 @@ class BlockService {
                 .eq('blocked_id', targetUserId);
 
             if (error) {
-                return handleSupabaseError(null, error);
+                return handleSupabaseError<void>(null, error);
             }
 
             return { success: true, data: undefined };
@@ -151,7 +151,7 @@ class BlockService {
                 .maybeSingle();
 
             if (error) {
-                return handleSupabaseError(null, error);
+                return handleSupabaseError<boolean>(null, error);
             }
 
             return { success: true, data: !!data };

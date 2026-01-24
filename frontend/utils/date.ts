@@ -1,4 +1,4 @@
-import { Event } from '../data/mockEvents';
+import { Event } from '@/types/events';
 
 export function formatTime(isoString: string): string {
   const date = new Date(isoString);

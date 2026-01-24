@@ -176,7 +176,7 @@ class StorageService {
         };
       }
 
-      return { success: true };
+      return { success: true, data: undefined };
     } catch (error) {
       return {
         success: false,

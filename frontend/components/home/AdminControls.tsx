@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SPACING } from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AdminControlsProps {
   onDebug: () => void;
@@ -10,36 +11,45 @@ interface AdminControlsProps {
 }
 
 export function AdminControls({ onDebug, onAdmin }: AdminControlsProps) {
+  const { theme, isDark } = useTheme();
+
+  const gradientColors = isDark
+    ? ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.04)'] as const
+    : ['rgba(0,0,0,0.06)', 'rgba(0,0,0,0.02)'] as const;
+
+  // Accent color for admin controls (gold)
+  const accentColor = '#FFD700';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>ADMIN CONTROLS</Text>
+      <Text style={[styles.header, { color: theme.subtext }]}>ADMIN CONTROLS</Text>
 
       <View style={styles.row}>
         <TouchableOpacity activeOpacity={0.85} onPress={onDebug}>
           <LinearGradient
-            colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.04)']}
-            style={styles.card}
+            colors={gradientColors}
+            style={[styles.card, { borderColor: theme.border }]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <View style={styles.iconHalo}>
-              <Ionicons name="terminal" size={20} color="#FFD700" />
+            <View style={[styles.iconHalo, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.12)' : 'rgba(255, 215, 0, 0.2)' }]}>
+              <Ionicons name="terminal" size={20} color={accentColor} />
             </View>
-            <Text style={styles.cardLabel}>DEBUG CONSOLE</Text>
+            <Text style={[styles.cardLabel, { color: theme.text }]}>DEBUG CONSOLE</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity activeOpacity={0.85} onPress={onAdmin}>
           <LinearGradient
-            colors={['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.04)']}
-            style={styles.card}
+            colors={gradientColors}
+            style={[styles.card, { borderColor: theme.border }]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <View style={styles.iconHalo}>
-              <Ionicons name="shield-checkmark" size={20} color="#FFD700" />
+            <View style={[styles.iconHalo, { backgroundColor: isDark ? 'rgba(255, 215, 0, 0.12)' : 'rgba(255, 215, 0, 0.2)' }]}>
+              <Ionicons name="shield-checkmark" size={20} color={accentColor} />
             </View>
-            <Text style={styles.cardLabel}>ADMIN PANEL</Text>
+            <Text style={[styles.cardLabel, { color: theme.text }]}>ADMIN PANEL</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -53,7 +63,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xxl,
   },
   header: {
-    color: 'rgba(255,255,255,0.6)',
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -71,19 +80,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
     gap: 8,
   },
   iconHalo: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(255, 215, 0, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardLabel: {
-    color: '#FFF',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,

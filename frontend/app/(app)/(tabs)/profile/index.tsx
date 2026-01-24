@@ -11,6 +11,7 @@ import {
     RefreshControl,
     Platform,
     Pressable,
+    ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -207,11 +208,24 @@ export default function ProfileScreen() {
 
     return (
         <View style={[styles.root, { backgroundColor: theme.background }]}>
-            <StatusBar style="light" translucent />
-            
+            <StatusBar style={isDark ? 'light' : 'dark'} translucent />
+
             {/* 1. Background Layer */}
-            <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
-            
+            {profile?.profile_picture_url ? (
+                <ImageBackground
+                    source={{ uri: profile.profile_picture_url }}
+                    style={StyleSheet.absoluteFill}
+                    blurRadius={Platform.OS === 'android' ? 25 : 35}
+                >
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)' }]} />
+                    {Platform.OS === 'ios' && (
+                        <BlurView intensity={60} style={StyleSheet.absoluteFill} tint={isDark ? 'dark' : 'light'} />
+                    )}
+                </ImageBackground>
+            ) : (
+                <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
+            )}
+
             {/* 2. Content Layer (SafeAreaView for padding only) */}
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {profileLoading ? (

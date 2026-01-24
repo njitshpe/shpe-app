@@ -10,8 +10,8 @@ import {
     Alert,
     DeviceEventEmitter,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -25,9 +25,19 @@ import { FeedSkeleton } from '@/components/ui/FeedSkeleton';
 export default function FeedScreen() {
     const { theme, isDark } = useTheme();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
-    const { posts, isLoading, isRefreshing, error, hasMore, loadMore, refresh, removePost } = useFeed();
+    const { posts, isLoading, isRefreshing, error, loadMore, refresh, removePost } = useFeed();
     const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+    const headerHeight = insets.top + 56;
+    const listTopPadding = headerHeight + 12;
+    const listBottomPadding = 24 + insets.bottom;
+    const feedBackground = isDark ? '#0A0A0A' : '#FAFAFA';
+    const gradientColors = isDark
+        ? (['#0B0B0B', '#000000'] as const)
+        : (['#FFFFFF', '#F1F4FA'] as const);
+    const headerBackground = isDark ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.95)';
+    const headerBorder = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 
     // Listen for refresh events (e.g. from creating a post)
     useEffect(() => {
@@ -47,9 +57,10 @@ export default function FeedScreen() {
         setSelectedPostId(null);
     };
 
-    const renderPost = ({ item }: { item: FeedPostUI }) => (
+    const renderPost = ({ item, index }: { item: FeedPostUI; index: number }) => (
         <FeedCard
             post={item}
+            index={index}
             onCommentPress={handleCommentPress}
             onEdit={(post) => router.push({ pathname: '/feed/create', params: { id: post.id } })}
             onDelete={async (postId) => {
@@ -64,33 +75,45 @@ export default function FeedScreen() {
     );
 
     const renderHeader = () => (
-        <BlurView
-            intensity={isDark ? 80 : 90}
-            tint={isDark ? 'dark' : 'light'}
+        <View
             style={[
                 styles.header,
                 {
-                    borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : theme.border,
-                    backgroundColor: isDark ? 'rgba(18, 18, 20, 0.7)' : 'rgba(255, 255, 255, 0.7)',
-                }
+                    paddingTop: insets.top + 6,
+                    backgroundColor: headerBackground,
+                    borderBottomColor: headerBorder,
+                },
             ]}
         >
-            <View style={styles.headerOverlay}>
+            <View style={styles.headerContent}>
                 <Text style={[styles.headerTitle, { color: theme.text }]}>Feed</Text>
                 <TouchableOpacity
-                    style={[styles.createButton, { backgroundColor: theme.primary }]}
+                    style={[styles.createButton, { borderColor: headerBorder }]}
                     onPress={() => router.push('/feed/create')}
                 >
-                    <Ionicons name="add" size={24} color="#FFFFFF" />
+                    <Ionicons name="add" size={22} color={theme.text} />
                 </TouchableOpacity>
             </View>
-        </BlurView>
+        </View>
     );
+
+    const listHeader = error ? (
+        <View style={[styles.errorBanner, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.errorText, { color: theme.error }]}>
+                {error}
+            </Text>
+        </View>
+    ) : null;
 
     if (isLoading && posts.length === 0) {
         return (
-            <View style={[styles.container, { backgroundColor: theme.background }]}>
-                <View style={styles.listContent}>
+            <View style={[styles.container, { backgroundColor: feedBackground }]}>
+                <LinearGradient
+                    colors={gradientColors}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                />
+                <View style={[styles.listContent, { paddingTop: listTopPadding, paddingBottom: listBottomPadding }]}>
                     <FeedSkeleton />
                     <FeedSkeleton />
                     <FeedSkeleton />
@@ -101,26 +124,24 @@ export default function FeedScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-
-            {error ? (
-                <View style={[styles.errorBanner, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                    <Text style={[styles.errorText, { color: theme.error }]}>
-                        {error}
-                    </Text>
-                </View>
-            ) : null}
-
+        <View style={[styles.container, { backgroundColor: feedBackground }]}>
+            <LinearGradient
+                colors={gradientColors}
+                style={StyleSheet.absoluteFillObject}
+                pointerEvents="none"
+            />
             <FlatList
                 data={posts}
                 renderItem={renderPost}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingTop: listTopPadding, paddingBottom: listBottomPadding }]}
+                ListHeaderComponent={listHeader}
                 refreshControl={
                     <RefreshControl
                         refreshing={isRefreshing}
                         onRefresh={refresh}
                         tintColor={theme.primary}
+                        progressViewOffset={headerHeight}
                     />
                 }
                 onEndReached={loadMore}
@@ -129,9 +150,10 @@ export default function FeedScreen() {
                 maxToRenderPerBatch={10}
                 windowSize={5}
                 removeClippedSubviews={true}
+                showsVerticalScrollIndicator={false}
             />
 
-            {/* Absolutely positioned header for blur effect */}
+            {/* Absolutely positioned header for top bar */}
             {renderHeader()}
 
             {/* Comments Modal */}
@@ -161,12 +183,12 @@ const styles = StyleSheet.create({
     errorBanner: {
         marginHorizontal: 16,
         marginTop: 12,
-        padding: 12,
-        borderRadius: 12,
+        padding: 10,
+        borderRadius: 10,
         borderWidth: 1,
     },
     errorText: {
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
     },
     header: {
@@ -175,31 +197,35 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        paddingTop: 60, // Account for status bar
-        borderBottomWidth: 1,
-        overflow: 'hidden',
+        paddingBottom: 10,
+        borderBottomWidth: StyleSheet.hairlineWidth,
         zIndex: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 6,
     },
-    headerOverlay: {
+    headerContent: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 26,
+        fontWeight: '700',
+        letterSpacing: 0.2,
     },
     createButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
     listContent: {
-        padding: 16,
-        paddingTop: 110, // Account for absolute header height (60 status bar + ~50 header)
+        paddingBottom: 0,
     },
     modalContainer: {
         flex: 1,

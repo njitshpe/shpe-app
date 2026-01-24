@@ -14,6 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { reportService, adminService, type Report } from '@/services';
+import { supabase } from '@/lib/supabase';
 import { fetchPostById } from '@/lib/feedService';
 import type { FeedPostUI } from '@/types/feed';
 
@@ -23,6 +24,8 @@ export default function ReportDetailScreen() {
     const { theme, isDark } = useTheme();
     const [report, setReport] = useState<Report | null>(null);
     const [post, setPost] = useState<FeedPostUI | null>(null);
+    const [reportedUser, setReportedUser] = useState<{ name: string; email?: string | null; avatarUrl?: string | null } | null>(null);
+    const [reportedComment, setReportedComment] = useState<{ author: string; content: string; createdAt: string } | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [isSuperAdmin, setIsSuperAdmin] = useState<boolean | null>(null);
@@ -36,9 +39,82 @@ export default function ReportDetailScreen() {
         checkSuperAdmin();
     }, []);
 
+    const loadTargetDetails = async (reportData: Report, cancelledRef: { cancelled: boolean }) => {
+        if (reportData.target_type === 'post') {
+            const { data: postRow } = await supabase
+                .from('feed_posts_visible')
+                .select('id, user_id, content, image_urls, created_at')
+                .eq('id', reportData.target_id)
+                .single();
+
+            if (!cancelledRef.cancelled && postRow) {
+                const { data: author } = await supabase
+                    .from('user_profiles')
+                    .select('id, first_name, last_name, profile_picture_url')
+                    .eq('id', postRow.user_id)
+                    .single();
+
+                const postPreview: FeedPostUI = {
+                    id: postRow.id,
+                    userId: postRow.user_id,
+                    content: postRow.content || '',
+                    imageUrls: postRow.image_urls || [],
+                    eventId: null,
+                    createdAt: postRow.created_at,
+                    updatedAt: postRow.created_at,
+                    author: {
+                        id: postRow.user_id,
+                        firstName: author?.first_name || 'Unknown',
+                        lastName: author?.last_name || 'User',
+                        profilePictureUrl: author?.profile_picture_url || undefined,
+                    },
+                    likeCount: 0,
+                    commentCount: 0,
+                    isLikedByCurrentUser: false,
+                    taggedUsers: [],
+                };
+
+                setPost(postPreview);
+            }
+        } else if (reportData.target_type === 'user') {
+            const { data: userProfile } = await supabase
+                .from('user_profiles')
+                .select('first_name, last_name, profile_picture_url')
+                .eq('id', reportData.target_id)
+                .single();
+
+            if (!cancelledRef.cancelled && userProfile) {
+                setReportedUser({
+                    name: `${userProfile.first_name} ${userProfile.last_name}`.trim() || 'Unknown User',
+                    avatarUrl: userProfile.profile_picture_url || null,
+                });
+            }
+        } else if (reportData.target_type === 'comment') {
+            const { data: comment } = await supabase
+                .from('feed_comments')
+                .select('content, created_at, author:user_profiles!user_id(first_name, last_name)')
+                .eq('id', reportData.target_id)
+                .eq('is_active', true)
+                .single();
+
+            if (!cancelledRef.cancelled && comment) {
+                const author = Array.isArray(comment.author) ? comment.author[0] : comment.author;
+                const authorName = author
+                    ? `${(author as any).first_name} ${(author as any).last_name}`.trim()
+                    : 'Unknown Author';
+                setReportedComment({
+                    author: authorName || 'Unknown Author',
+                    content: comment.content || '',
+                    createdAt: comment.created_at,
+                });
+            }
+        }
+    };
+
     // Load report and post details with proper access control
     useEffect(() => {
         let cancelled = false;
+        const cancelledRef = { cancelled };
 
         async function init() {
             // Wait for super admin check to complete
@@ -83,14 +159,7 @@ export default function ReportDetailScreen() {
                 }
 
                 setReport(reportResponse.data);
-
-                // If target is a post, fetch post details
-                if (reportResponse.data.target_type === 'post') {
-                    const postResponse = await fetchPostById(reportResponse.data.target_id);
-                    if (!cancelled && postResponse.success) {
-                        setPost(postResponse.data);
-                    }
-                }
+                await loadTargetDetails(reportResponse.data, cancelledRef);
             } catch (error) {
                 if (!cancelled) {
                     setLoading(false);
@@ -110,8 +179,19 @@ export default function ReportDetailScreen() {
 
         return () => {
             cancelled = true;
+            cancelledRef.cancelled = true;
         };
     }, [id, isSuperAdmin]);
+
+    const handleRetryPreview = async () => {
+        if (!report) return;
+        setActionLoading(true);
+        setPost(null);
+        setReportedUser(null);
+        setReportedComment(null);
+        await loadTargetDetails(report, { cancelled: false });
+        setActionLoading(false);
+    };
 
     const handleHidePostAndMarkActioned = async () => {
         if (!report || !post) return;
@@ -151,6 +231,18 @@ export default function ReportDetailScreen() {
                 },
             ]
         );
+    };
+
+    const handleUpdateStatus = async (status: 'reviewing' | 'actioned' | 'closed') => {
+        if (!report) return;
+        setActionLoading(true);
+        const updateResponse = await reportService.updateReportStatus(report.id, status);
+        setActionLoading(false);
+        if (!updateResponse.success) {
+            Alert.alert('Error', updateResponse.error?.message || 'Failed to update report');
+            return;
+        }
+        setReport((prev) => (prev ? { ...prev, status } : prev));
     };
 
     const formatDate = (dateString: string) => {
@@ -265,59 +357,143 @@ export default function ReportDetailScreen() {
                     </View>
                 </View>
 
-                {/* Post Preview Card */}
-                {report.target_type === 'post' && post && (
+                {/* Preview Card */}
+                {report.target_type === 'post' && (
                     <View style={[styles.card, dynamicStyles.card]}>
                         <Text style={[styles.cardTitle, dynamicStyles.text]}>Post Preview</Text>
 
-                        <View style={styles.postHeader}>
-                            <View style={styles.authorInfo}>
-                                {post.author.profilePictureUrl ? (
-                                    <Image
-                                        source={{ uri: post.author.profilePictureUrl }}
-                                        style={styles.avatar}
-                                    />
-                                ) : (
-                                    <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary + '30' }]}>
-                                        <Ionicons name="person" size={20} color={theme.primary} />
+                        {post ? (
+                            <>
+                                <View style={styles.postHeader}>
+                                    <View style={styles.authorInfo}>
+                                        {post.author.profilePictureUrl ? (
+                                            <Image
+                                                source={{ uri: post.author.profilePictureUrl }}
+                                                style={styles.avatar}
+                                            />
+                                        ) : (
+                                            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary + '30' }]}>
+                                                <Ionicons name="person" size={20} color={theme.primary} />
+                                            </View>
+                                        )}
+                                        <View>
+                                            <Text style={[styles.authorName, dynamicStyles.text]}>
+                                                {post.author.firstName} {post.author.lastName}
+                                            </Text>
+                                            <Text style={[styles.postDate, dynamicStyles.subtext]}>
+                                                {formatDate(post.createdAt)}
+                                            </Text>
+                                        </View>
                                     </View>
+                                </View>
+
+                                <Text style={[styles.postContent, dynamicStyles.text]}>{post.content}</Text>
+
+                                {post.imageUrls && post.imageUrls.length > 0 && (
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesContainer}>
+                                        {post.imageUrls.map((url, index) => (
+                                            <Image
+                                                key={index}
+                                                source={{ uri: url }}
+                                                style={styles.postImage}
+                                                resizeMode="cover"
+                                            />
+                                        ))}
+                                    </ScrollView>
                                 )}
-                                <View>
-                                    <Text style={[styles.authorName, dynamicStyles.text]}>
-                                        {post.author.firstName} {post.author.lastName}
-                                    </Text>
-                                    <Text style={[styles.postDate, dynamicStyles.subtext]}>
-                                        {formatDate(post.createdAt)}
-                                    </Text>
+
+                                <View style={styles.postStats}>
+                                    <View style={styles.statItem}>
+                                        <Ionicons name="heart" size={16} color={theme.subtext} />
+                                        <Text style={[styles.statText, dynamicStyles.subtext]}>{post.likeCount}</Text>
+                                    </View>
+                                    <View style={styles.statItem}>
+                                        <Ionicons name="chatbubble" size={16} color={theme.subtext} />
+                                        <Text style={[styles.statText, dynamicStyles.subtext]}>{post.commentCount}</Text>
+                                    </View>
+                                </View>
+                            </>
+                        ) : (
+                            <View style={styles.previewFallback}>
+                                <Text style={[styles.previewFallbackText, dynamicStyles.subtext]}>
+                                    Unable to load post preview for this report.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.retryButton, { borderColor: theme.primary }]}
+                                    onPress={handleRetryPreview}
+                                    disabled={actionLoading}
+                                >
+                                    <Text style={[styles.retryButtonText, { color: theme.primary }]}>Retry Preview</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {report.target_type === 'user' && (
+                    <View style={[styles.card, dynamicStyles.card]}>
+                        <Text style={[styles.cardTitle, dynamicStyles.text]}>Profile Preview</Text>
+                        {reportedUser ? (
+                            <View style={styles.postHeader}>
+                                <View style={styles.authorInfo}>
+                                    {reportedUser.avatarUrl ? (
+                                        <Image source={{ uri: reportedUser.avatarUrl }} style={styles.avatar} />
+                                    ) : (
+                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary + '30' }]}>
+                                            <Ionicons name="person" size={20} color={theme.primary} />
+                                        </View>
+                                    )}
+                                    <View>
+                                        <Text style={[styles.authorName, dynamicStyles.text]}>{reportedUser.name}</Text>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-
-                        <Text style={[styles.postContent, dynamicStyles.text]}>{post.content}</Text>
-
-                        {post.imageUrls && post.imageUrls.length > 0 && (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesContainer}>
-                                {post.imageUrls.map((url, index) => (
-                                    <Image
-                                        key={index}
-                                        source={{ uri: url }}
-                                        style={styles.postImage}
-                                        resizeMode="cover"
-                                    />
-                                ))}
-                            </ScrollView>
+                        ) : (
+                            <View style={styles.previewFallback}>
+                                <Text style={[styles.previewFallbackText, dynamicStyles.subtext]}>
+                                    Unable to load user profile preview for this report.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.retryButton, { borderColor: theme.primary }]}
+                                    onPress={handleRetryPreview}
+                                    disabled={actionLoading}
+                                >
+                                    <Text style={[styles.retryButtonText, { color: theme.primary }]}>Retry Preview</Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
+                    </View>
+                )}
 
-                        <View style={styles.postStats}>
-                            <View style={styles.statItem}>
-                                <Ionicons name="heart" size={16} color={theme.subtext} />
-                                <Text style={[styles.statText, dynamicStyles.subtext]}>{post.likeCount}</Text>
+                {report.target_type === 'comment' && (
+                    <View style={[styles.card, dynamicStyles.card]}>
+                        <Text style={[styles.cardTitle, dynamicStyles.text]}>Comment Preview</Text>
+                        {reportedComment ? (
+                            <>
+                                <View style={styles.postHeader}>
+                                    <View>
+                                        <Text style={[styles.authorName, dynamicStyles.text]}>{reportedComment.author}</Text>
+                                        <Text style={[styles.postDate, dynamicStyles.subtext]}>
+                                            {formatDate(reportedComment.createdAt)}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Text style={[styles.postContent, dynamicStyles.text]}>{reportedComment.content}</Text>
+                            </>
+                        ) : (
+                            <View style={styles.previewFallback}>
+                                <Text style={[styles.previewFallbackText, dynamicStyles.subtext]}>
+                                    Unable to load comment preview for this report.
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.retryButton, { borderColor: theme.primary }]}
+                                    onPress={handleRetryPreview}
+                                    disabled={actionLoading}
+                                >
+                                    <Text style={[styles.retryButtonText, { color: theme.primary }]}>Retry Preview</Text>
+                                </TouchableOpacity>
                             </View>
-                            <View style={styles.statItem}>
-                                <Ionicons name="chatbubble" size={16} color={theme.subtext} />
-                                <Text style={[styles.statText, dynamicStyles.subtext]}>{post.commentCount}</Text>
-                            </View>
-                        </View>
+                        )}
                     </View>
                 )}
 
@@ -338,6 +514,24 @@ export default function ReportDetailScreen() {
                         )}
                     </TouchableOpacity>
                 )}
+
+                {/* Status Actions */}
+                <View style={styles.statusActions}>
+                    <TouchableOpacity
+                        style={[styles.statusButton, { borderColor: theme.primary }]}
+                        onPress={() => handleUpdateStatus('reviewing')}
+                        disabled={actionLoading || report.status === 'reviewing'}
+                    >
+                        <Text style={[styles.statusButtonText, { color: theme.primary }]}>Mark Reviewing</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.statusButton, { borderColor: theme.success }]}
+                        onPress={() => handleUpdateStatus('actioned')}
+                        disabled={actionLoading || report.status === 'actioned'}
+                    >
+                        <Text style={[styles.statusButtonText, { color: theme.success }]}>Mark Actioned</Text>
+                    </TouchableOpacity>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -479,6 +673,24 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: 'rgba(128, 128, 128, 0.2)',
     },
+    previewFallback: {
+        gap: 12,
+        alignItems: 'flex-start',
+    },
+    previewFallbackText: {
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    retryButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    retryButtonText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
     statItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -503,5 +715,19 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '700',
+    },
+    statusActions: {
+        gap: 12,
+        marginBottom: 20,
+    },
+    statusButton: {
+        paddingVertical: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        alignItems: 'center',
+    },
+    statusButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Slot, useSegments, useRouter, usePathname } from 'expo-router';
+import { Slot, SplashScreen, useSegments, useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 
 // Providers
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,8 @@ import { UpdatePasswordSheet } from '@/components/auth/UpdatePasswordSheet';
 import { eventNotificationHelper } from '@/services/eventNotification.helper';
 import { notificationService } from '@/services/notification.service';
 import { rankService } from '@/services/rank.service';
+
+void SplashScreen.preventAutoHideAsync();
 
 /**
  * Helper to format action types into user-friendly text
@@ -229,6 +232,58 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     };
   }, [session, isLoading]);
 
+  // 3. DEEP LINK LISTENER (Email Verification & Password Recovery)
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      const url = event.url;
+
+      // Supabase adds #access_token=...&type=signup or type=recovery to the URL
+      if (url.includes('type=signup')) {
+        setToast({
+          visible: true,
+          message: 'Verification Complete\nYour email has been verified successfully.'
+        });
+      } else if (url.includes('type=recovery')) {
+        // For password recovery, we need to extract tokens and set the session
+        // This triggers the PASSWORD_RECOVERY event in AuthContext
+        try {
+          const hashFragment = url.split('#')[1];
+          if (hashFragment) {
+            const params = new URLSearchParams(hashFragment);
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+
+            if (accessToken && refreshToken) {
+              // Import supabase here to avoid circular dependencies
+              const { supabase } = await import('@/lib/supabase');
+              await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+              });
+              // The PASSWORD_RECOVERY event will be triggered by onAuthStateChange in AuthContext
+            }
+          }
+        } catch (error) {
+          if (__DEV__) {
+            console.error('[DeepLink] Error handling password recovery:', error);
+          }
+        }
+      }
+    };
+
+    // Listen for incoming links while app is running
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened initially via a link (Cold Start)
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   // During initial bootstrap, render children but AnimatedSplash handles the visual loading state
   // After bootstrap, if still loading (e.g., profile refresh), show a subtle indicator
   if (isBootstrapping) {
@@ -262,8 +317,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
  * AnimatedSplash wraps everything to provide the Luma-style splash animation.
  */
 export default function RootLayout() {
+  const onLayoutRootView = useCallback(() => {
+    void SplashScreen.hideAsync();
+  }, []);
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AnimatedSplash>
         <ThemeProvider>
           <ErrorBoundary>

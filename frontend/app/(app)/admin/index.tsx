@@ -128,6 +128,24 @@ export default function AdminDashboard() {
                     <Text style={[styles.sectionTitle, dynamicStyles.text]}>Quick Actions</Text>
 
                     <TouchableOpacity
+                        style={[
+                            styles.actionButton,
+                            dynamicStyles.card,
+                            { borderLeftWidth: 4, borderLeftColor: theme.primary }
+                        ]}
+                        onPress={() => router.push('/admin/committee-requests')}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                            <Ionicons name="people-outline" size={24} color={theme.primary} />
+                            <View>
+                                <Text style={[styles.actionButtonText, dynamicStyles.text]}>Review Committee Requests</Text>
+                                <Text style={{ fontSize: 12, color: theme.subtext }}>Approve or reject join applications</Text>
+                            </View>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={theme.subtext} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                             style={[
                                 styles.actionButton,
                                 dynamicStyles.card,

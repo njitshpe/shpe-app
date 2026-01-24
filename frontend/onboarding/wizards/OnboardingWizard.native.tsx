@@ -178,19 +178,6 @@ export default function OnboardingWizard() {
         resumeUrl = storagePath;
         resumeName = formData.resumeFile.name;
         updateFormData({ resumeUrl, resumeName });
-
-        const { error: resumeUpdateError } = await supabase
-          .from('user_profiles')
-          .update({
-            resume_url: resumeUrl,
-            resume_name: resumeName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-
-        if (resumeUpdateError) {
-          console.error('Resume profile update error:', resumeUpdateError);
-        }
       }
 
       setLoadingMessage("Finalizing profile...");
@@ -222,15 +209,19 @@ export default function OnboardingWizard() {
 
       let result = await profileService.createProfile(user.id, profileData);
 
-      // If create fails, try update (idempotency)
-      if (!result.success) {
-        console.log('Create failed, trying update...', result.error);
+      // If create fails because profile already exists, try update (idempotency)
+      if (!result.success && result.error?.code === 'ALREADY_EXISTS') {
+        console.log('Profile exists, updating instead...', result.error);
         result = await profileService.updateProfile(user.id, profileData);
       }
 
       if (!result.success) {
         console.error('FINAL SAVE ERROR:', result.error);
-        throw new Error(result.error?.message || "Database save failed");
+        // Show user-friendly error message
+        const errorMessage = result.error?.code === 'UNIQUE_VIOLATION'
+          ? result.error.message
+          : (result.error?.message || "Database save failed");
+        throw new Error(errorMessage);
       }
 
       // 4. PRE-LOAD APP STATE & SUCCESS

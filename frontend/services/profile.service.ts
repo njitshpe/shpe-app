@@ -131,12 +131,29 @@ class ProfileService {
             // Separate type-specific fields into profile_data JSONB column
             const { directUpdates, profileDataUpdates } = prepareProfileUpdate(updates);
 
-            // Fetch current profile_data to merge with updates
-            const { data: currentProfile } = await supabase
+            // Fetch current profile_data to merge with updates (use maybeSingle to avoid error if not found)
+            const { data: currentProfile, error: fetchError } = await supabase
                 .from('user_profiles')
                 .select('profile_data')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
+
+            // If profile doesn't exist, return error
+            if (!currentProfile && !fetchError) {
+                return {
+                    success: false,
+                    error: createError(
+                        'Profile not found. Please try creating a new profile.',
+                        'NOT_FOUND',
+                        undefined,
+                        `No profile found for user ${userId}`
+                    ),
+                };
+            }
+
+            if (fetchError) {
+                return handleSupabaseError<UserProfile>(null, fetchError);
+            }
 
             // Merge existing profile_data with new updates
             const mergedProfileData = {
@@ -153,7 +170,20 @@ class ProfileService {
                 })
                 .eq('id', userId)
                 .select()
-                .single();
+                .maybeSingle();
+
+            // Check if update found a row
+            if (!data && !error) {
+                return {
+                    success: false,
+                    error: createError(
+                        'Profile not found. Please try creating a new profile.',
+                        'NOT_FOUND',
+                        undefined,
+                        `Update did not find profile for user ${userId}`
+                    ),
+                };
+            }
 
             // Flatten profile_data for backward compatibility
             const flattenedData = this.flattenProfileData(data);

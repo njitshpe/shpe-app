@@ -1,34 +1,47 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, useWindowDimensions, LayoutChangeEvent } from 'react-native';
 import { Skeleton } from './Skeleton';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export function FeedSkeleton() {
-    const { theme, isDark } = useTheme();
-    const cardBg = isDark ? '#1E1E1E' : '#FFFFFF';
-    const borderColor = theme.border;
+    const { isDark } = useTheme();
+    const { width: screenWidth } = useWindowDimensions();
+    const [cardWidth, setCardWidth] = useState<number | null>(null);
+    const resolvedWidth = cardWidth ?? screenWidth;
+    const imageHeight = Math.max(resolvedWidth, 1);
+
+    const cardBackground = isDark ? '#000000' : '#FFFFFF';
+    const dividerColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+
+    const handleLayout = (event: LayoutChangeEvent) => {
+        const { width } = event.nativeEvent.layout;
+        if (width && width !== cardWidth) {
+            setCardWidth(width);
+        }
+    };
 
     return (
-        <View style={[styles.container, { backgroundColor: cardBg, borderColor }]}>
-            {/* Header: Avatar + Name */}
-            <View style={styles.header}>
-                <Skeleton width={40} height={40} borderRadius={20} />
+        <View
+            style={[styles.container, { backgroundColor: cardBackground, borderBottomColor: dividerColor }]}
+            onLayout={handleLayout}
+        >
+            <View style={[styles.header, styles.sectionPadding]}>
+                <Skeleton width={36} height={36} borderRadius={18} />
                 <View style={styles.headerText}>
-                    <Skeleton width={120} height={16} borderRadius={4} />
-                    <Skeleton width={80} height={12} borderRadius={4} style={{ marginTop: 4 }} />
+                    <Skeleton width={120} height={12} borderRadius={4} />
+                    <Skeleton width={80} height={10} borderRadius={4} style={{ marginTop: 6 }} />
                 </View>
+                <Skeleton width={24} height={24} borderRadius={12} />
             </View>
-
-            {/* Content: Title + Image */}
-            <View style={styles.content}>
-                <Skeleton width="80%" height={20} borderRadius={4} style={{ marginBottom: 12 }} />
-                <Skeleton width="100%" height={200} borderRadius={12} />
+            <Skeleton width="100%" height={imageHeight} borderRadius={0} />
+            <View style={[styles.actions, styles.sectionPadding]}>
+                <Skeleton width={22} height={22} borderRadius={6} />
+                <Skeleton width={20} height={20} borderRadius={6} />
             </View>
-
-            {/* Footer: Actions */}
-            <View style={styles.footer}>
-                <Skeleton width={60} height={24} borderRadius={4} />
-                <Skeleton width={60} height={24} borderRadius={4} />
+            <View style={[styles.caption, styles.sectionPadding]}>
+                <Skeleton width="90%" height={12} borderRadius={4} style={{ marginBottom: 6 }} />
+                <Skeleton width="70%" height={12} borderRadius={4} />
+                <Skeleton width="40%" height={10} borderRadius={4} style={{ marginTop: 8 }} />
             </View>
         </View>
     );
@@ -36,23 +49,30 @@ export function FeedSkeleton() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 16,
-        borderBottomWidth: 1,
-        marginBottom: 8,
+        paddingBottom: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    sectionPadding: {
+        paddingHorizontal: 16,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 12,
+        gap: 10,
+        paddingTop: 12,
+        paddingBottom: 8,
     },
     headerText: {
-        marginLeft: 12,
+        flex: 1,
     },
-    content: {
-        marginBottom: 12,
-    },
-    footer: {
+    actions: {
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 16,
+        paddingTop: 12,
+    },
+    caption: {
+        paddingTop: 8,
+        paddingBottom: 12,
     },
 });

@@ -89,7 +89,6 @@ export default function WizardLayout({
               onPress={onBack}
               hasFormData={hasFormData}
               showConfirmation={showConfirmation}
-              color="#FFFFFF" // Force white back button
             />
             {headerRight && <View style={styles.headerRight}>{headerRight}</View>}
           </View>
