@@ -16,7 +16,8 @@ interface EventMoreMenuProps {
   visible: boolean;
   onClose: () => void;
   isRegistered: boolean;
-  onAddToCalendar: () => void;
+  onAddToAppleCalendar: () => void;
+  onAddToGoogleCalendar: () => void;
   onCancelRegistration: () => void;
 }
 
@@ -24,7 +25,8 @@ export default function EventMoreMenu({
   visible,
   onClose,
   isRegistered,
-  onAddToCalendar,
+  onAddToAppleCalendar,
+  onAddToGoogleCalendar,
   onCancelRegistration,
 }: EventMoreMenuProps) {
   const { theme, isDark } = useTheme();
@@ -53,24 +55,31 @@ export default function EventMoreMenu({
     }, 300);
   };
 
-  const handleAddToCalendar = () => {
+  const handleAddToAppleCalendar = () => {
     onClose();
     setTimeout(() => {
-      onAddToCalendar();
+      onAddToAppleCalendar();
+    }, 300);
+  };
+
+  const handleAddToGoogleCalendar = () => {
+    onClose();
+    setTimeout(() => {
+      onAddToGoogleCalendar();
     }, 300);
   };
 
   const dynamicStyles = {
-    menu: { backgroundColor: theme.card },
+    menu: { backgroundColor: isDark ? 'rgba(30, 30, 30, 0.6)' : 'rgba(255, 255, 255, 0.6)' }, // Transparent for blur
     handle: { backgroundColor: theme.border },
     menuTitle: { color: theme.subtext },
-    menuItem: { backgroundColor: theme.background },
+    menuItem: { backgroundColor: 'transparent' }, // Transparent
     menuItemPressed: { backgroundColor: theme.border },
     menuItemIcon: { backgroundColor: theme.card },
     menuItemText: { color: theme.text },
     iconColor: theme.text,
     chevronColor: theme.subtext,
-    cancelButton: { backgroundColor: theme.background },
+    cancelButton: { backgroundColor: isDark ? 'rgba(30, 30, 30, 0.6)' : 'rgba(255, 255, 255, 0.6)' },
     cancelButtonPressed: { backgroundColor: theme.border },
     cancelButtonText: { color: theme.text },
   };
@@ -87,65 +96,90 @@ export default function EventMoreMenu({
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         <View style={styles.menuContainer}>
-          <View style={[styles.menu, dynamicStyles.menu]}>
-            {/* Handle */}
-            <View style={[styles.handle, dynamicStyles.handle]} />
+          {/* Opaque Glass Menu with BlurView */}
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={styles.menuWrapper}
+          >
+            <View style={[styles.menu, dynamicStyles.menu]}>
+              {/* Handle */}
+              <View style={[styles.handle, dynamicStyles.handle]} />
 
-            {/* Menu Title */}
-            <Text style={[styles.menuTitle, dynamicStyles.menuTitle]}>More Options</Text>
+              {/* Menu Title */}
+              <Text style={[styles.menuTitle, dynamicStyles.menuTitle]}>More Options</Text>
 
-            {/* Menu Items */}
-            <View style={styles.menuItems}>
-              {/* Add to Calendar - Always visible */}
+              {/* Menu Items */}
+              <View style={styles.menuItems}>
+                {/* Add to Apple Calendar */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    dynamicStyles.menuItem,
+                    pressed && dynamicStyles.menuItemPressed,
+                  ]}
+                  onPress={handleAddToAppleCalendar}
+                >
+                  <View style={[styles.menuItemIcon, dynamicStyles.menuItemIcon]}>
+                    <Ionicons name="logo-apple" size={22} color={dynamicStyles.iconColor} />
+                  </View>
+                  <Text style={[styles.menuItemText, dynamicStyles.menuItemText]}>Add to Apple Calendar</Text>
+                  <Ionicons name="chevron-forward" size={20} color={dynamicStyles.chevronColor} />
+                </Pressable>
+
+                <View style={styles.divider} />
+
+                {/* Add to Google Calendar */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    dynamicStyles.menuItem,
+                    pressed && dynamicStyles.menuItemPressed,
+                  ]}
+                  onPress={handleAddToGoogleCalendar}
+                >
+                  <View style={[styles.menuItemIcon, dynamicStyles.menuItemIcon]}>
+                    <Ionicons name="logo-google" size={22} color={dynamicStyles.iconColor} />
+                  </View>
+                  <Text style={[styles.menuItemText, dynamicStyles.menuItemText]}>Add to Google Calendar</Text>
+                  <Ionicons name="chevron-forward" size={20} color={dynamicStyles.chevronColor} />
+                </Pressable>
+
+                {/* Cancel Registration - Only if registered */}
+                {isRegistered && (
+                  <>
+                    <View style={styles.divider} />
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.menuItem,
+                        dynamicStyles.menuItem,
+                        pressed && dynamicStyles.menuItemPressed,
+                      ]}
+                      onPress={handleCancelRegistration}
+                    >
+                      <View style={styles.menuItemIconDanger}>
+                        <Ionicons name="close-circle-outline" size={22} color="#DC2626" />
+                      </View>
+                      <Text style={styles.menuItemTextDanger}>Cancel Registration</Text>
+                      <Ionicons name="chevron-forward" size={20} color={dynamicStyles.chevronColor} />
+                    </Pressable>
+                  </>
+                )}
+              </View>
+
+              {/* Cancel Button */}
               <Pressable
                 style={({ pressed }) => [
-                  styles.menuItem,
-                  dynamicStyles.menuItem,
-                  pressed && dynamicStyles.menuItemPressed,
+                  styles.cancelButton,
+                  dynamicStyles.cancelButton,
+                  pressed && dynamicStyles.cancelButtonPressed,
                 ]}
-                onPress={handleAddToCalendar}
+                onPress={onClose}
               >
-                <View style={[styles.menuItemIcon, dynamicStyles.menuItemIcon]}>
-                  <Ionicons name="calendar-outline" size={22} color={dynamicStyles.iconColor} />
-                </View>
-                <Text style={[styles.menuItemText, dynamicStyles.menuItemText]}>Add to Calendar</Text>
-                <Ionicons name="chevron-forward" size={20} color={dynamicStyles.chevronColor} />
+                <Text style={[styles.cancelButtonText, dynamicStyles.cancelButtonText]}>Close</Text>
               </Pressable>
-
-              {/* Cancel Registration - Only if registered */}
-              {isRegistered && (
-                <>
-                  <View style={styles.divider} />
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.menuItem,
-                      dynamicStyles.menuItem,
-                      pressed && dynamicStyles.menuItemPressed,
-                    ]}
-                    onPress={handleCancelRegistration}
-                  >
-                    <View style={styles.menuItemIconDanger}>
-                      <Ionicons name="close-circle-outline" size={22} color="#DC2626" />
-                    </View>
-                    <Text style={styles.menuItemTextDanger}>Cancel Registration</Text>
-                    <Ionicons name="chevron-forward" size={20} color={dynamicStyles.chevronColor} />
-                  </Pressable>
-                </>
-              )}
             </View>
-
-            {/* Cancel Button */}
-            <Pressable
-              style={({ pressed }) => [
-                styles.cancelButton,
-                dynamicStyles.cancelButton,
-                pressed && dynamicStyles.cancelButtonPressed,
-              ]}
-              onPress={onClose}
-            >
-              <Text style={[styles.cancelButtonText, dynamicStyles.cancelButtonText]}>Close</Text>
-            </Pressable>
-          </View>
+          </BlurView>
         </View>
       </BlurView>
     </Modal>
@@ -166,7 +200,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
-  menu: {
+  menuWrapper: {
     borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -174,6 +208,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 10,
+  },
+  menu: {
+    borderRadius: 24, // Inner radius
+    overflow: 'hidden',
   },
   handle: {
     width: 40,
