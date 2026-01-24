@@ -14,6 +14,7 @@ import { useOngoingEvents } from '@/hooks/events';
 import { CompactEventCard } from './CompactEventCard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { MotiView } from 'moti';
+import { Ionicons } from '@expo/vector-icons';
 
 interface EventsFeedProps {
     events: Event[];
@@ -208,7 +209,7 @@ export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
         if (selectedDate) {
             return (
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyIcon}>zzZ</Text>
+                    <Ionicons name="calendar-clear-outline" size={64} color={theme.subtext} style={{ marginBottom: 16, opacity: 0.5 }} />
                     <Text style={[styles.emptyText, { color: theme.text }]}>
                         No events on this day
                     </Text>
@@ -220,7 +221,7 @@ export const EventsFeed = React.forwardRef<EventsFeedHandle, EventsFeedProps>(({
         }
         return (
             <View style={styles.emptyContainer}>
-                <Text style={styles.emptyIcon}>📅</Text>
+                <Ionicons name="calendar-outline" size={64} color={theme.subtext} style={{ marginBottom: 16, opacity: 0.5 }} />
                 <Text style={[styles.emptyText, { color: theme.text }]}>
                     No events scheduled
                 </Text>
@@ -292,10 +293,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 80,
         paddingHorizontal: 40,
-    },
-    emptyIcon: {
-        fontSize: 64,
-        marginBottom: 16,
     },
     emptyText: {
         fontSize: 18,
