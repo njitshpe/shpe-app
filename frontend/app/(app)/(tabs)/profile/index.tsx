@@ -176,7 +176,7 @@ export default function ProfileScreen() {
 
         if (Platform.OS === 'ios') {
             return (
-                <Link href="/settings" asChild>
+                <Link href="/(app)/(tabs)/profile/settings" asChild>
                     <Pressable style={styles.settingsButtonVisual}>
                         <BlurView
                             intensity={40}
@@ -190,7 +190,7 @@ export default function ProfileScreen() {
             );
         }
         return (
-            <Link href="/settings" asChild>
+            <Link href="/(app)/(tabs)/profile/settings" asChild>
                 <Pressable style={styles.settingsButtonVisual}>
                     <View
                         style={[
