@@ -9,9 +9,12 @@ import {
   ScrollView,
   Linking,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useRouter, Stack } from 'expo-router';
+import { useHeaderHeight } from '@react-navigation/elements';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,18 +33,17 @@ export const GeneralSettings = () => {
   const router = useRouter();
   const { theme, isDark, setMode, mode } = useTheme();
   const [loading, setLoading] = useState(true);
+  const headerHeight = useHeaderHeight();
+  const scrollY = React.useRef(new Animated.Value(0)).current;
 
-  // State for single notification permission
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-
-  // State for delete account modal
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
   useEffect(() => {
     checkPermissionStatus();
   }, []);
 
-  // --- 1. CHECK PERMISSION STATUS ---
+  // Check notification permissions on mount
   const checkPermissionStatus = async () => {
     try {
       const { granted } = await notificationService.checkPermission();
@@ -53,23 +55,21 @@ export const GeneralSettings = () => {
     }
   };
 
-  // --- NAV OPTIONS ---
-  // Dynamic header configuration
-  // We use a small timeout or effect to ensure theme is ready, but typically it renders with the component.
+  // Configure navigation header options
   const headerOptions = {
     title: 'Settings',
     headerShown: true,
     headerTransparent: true,
-    headerTintColor: theme.text, // Dynamic color
-    headerBackTitleVisible: false, // Hide back title
+    headerTintColor: theme.text,
+    headerBackTitleVisible: false,
+    headerBackTitle: '',
     headerStyle: { backgroundColor: 'transparent' },
   };
 
-  // --- 2. HANDLE ENABLE REQUEST ---
+  // Handle notification toggle
   const handleToggleNotifications = async () => {
     if (notificationsEnabled) {
-      // Optional: If they want to turn it off, guide them to settings
-      // since apps cannot revoke their own permissions programmatically.
+      // Guide user to settings since we cannot programmatically revoke permissions
       Alert.alert(
         "Notifications Enabled",
         "To turn off notifications, please go to your device settings.",
@@ -97,7 +97,7 @@ export const GeneralSettings = () => {
     }
   };
 
-  // --- LOGOUT ---
+  // Handle user logout
   const handleLogout = async () => {
     Alert.alert("Log Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
@@ -112,7 +112,7 @@ export const GeneralSettings = () => {
     ]);
   };
 
-  // --- DELETE ACCOUNT ---
+  // Handle account deletion
   const handleDeleteAccount = async () => {
     try {
       // Get current user session and refresh if needed
@@ -284,12 +284,46 @@ export const GeneralSettings = () => {
     <View style={styles.root}>
       <StatusBar barStyle={statusBarStyle} translucent backgroundColor="transparent" />
       <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
+
+      {/* Animate opacity of glass background on scroll */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: headerHeight,
+          zIndex: 100,
+          opacity: scrollY.interpolate({
+            inputRange: [0, 50],
+            outputRange: [0, 1],
+            extrapolate: 'clamp',
+          }),
+        }}
+      >
+        <BlurView
+          intensity={80}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Bottom border fade */}
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }} />
+      </Animated.View>
+
       <SafeAreaView style={styles.safeArea}>
         <Stack.Screen options={headerOptions} />
-        {/* Header removed in favor of Native Stack Header */}
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-          {/* --- APPEARANCE --- */}
+        <Animated.ScrollView
+          style={styles.container}
+          contentContainerStyle={[styles.content, { paddingTop: headerHeight + 8 }]} // Add padding to account for header
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+        >
+
+          {/* Appearance Section */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
           </View>
@@ -329,7 +363,7 @@ export const GeneralSettings = () => {
             </View>
           </View>
 
-          {/* --- NOTIFICATIONS --- */}
+          {/* Notifications Section */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
           </View>
@@ -362,7 +396,7 @@ export const GeneralSettings = () => {
             </TouchableOpacity>
           </View>
 
-          {/* --- SUPPORT --- */}
+          {/* Support Section */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
           </View>
@@ -384,7 +418,7 @@ export const GeneralSettings = () => {
             </TouchableOpacity>
           </View>
 
-          {/* --- LEGAL --- */}
+          {/* Legal Section */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
           </View>
@@ -414,7 +448,7 @@ export const GeneralSettings = () => {
             </TouchableOpacity>
           </View>
 
-          {/* --- PRIVACY --- */}
+          {/* Privacy Section */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
           </View>
@@ -454,7 +488,7 @@ export const GeneralSettings = () => {
             </TouchableOpacity>
           </View>
 
-          {/* --- ACCOUNT --- */}
+          {/* Account Section */}
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
           </View>
@@ -484,7 +518,6 @@ export const GeneralSettings = () => {
 
 
 
-          {/* --- FOOTER --- */}
           <View style={styles.footer}>
             <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
             <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
@@ -493,13 +526,12 @@ export const GeneralSettings = () => {
             </View>
           </View>
 
-          {/* --- DELETE ACCOUNT MODAL --- */}
           <DeleteAccountModal
             visible={deleteModalVisible}
             onClose={() => setDeleteModalVisible(false)}
             onConfirmDelete={handleDeleteAccount}
           />
-        </ScrollView>
+        </Animated.ScrollView>
       </SafeAreaView>
     </View>
   );
