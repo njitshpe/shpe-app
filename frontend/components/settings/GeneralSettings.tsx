@@ -421,7 +421,7 @@ export const GeneralSettings = () => {
           <View style={[styles.card, dynamicStyles.card]}>
             <TouchableOpacity
               style={styles.row}
-              onPress={() => router.push('/(app)/settings/blocked-users')}
+              onPress={() => router.push('/(app)/(tabs)/profile/settings/blocked-users')}
             >
               <View style={styles.labelContainer}>
                 <Ionicons name="ban-outline" size={22} color={theme.text} />
@@ -439,7 +439,7 @@ export const GeneralSettings = () => {
 
             <TouchableOpacity
               style={styles.row}
-              onPress={() => router.push('/(app)/settings/my-reports')}
+              onPress={() => router.push('/(app)/(tabs)/profile/settings/my-reports')}
             >
               <View style={styles.labelContainer}>
                 <Ionicons name="flag-outline" size={22} color={theme.text} />

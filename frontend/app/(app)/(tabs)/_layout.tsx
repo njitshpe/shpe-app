@@ -27,10 +27,10 @@ export default function TabsLayout() {
                 },
                 tabBarBackground: () => (
                     // Blur Effect for Glass UI
-                    <BlurView 
-                        intensity={80} 
-                        tint={isDark ? 'dark' : 'light'} 
-                        style={StyleSheet.absoluteFill} 
+                    <BlurView
+                        intensity={80}
+                        tint={isDark ? 'dark' : 'light'}
+                        style={StyleSheet.absoluteFill}
                     />
                 ),
                 tabBarLabelStyle: {
@@ -78,7 +78,7 @@ export default function TabsLayout() {
                 }}
             />
             <Tabs.Screen
-                name="profile/index"
+                name="profile"
                 options={{
                     title: 'PROFILE',
                     tabBarIcon: ({ color, focused }) => (
