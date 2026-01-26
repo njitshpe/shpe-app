@@ -100,6 +100,10 @@ export const GeneralSettings = () => {
         text: "Log Out",
         style: "destructive",
         onPress: async () => {
+          // Navigate back to ensure we don't stay on Settings screen when logging back in
+          if (router.canGoBack()) {
+            router.back();
+          }
           await supabase.auth.signOut();
           router.replace('/(auth)/welcome');
         }
