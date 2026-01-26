@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,9 +20,8 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// --- IMPORTS ---
 import { notificationService } from '@/services/notification.service';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -30,12 +29,14 @@ import { Disclaimer } from './Disclaimer';
 import { LEGAL_URLS } from '@/constants/legal';
 import { DeleteAccountModal } from './DeleteAccountModal';
 import type { DeleteAccountResponse } from '@/types/deleteAccount';
+import { GRADIENTS } from '@/constants/colors';
 
 export const GeneralSettings = () => {
   const router = useRouter();
   const { theme, isDark, setMode, mode } = useTheme();
   const [loading, setLoading] = useState(true);
-  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
+  const headerHeight = insets.top + 44; // Standard iOS header height
   const scrollY = React.useRef(new Animated.Value(0)).current;
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -46,7 +47,7 @@ export const GeneralSettings = () => {
     checkPermissionStatus();
   }, []);
 
-  // Check notification permissions on mount
+  // Check permissions on mount
   const checkPermissionStatus = async () => {
     try {
       const { granted } = await notificationService.checkPermission();
@@ -58,18 +59,10 @@ export const GeneralSettings = () => {
     }
   };
 
-  // Configure navigation header options
   const headerOptions = {
-    title: 'Settings',
-    headerShown: true,
-    headerTransparent: true,
-    headerTintColor: theme.text,
-    headerBackTitleVisible: false,
-    headerBackTitle: '',
-    headerStyle: { backgroundColor: 'transparent' },
+    headerShown: false,
   };
 
-  // Handle notification toggle
   const handleToggleNotifications = async () => {
     if (notificationsEnabled) {
       // Guide user to settings since we cannot programmatically revoke permissions
@@ -100,7 +93,6 @@ export const GeneralSettings = () => {
     }
   };
 
-  // Handle user logout
   const handleLogout = async () => {
     Alert.alert("Log Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
@@ -115,7 +107,6 @@ export const GeneralSettings = () => {
     ]);
   };
 
-  // Handle account deletion
   const handleDeleteAccount = async () => {
     try {
       // Get current user session and refresh if needed
@@ -138,8 +129,8 @@ export const GeneralSettings = () => {
         return;
       }
 
-      // Call the delete-account edge function using fetch directly
-      // supabase.functions.invoke can fail to pass headers correctly in React Native
+      // We use fetch here instead of supabase.functions.invoke because the latter
+      // sometimes fails to pass headers correctly in this specific React Native environment.
       const functionUrl = `${supabaseUrl}/functions/v1/delete-account`;
 
       // Force refresh the session to ensure we have a fresh token
@@ -212,11 +203,11 @@ export const GeneralSettings = () => {
       : undefined);
   const versionLabel = `Version ${version}`;
 
-  const gradientColors = isDark
+  const gradientColors = useMemo(() => isDark
     ? (['#1a1a1a', '#000000'] as const)
-    : (['#FFFFFF', '#F2F2F7'] as const);
+    : (['#FFFFFF', '#F2F2F7'] as const), [isDark]);
 
-  const dynamicStyles = {
+  const dynamicStyles = useMemo(() => ({
     sectionTitle: { color: theme.subtext },
     card: {
       backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
@@ -265,7 +256,7 @@ export const GeneralSettings = () => {
         shadowRadius: 8,
         elevation: 2,
       },
-  };
+  }), [isDark, theme]);
 
   const statusBarStyle = isDark ? 'light-content' : 'dark-content';
 
@@ -293,30 +284,55 @@ export const GeneralSettings = () => {
       <StatusBar barStyle={statusBarStyle} translucent backgroundColor="transparent" />
       <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
 
-      {/* Animate opacity of glass background on scroll */}
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: headerHeight,
-          zIndex: 100,
-          opacity: scrollY.interpolate({
-            inputRange: [0, 50],
-            outputRange: [0, 1],
-            extrapolate: 'clamp',
-          }),
-        }}
-      >
-        <BlurView
-          intensity={80}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Bottom border fade */}
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }} />
-      </Animated.View>
+      {/* Custom Header Container */}
+      <View style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: headerHeight,
+        zIndex: 100,
+      }}>
+        {/* Background Layer (Fades In) */}
+        <Animated.View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            opacity: scrollY.interpolate({
+              inputRange: [0, 40],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+          }}
+        >
+          <BlurView
+            intensity={80}
+            tint={isDark ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+          {/* Bottom border */}
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }} />
+        </Animated.View>
+
+        {/* Foreground Layer (Directly in Header Container, always visible) */}
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <View style={{ height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 }}>
+            {/* Back Button */}
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                position: 'absolute',
+                left: 16,
+                padding: 4,
+              }}
+            >
+              <Ionicons name="chevron-back" size={28} color={theme.text} />
+            </TouchableOpacity>
+
+            {/* Title */}
+            <Text style={{ fontSize: 17, fontWeight: '600', color: theme.text }}>Settings</Text>
+          </View>
+        </View>
+      </View>
 
       <SafeAreaView style={styles.safeArea} edges={['left', 'right', 'bottom']}>
         <Stack.Screen options={headerOptions} />
@@ -365,7 +381,7 @@ export const GeneralSettings = () => {
             <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
               <View style={styles.labelContainer}>
                 <Ionicons name="trash-outline" size={22} color={theme.error} />
-                <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>Delete Account</Text>
               </View>
               <Ionicons name="chevron-forward" size={22} color={theme.subtext} />
             </TouchableOpacity>
@@ -640,7 +656,7 @@ const styles = StyleSheet.create({
   },
   segmentedControl: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: 24,
     padding: 4,
     height: 40,
     backgroundColor: 'rgba(0,0,0,0.2)',
@@ -649,7 +665,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 20,
   },
   segmentButtonActive: {
     backgroundColor: 'rgba(255,255,255,0.15)',
