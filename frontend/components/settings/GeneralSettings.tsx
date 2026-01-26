@@ -278,7 +278,7 @@ export const GeneralSettings = () => {
     );
   }
 
-  const APP_STORE_URL = 'https://apps.apple.com/us/app/shpe-njit/id6757627370';
+  const APP_STORE_URL = 'https://apps.apple.com/us/app/shpe-njit/id6757627370?action=write-review';
   const SHPE_WEBSITE_URL = 'https://www.shpenjit.org/';
   const INSTAGRAM_URL = 'https://www.instagram.com/njitshpe';
   const LINKEDIN_URL = 'https://www.linkedin.com/in/njitshpe/';
@@ -532,7 +532,15 @@ export const GeneralSettings = () => {
             <View style={styles.logoContainer}>
               <Image
                 source={require('../../assets/shpe-horizontal.webp')}
-                style={styles.logo}
+                style={[
+                  styles.logo,
+                  !isDark && {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.90,
+                    shadowRadius: 2,
+                  }
+                ]}
                 resizeMode="contain"
               />
             </View>
