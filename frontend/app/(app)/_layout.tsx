@@ -22,6 +22,12 @@ export default function AppLayout() {
                     presentation: 'modal',
                 }}
             />
+            <Stack.Screen
+                name="settings"
+                options={{
+                    presentation: 'card',
+                }}
+            />
 
         </Stack>
     );
