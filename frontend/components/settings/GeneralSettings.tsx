@@ -11,7 +11,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -51,6 +51,18 @@ export const GeneralSettings = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- NAV OPTIONS ---
+  // Dynamic header configuration
+  // We use a small timeout or effect to ensure theme is ready, but typically it renders with the component.
+  const headerOptions = {
+    title: 'Settings',
+    headerShown: true,
+    headerTransparent: true,
+    headerTintColor: theme.text, // Dynamic color
+    headerBackTitleVisible: false, // Hide back title
+    headerStyle: { backgroundColor: 'transparent' },
   };
 
   // --- 2. HANDLE ENABLE REQUEST ---
@@ -210,11 +222,11 @@ export const GeneralSettings = () => {
       ...(isDark
         ? null
         : {
-            shadowColor: '#000',
-            shadowOpacity: 0.05,
-            shadowRadius: 10,
-            elevation: 2,
-          }),
+          shadowColor: '#000',
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+          elevation: 2,
+        }),
     },
     text: { color: theme.text },
     subtext: { color: theme.subtext },
@@ -227,11 +239,11 @@ export const GeneralSettings = () => {
       ...(isDark
         ? null
         : {
-            shadowColor: '#000',
-            shadowOpacity: 0.05,
-            shadowRadius: 10,
-            elevation: 2,
-          }),
+          shadowColor: '#000',
+          shadowOpacity: 0.05,
+          shadowRadius: 10,
+          elevation: 2,
+        }),
     },
     backButtonText: { color: theme.text },
     segmentedControl: {
@@ -239,17 +251,17 @@ export const GeneralSettings = () => {
     },
     segmentActive: isDark
       ? {
-          backgroundColor: 'rgba(255,255,255,0.15)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.2)',
-        }
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+      }
       : {
-          backgroundColor: '#FFFFFF',
-          shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 2,
-        },
+        backgroundColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 2,
+      },
   };
 
   const statusBarStyle = isDark ? 'light-content' : 'dark-content';
@@ -273,229 +285,220 @@ export const GeneralSettings = () => {
       <StatusBar barStyle={statusBarStyle} translucent backgroundColor="transparent" />
       <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFillObject} />
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>SETTINGS</Text>
-        </View>
+        <Stack.Screen options={headerOptions} />
+        {/* Header removed in favor of Native Stack Header */}
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-        {/* --- APPEARANCE --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
-        </View>
-        <View style={[styles.card, dynamicStyles.card]}>
-          <View style={styles.themeSelectorContainer}>
-            <View style={styles.labelContainer}>
-              <Ionicons
-                name={mode === 'dark' ? "moon" : mode === 'light' ? "sunny" : "settings-sharp"}
-                size={22}
-                color={theme.text}
-              />
-              <View>
-                <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
+          {/* --- APPEARANCE --- */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>APPEARANCE</Text>
+          </View>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <View style={styles.themeSelectorContainer}>
+              <View style={styles.labelContainer}>
+                <Ionicons
+                  name={mode === 'dark' ? "moon" : mode === 'light' ? "sunny" : "settings-sharp"}
+                  size={22}
+                  color={theme.text}
+                />
+                <View>
+                  <Text style={[styles.rowLabel, dynamicStyles.text]}>App Theme</Text>
+                </View>
               </View>
-            </View>
-            <View style={[styles.segmentedControl, dynamicStyles.segmentedControl]}>
-              {(['light', 'dark', 'system'] as const).map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[
-                    styles.segmentButton,
-                    mode === m && dynamicStyles.segmentActive,
-                  ]}
-                  onPress={() => setMode(m)}
-                >
-                  <Text
+              <View style={[styles.segmentedControl, dynamicStyles.segmentedControl]}>
+                {(['light', 'dark', 'system'] as const).map((m) => (
+                  <TouchableOpacity
+                    key={m}
                     style={[
-                      styles.segmentText,
-                      { color: mode === m ? theme.text : theme.subtext },
+                      styles.segmentButton,
+                      mode === m && dynamicStyles.segmentActive,
                     ]}
+                    onPress={() => setMode(m)}
                   >
-                    {m}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        { color: mode === m ? theme.text : theme.subtext },
+                      ]}
+                    >
+                      {m}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* --- NOTIFICATIONS --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
-        </View>
-        <View style={[styles.card, dynamicStyles.card]}>
-          <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
-            <View style={styles.labelContainer}>
+          {/* --- NOTIFICATIONS --- */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>NOTIFICATIONS</Text>
+          </View>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
+              <View style={styles.labelContainer}>
+                <Ionicons
+                  name={notificationsEnabled ? "notifications" : "notifications-off"}
+                  size={22}
+                  color={theme.text}
+                />
+                <View>
+                  <Text style={[styles.rowLabel, dynamicStyles.text]}>
+                    {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
+                  </Text>
+                  <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                    {notificationsEnabled
+                      ? "Tap to manage in settings"
+                      : "Tap to allow permission"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Visual Indicator of state */}
               <Ionicons
-                name={notificationsEnabled ? "notifications" : "notifications-off"}
+                name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"}
                 size={22}
                 color={theme.text}
               />
-              <View>
-                <Text style={[styles.rowLabel, dynamicStyles.text]}>
-                  {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
-                </Text>
-                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                  {notificationsEnabled
-                    ? "Tap to manage in settings"
-                    : "Tap to allow permission"}
-                </Text>
-              </View>
-            </View>
-
-            {/* Visual Indicator of state */}
-            <Ionicons
-              name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"}
-              size={22}
-              color={theme.text}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* --- SUPPORT --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
-        </View>
-        <View style={[styles.card, dynamicStyles.card]}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => Linking.openURL('mailto:njitshpe@gmail.com?subject=App Support Request')}
-          >
-            <View style={styles.labelContainer}>
-              <Ionicons name="mail-outline" size={22} color={theme.text} />
-              <View>
-                <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
-                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                  Report or ask questions - njitshpe@gmail.com
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={theme.text} />
-          </TouchableOpacity>
-        </View>
-
-        {/* --- LEGAL --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
-        </View>
-        <View style={[styles.card, dynamicStyles.card]}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
-          >
-            <View style={styles.labelContainer}>
-              <Ionicons name="document-text-outline" size={22} color={theme.text} />
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={theme.text} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, dynamicStyles.divider]} />
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
-          >
-            <View style={styles.labelContainer}>
-              <Ionicons name="shield-checkmark-outline" size={22} color={theme.text} />
-              <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={theme.text} />
-          </TouchableOpacity>
-        </View>
-
-        {/* --- PRIVACY --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
-        </View>
-        <View style={[styles.card, dynamicStyles.card]}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/(app)/settings/blocked-users')}
-          >
-            <View style={styles.labelContainer}>
-              <Ionicons name="ban-outline" size={22} color={theme.text} />
-              <View>
-                <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
-                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                  Manage users you have blocked
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={theme.text} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, dynamicStyles.divider]} />
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/(app)/settings/my-reports')}
-          >
-            <View style={styles.labelContainer}>
-              <Ionicons name="flag-outline" size={22} color={theme.text} />
-              <View>
-                <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
-                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                  View reports you have submitted
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={theme.text} />
-          </TouchableOpacity>
-        </View>
-
-        {/* --- ACCOUNT --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
-        </View>
-        <View style={[styles.card, dynamicStyles.card]}>
-          <TouchableOpacity style={styles.row} onPress={handleLogout}>
-            <View style={styles.labelContainer}>
-              <Ionicons name="log-out-outline" size={22} color={theme.error} />
-              <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
-            </View>
-          </TouchableOpacity>
-
-          <View style={[styles.divider, dynamicStyles.divider]} />
-
-          <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
-            <View style={styles.labelContainer}>
-              <Ionicons name="trash-outline" size={22} color={theme.error} />
-              <View>
-                <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
-                <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
-                  Permanently delete your account and data
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={theme.error} />
-          </TouchableOpacity>
-        </View>
-
-        {/* --- RETURN BUTTON --- */}
-        <TouchableOpacity
-          style={[styles.backButton, dynamicStyles.backButton]}
-          onPress={() => router.replace('/(tabs)/profile')}
-        >
-          <Text style={[styles.backButtonText, dynamicStyles.backButtonText]}>
-            Return to Profile
-          </Text>
-        </TouchableOpacity>
-
-        {/* --- FOOTER --- */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
-          <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
-          <View style={styles.footerDisclaimer}>
-            <Disclaimer />
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* --- DELETE ACCOUNT MODAL --- */}
-        <DeleteAccountModal
-          visible={deleteModalVisible}
-          onClose={() => setDeleteModalVisible(false)}
-          onConfirmDelete={handleDeleteAccount}
-        />
+          {/* --- SUPPORT --- */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>SUPPORT</Text>
+          </View>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => Linking.openURL('mailto:njitshpe@gmail.com?subject=App Support Request')}
+            >
+              <View style={styles.labelContainer}>
+                <Ionicons name="mail-outline" size={22} color={theme.text} />
+                <View>
+                  <Text style={[styles.rowLabel, dynamicStyles.text]}>Contact Support</Text>
+                  <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                    Report or ask questions - njitshpe@gmail.com
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* --- LEGAL --- */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>LEGAL</Text>
+          </View>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.terms)}
+            >
+              <View style={styles.labelContainer}>
+                <Ionicons name="document-text-outline" size={22} color={theme.text} />
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>Terms of Use</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={theme.text} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, dynamicStyles.divider]} />
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => WebBrowser.openBrowserAsync(LEGAL_URLS.privacy)}
+            >
+              <View style={styles.labelContainer}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={theme.text} />
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>Privacy Policy</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* --- PRIVACY --- */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>PRIVACY</Text>
+          </View>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push('/(app)/settings/blocked-users')}
+            >
+              <View style={styles.labelContainer}>
+                <Ionicons name="ban-outline" size={22} color={theme.text} />
+                <View>
+                  <Text style={[styles.rowLabel, dynamicStyles.text]}>Blocked Users</Text>
+                  <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                    Manage users you have blocked
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={theme.text} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, dynamicStyles.divider]} />
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push('/(app)/settings/my-reports')}
+            >
+              <View style={styles.labelContainer}>
+                <Ionicons name="flag-outline" size={22} color={theme.text} />
+                <View>
+                  <Text style={[styles.rowLabel, dynamicStyles.text]}>My Reports</Text>
+                  <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                    View reports you have submitted
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* --- ACCOUNT --- */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>ACCOUNT</Text>
+          </View>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <TouchableOpacity style={styles.row} onPress={handleLogout}>
+              <View style={styles.labelContainer}>
+                <Ionicons name="log-out-outline" size={22} color={theme.error} />
+                <Text style={[styles.rowLabel, { color: theme.error }]}>Log Out</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={[styles.divider, dynamicStyles.divider]} />
+
+            <TouchableOpacity style={styles.row} onPress={() => setDeleteModalVisible(true)}>
+              <View style={styles.labelContainer}>
+                <Ionicons name="trash-outline" size={22} color={theme.error} />
+                <View>
+                  <Text style={[styles.rowLabel, { color: theme.error }]}>Delete Account</Text>
+                  <Text style={[styles.rowSubLabel, dynamicStyles.subtext]}>
+                    Permanently delete your account and data
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color={theme.error} />
+            </TouchableOpacity>
+          </View>
+
+
+
+          {/* --- FOOTER --- */}
+          <View style={styles.footer}>
+            <Text style={[styles.footerAppName, dynamicStyles.subtext]}>{appName}</Text>
+            <Text style={[styles.footerVersion, dynamicStyles.subtext]}>{versionLabel}</Text>
+            <View style={styles.footerDisclaimer}>
+              <Disclaimer />
+            </View>
+          </View>
+
+          {/* --- DELETE ACCOUNT MODAL --- */}
+          <DeleteAccountModal
+            visible={deleteModalVisible}
+            onClose={() => setDeleteModalVisible(false)}
+            onConfirmDelete={handleDeleteAccount}
+          />
         </ScrollView>
       </SafeAreaView>
     </View>
