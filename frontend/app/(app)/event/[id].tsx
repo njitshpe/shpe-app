@@ -277,17 +277,40 @@ export default function EventDetailScreen() {
   };
 
   /**
-   * Handle Add to Calendar
+   * Handle Add to Apple Calendar
    */
-  const handleAddToCalendar = async () => {
+  const handleAddToAppleCalendar = async () => {
     if (!event) return;
 
-    await deviceCalendarService.addToCalendar({
+    const descriptionWithLocation = event.locationName
+      ? `${event.description}\n\nLocation: ${event.locationName}`
+      : event.description;
+
+    await deviceCalendarService.addToDeviceCalendar({
       title: event.title,
       startDate: event.startTimeISO,
       endDate: event.endTimeISO,
       location: event.address || event.locationName,
-      notes: event.description,
+      notes: descriptionWithLocation,
+    });
+  };
+
+  /**
+   * Handle Add to Google Calendar
+   */
+  const handleAddToGoogleCalendar = async () => {
+    if (!event) return;
+
+    const descriptionWithLocation = event.locationName
+      ? `${event.description}\n\nLocation: ${event.locationName}`
+      : event.description;
+
+    await deviceCalendarService.addToGoogleCalendar({
+      title: event.title,
+      startDate: event.startTimeISO,
+      endDate: event.endTimeISO,
+      location: event.address || event.locationName,
+      notes: descriptionWithLocation,
     });
   };
 
@@ -626,7 +649,8 @@ export default function EventDetailScreen() {
         visible={showMoreMenu}
         onClose={() => setShowMoreMenu(false)}
         isRegistered={isRegistered}
-        onAddToCalendar={handleAddToCalendar}
+        onAddToAppleCalendar={handleAddToAppleCalendar}
+        onAddToGoogleCalendar={handleAddToGoogleCalendar}
         onCancelRegistration={handleCancelRegistration}
       />
       {isCurrentUserAdmin && event && (
