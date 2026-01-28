@@ -39,18 +39,17 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#000000"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "com.shpenjit.officialapp",
-      "permissions": [
-        "CAMERA",
-        "READ_CALENDAR",
-        "WRITE_CALENDAR",
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA"
-      ]
+    },
+    "edgeToEdgeEnabled": true,
+    "predictiveBackGestureEnabled": false,
+    "package": "com.shpenjit.officialapp",
+    "permissions": [
+      "android.permission.CAMERA",
+      "android.permission.READ_CALENDAR",
+      "android.permission.WRITE_CALENDAR",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.RECORD_AUDIO"
+    ]
     },
     "notification": {
       "icon": "./assets/app-icon.png",
