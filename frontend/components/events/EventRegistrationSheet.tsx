@@ -1,22 +1,36 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     Pressable,
-    ScrollView,
     Modal,
     TextInput,
     KeyboardAvoidingView,
     Platform,
-    Alert,
+    Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Event } from '@/types/events';
 import { formatDateHeader, formatTime } from '@/utils';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    runOnJS,
+    interpolate,
+    Extrapolation,
+    useAnimatedScrollHandler,
+} from 'react-native-reanimated';
+import { GestureDetector, Gesture, ScrollView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 interface EventRegistrationSheetProps {
     visible: boolean;
@@ -26,6 +40,10 @@ interface EventRegistrationSheetProps {
     isSubmitting?: boolean;
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export default function EventRegistrationSheet({
     visible,
     event,
@@ -34,12 +52,24 @@ export default function EventRegistrationSheet({
     isSubmitting = false,
 }: EventRegistrationSheetProps) {
     const { theme } = useTheme();
+    const insets = useSafeAreaInsets();
     const [answers, setAnswers] = useState<Record<string, string>>({});
 
-    // Reset answers when modal opens
-    React.useEffect(() => {
+    // Refs
+    const scrollRef = useRef(null);
+
+    // Animations
+    const translateY = useSharedValue(0);
+    const scrollY = useSharedValue(0);
+    const startScrollY = useSharedValue(0);
+    const buttonScale = useSharedValue(1);
+
+    // Reset answers/animations when modal opens
+    useEffect(() => {
         if (visible) {
             setAnswers({});
+            translateY.value = SCREEN_HEIGHT;
+            translateY.value = withTiming(0, { duration: 250 });
         }
     }, [visible]);
 
@@ -48,9 +78,10 @@ export default function EventRegistrationSheet({
     const SUBTEXT_COLOR = 'rgba(255,255,255, 0.6)';
     const BORDER_COLOR = 'rgba(255,255,255, 0.15)';
     const GLASS_BG = 'rgba(255,255,255, 0.1)';
-    const PRIMARY_COLOR = theme.primary; // Keep brand color
+    const PRIMARY_COLOR = theme.primary;
 
     const hasQuestions = event.registration_questions && event.registration_questions.length > 0;
+    const isDirty = Object.keys(answers).filter(k => answers[k]?.trim().length > 0).length > 0;
 
     const handleUpdateAnswer = (questionId: string, value: string) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -68,6 +99,81 @@ export default function EventRegistrationSheet({
 
     const handleSubmit = () => {
         onSubmit(answers);
+    };
+
+    // Gesture Logic
+    const pan = Gesture.Pan()
+        .enabled(!isDirty)
+        .simultaneousWithExternalGesture(scrollRef)
+        .onStart(() => {
+            startScrollY.value = scrollY.value;
+        })
+        .onChange((event) => {
+            // Only allow dragging down (positive translation)
+
+            // If we started scrolling while content was not at top, 
+            // disable sheet dragging to prevent accidental closes while scrolling up
+            if (startScrollY.value > 0) {
+                return;
+            }
+
+            if (event.changeY + translateY.value > 0) {
+                // Simple physics: logic to prevent dragging up beyond 0
+            }
+            if (event.translationY > 0) {
+                translateY.value = event.translationY;
+            } else {
+                // If translation is negative (scrolling up), we keep sheet at 0
+                translateY.value = 0;
+            }
+        })
+        .onEnd((event) => {
+            if (startScrollY.value > 0) return;
+
+            if (event.translationY > 150 || event.velocityY > 500) {
+                translateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 }, () => {
+                    runOnJS(onClose)();
+                });
+            } else {
+                translateY.value = withTiming(0, { duration: 300 });
+            }
+        });
+
+    const onScroll = useAnimatedScrollHandler((event) => {
+        scrollY.value = event.contentOffset.y;
+    });
+
+    const animatedSheetStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateY: translateY.value }],
+        };
+    });
+
+    const animatedBackdropStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(
+            translateY.value,
+            [0, SCREEN_HEIGHT * 0.5],
+            [1, 0],
+            Extrapolation.CLAMP
+        );
+        return {
+            opacity,
+        };
+    });
+
+    const animatedButtonStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ scale: buttonScale.value }],
+        };
+    });
+
+    const handlePressIn = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        buttonScale.value = withSpring(0.95);
+    };
+
+    const handlePressOut = () => {
+        buttonScale.value = withSpring(1);
     };
 
     const renderQuestion = (question: any) => {
@@ -136,105 +242,174 @@ export default function EventRegistrationSheet({
             </View>
         );
     };
+
     return (
         <Modal
             visible={visible}
-            animationType="slide"
+            animationType="none"
             transparent={true}
             presentationStyle="overFullScreen"
-            onRequestClose={onClose}
+            onRequestClose={() => !isDirty && onClose()}
+            statusBarTranslucent
         >
-            <BlurView
-                intensity={80}
-                tint="dark"
-                style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.2)' }]}
-            >
+            <View style={styles.container}>
+                {/* Backdrop */}
+                <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => !isDirty && onClose()} />
+                </Animated.View>
 
-                {/* HEADER */}
-                <View style={[styles.header, { borderBottomColor: BORDER_COLOR }]}>
-                    <View style={styles.headerLeft}>
-                        {event.coverImageUrl ? (
-                            <Image source={event.coverImageUrl} style={styles.headerImage} contentFit="cover" />
-                        ) : (
-                            <View style={[styles.headerPlaceholder, { backgroundColor: PRIMARY_COLOR }]}>
-                                <Ionicons name="calendar" size={24} color="#fff" />
-                            </View>
-                        )}
-                        <Text style={[styles.headerTitle, { color: TEXT_COLOR }]} numberOfLines={2}>
-                            {event.title}
-                        </Text>
-                    </View>
-
-                    <Pressable onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close-circle" size={30} color={SUBTEXT_COLOR} />
-                    </Pressable>
-                </View>
-
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={{ flex: 1 }}
-                >
-                    <ScrollView
-                        style={styles.content}
-                        contentContainerStyle={{ paddingBottom: 100 }}
-                        showsVerticalScrollIndicator={false}
-                    >
-
-                        {hasQuestions ? (
-                            // SCENARIO A: QUESTIONS
-                            <View style={styles.questionsList}>
-                                <Text style={[styles.sectionTitle, { color: TEXT_COLOR }]}>Registration Questions</Text>
-
-                                {event.registration_questions?.map(renderQuestion)}
-                            </View>
-                        ) : (
-                            // SCENARIO B: SIMPLE CONFIRMATION
-                            <View style={styles.confirmContainer}>
-                                <View style={[styles.iconContainer, { backgroundColor: GLASS_BG }]}>
-                                    <Ionicons name="calendar-outline" size={60} color={TEXT_COLOR} />
-                                </View>
-
-                                <Text style={[styles.confirmTitle, { color: TEXT_COLOR }]}>Confirm Registration</Text>
-                                <Text style={[styles.confirmText, { color: SUBTEXT_COLOR }]}>
-                                    You are about to register for this event.
-                                </Text>
-
-                                <View style={[styles.infoCard, { backgroundColor: GLASS_BG }]}>
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="time-outline" size={20} color={PRIMARY_COLOR} />
-                                        <Text style={[styles.infoText, { color: TEXT_COLOR }]}>
-                                            {formatDateHeader(event.startTimeISO)} • {formatTime(event.startTimeISO)}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="location-outline" size={20} color={PRIMARY_COLOR} />
-                                        <Text style={[styles.infoText, { color: TEXT_COLOR }]} numberOfLines={1}>
-                                            {event.locationName}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        )}
-
-                        {/* INLINE SUBMIT BUTTON */}
-                        <Pressable
+                {/* Sheet */}
+                <GestureDetector gesture={pan}>
+                    <Animated.View style={[styles.sheetContainer, animatedSheetStyle]}>
+                        <BlurView
+                            intensity={80}
+                            tint="dark"
                             style={[
-                                styles.submitButton,
-                                { backgroundColor: TEXT_COLOR, marginTop: 40 },
-                                (!isFormValid() || isSubmitting) && { opacity: 0.5 }
+                                styles.blurContent,
+                                {
+                                    paddingTop: insets.top, // Handle safe area properly
+                                    backgroundColor: 'rgba(20,20,20,0.6)' // Slightly darker base
+                                }
                             ]}
-                            onPress={handleSubmit}
-                            disabled={!isFormValid() || isSubmitting}
                         >
-                            <Text style={[styles.submitButtonText, { color: '#000000' }]}>
-                                {isSubmitting ? 'Processing...' : (hasQuestions ? 'Submit Answer' : 'Confirm Registration')}
-                            </Text>
-                        </Pressable>
+                            {/* PILL HANDLE */}
+                            {!isDirty && (
+                                <View style={styles.pillContainer}>
+                                    <View style={styles.pill} />
+                                </View>
+                            )}
 
-                    </ScrollView>
+                            {/* HEADER */}
+                            <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
+                                {hasQuestions && (
+                                    <Text style={[styles.headerTitle, { color: TEXT_COLOR }]}>
+                                        Registration
+                                    </Text>
+                                )}
 
-                </KeyboardAvoidingView>
-            </BlurView>
+                                <Pressable onPress={onClose} style={styles.closeButton}>
+                                    <Ionicons name="close-circle" size={30} color={SUBTEXT_COLOR} />
+                                </Pressable>
+                            </View>
+
+                            <KeyboardAvoidingView
+                                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                                style={{ flex: 1 }}
+                            >
+                                <AnimatedScrollView
+                                    ref={scrollRef}
+                                    style={styles.content}
+                                    contentContainerStyle={{ paddingBottom: 100 }}
+                                    showsVerticalScrollIndicator={false}
+                                    bounces={false}
+                                    onScroll={onScroll}
+                                    scrollEventThrottle={16}
+                                >
+
+                                    {hasQuestions ? (
+                                        // SCENARIO A: QUESTIONS
+                                        <View style={styles.questionsList}>
+                                            {/* Event Info Header */}
+                                            <View style={styles.eventInfoContainer}>
+                                                {event.coverImageUrl ? (
+                                                    <Image source={event.coverImageUrl} style={styles.eventInfoImage} contentFit="cover" />
+                                                ) : (
+                                                    <View style={[styles.eventInfoPlaceholder, { backgroundColor: PRIMARY_COLOR }]}>
+                                                        <Ionicons name="calendar" size={24} color="#fff" />
+                                                    </View>
+                                                )}
+                                                <View style={styles.eventInfoTextContainer}>
+                                                    <Text style={[styles.eventInfoTitle, { color: TEXT_COLOR }]}>
+                                                        {event.title}
+                                                    </Text>
+                                                    <View style={styles.eventInfoRow}>
+                                                        <Ionicons name="time-outline" size={14} color={SUBTEXT_COLOR} style={{ marginRight: 4 }} />
+                                                        <Text style={[styles.eventInfoTime, { color: SUBTEXT_COLOR }]}>
+                                                            {formatDateHeader(event.startTimeISO)} • {formatTime(event.startTimeISO)}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+
+                                            <View style={[styles.divider, { backgroundColor: BORDER_COLOR, marginBottom: 12, marginHorizontal: 0 }]} />
+
+                                            {/* Subtitle removed if header handles it, or kept for context? User asked for header "Registration". 
+                                                The previous "Registration Questions" title might be redundant now. I'll keep it simple/clean. 
+                                            */}
+                                            <Text style={[styles.sectionTitle, { color: TEXT_COLOR }]}>
+                                                Registration Questions
+                                            </Text>
+
+                                            {event.registration_questions?.map(renderQuestion)}
+                                        </View>
+                                    ) : (
+                                        // SCENARIO B: SIMPLE CONFIRMATION
+                                        <View style={styles.confirmContainer}>
+                                            {event.coverImageUrl ? (
+                                                <Image
+                                                    source={event.coverImageUrl}
+                                                    style={{
+                                                        width: 200,
+                                                        height: 200,
+                                                        borderRadius: 20,
+                                                        marginBottom: 24,
+                                                        backgroundColor: '#333',
+                                                        shadowColor: "#000",
+                                                        shadowOffset: {
+                                                            width: 0,
+                                                            height: 4,
+                                                        },
+                                                        shadowOpacity: 0.30,
+                                                        shadowRadius: 4.65,
+                                                    }}
+                                                    contentFit="cover"
+                                                />
+                                            ) : (
+                                                <View style={[styles.iconContainer, { backgroundColor: GLASS_BG, width: 120, height: 120, borderRadius: 60, marginBottom: 24 }]}>
+                                                    <Ionicons name="calendar-outline" size={60} color={TEXT_COLOR} />
+                                                </View>
+                                            )}
+
+                                            <Text style={[styles.confirmTitle, { color: TEXT_COLOR, textAlign: 'center', fontSize: 24, marginBottom: 8 }]}>
+                                                {event.title}
+                                            </Text>
+
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', opacity: 0.8 }}>
+                                                <Text style={{ fontSize: 16, color: TEXT_COLOR, fontWeight: '500' }}>
+                                                    {formatDateHeader(event.startTimeISO)} • {formatTime(event.startTimeISO)}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    )}
+
+                                </AnimatedScrollView>
+
+                                {/* STICKY FOOTER */}
+                                <View style={[styles.footer, { borderTopWidth: 0, backgroundColor: 'rgba(20,20,20,0.4)' }]}>
+                                    <AnimatedPressable
+                                        style={[
+                                            styles.submitButton,
+                                            { backgroundColor: TEXT_COLOR },
+                                            (!isFormValid() || isSubmitting) && { opacity: 0.5 },
+                                            animatedButtonStyle
+                                        ]}
+                                        onPress={handleSubmit}
+                                        onPressIn={handlePressIn}
+                                        onPressOut={handlePressOut}
+                                        disabled={!isFormValid() || isSubmitting}
+                                    >
+                                        <Text style={[styles.submitButtonText, { color: '#000000' }]}>
+                                            {isSubmitting ? 'Processing...' : (hasQuestions ? 'Submit Answer' : 'Confirm Registration')}
+                                        </Text>
+                                    </AnimatedPressable>
+                                </View>
+
+
+                            </KeyboardAvoidingView>
+                        </BlurView>
+                    </Animated.View>
+                </GestureDetector>
+            </View>
         </Modal>
     );
 }
@@ -242,55 +417,100 @@ export default function EventRegistrationSheet({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        justifyContent: 'flex-end',
+    },
+    backdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    sheetContainer: {
+        flex: 1, // Take full height to allow dragging entire thing
+        justifyContent: 'flex-end',
+    },
+    blurContent: {
+        flex: 1,
+        borderTopLeftRadius: 30, // Rounded top corners for sheet look
+        borderTopRightRadius: 30,
+        overflow: 'hidden',
+    },
+    pillContainer: {
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingBottom: 5,
+    },
+    pill: {
+        width: 40,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.4)',
     },
     header: {
-        padding: 16,
+        padding: 12,
+        paddingTop: 10, // Adjust for pill
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-        marginRight: 10,
-    },
-    headerImage: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        marginRight: 12,
-        backgroundColor: '#eee',
-    },
-    headerPlaceholder: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        marginRight: 12,
         alignItems: 'center',
         justifyContent: 'center',
+        borderBottomWidth: 0,
+        borderBottomColor: 'transparent',
     },
     headerTitle: {
         fontSize: 18,
         fontWeight: '700',
-        flex: 1,
     },
     closeButton: {
         padding: 4,
+        position: 'absolute',
+        right: 16,
+        top: 12,
+    },
+    // Event Info Styles
+    eventInfoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    eventInfoImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 12,
+        backgroundColor: '#eee',
+    },
+    eventInfoPlaceholder: {
+        width: 60,
+        height: 60,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    eventInfoTextContainer: {
+        flex: 1,
+        marginLeft: 12,
+        justifyContent: 'center',
+    },
+    eventInfoTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    eventInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    eventInfoTime: {
+        fontSize: 14,
+        fontWeight: '400',
     },
     content: {
         flex: 1,
-        padding: 24,
+        padding: 16,
     },
     footer: {
-        padding: 20,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+        padding: 16,
+        paddingBottom: Platform.OS === 'ios' ? 30 : 16,
         borderTopWidth: 1,
     },
     submitButton: {
-        paddingVertical: 18,
+        paddingVertical: 16,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
@@ -302,11 +522,11 @@ const styles = StyleSheet.create({
 
     // QUESTIONS STYLES
     questionsList: {
-        gap: 24,
+        gap: 16,
     },
     sectionTitle: {
-        fontSize: 22,
-        fontWeight: '700',
+        fontSize: 18,
+        fontWeight: '600',
         marginBottom: 4,
     },
     subtitle: {
@@ -315,7 +535,7 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
     questionContainer: {
-        gap: 10,
+        gap: 8,
     },
     questionLabel: {
         fontSize: 16,
@@ -323,7 +543,7 @@ const styles = StyleSheet.create({
     },
     input: {
         borderRadius: 12,
-        padding: 14,
+        padding: 12,
         fontSize: 16,
         minHeight: 50,
     },
@@ -334,19 +554,19 @@ const styles = StyleSheet.create({
     optionRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
     },
     divider: {
         height: 1,
-        marginHorizontal: 16,
+        marginHorizontal: 8,
     },
 
     // CONFIRM STYLES
     confirmContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: 40,
+        paddingTop: 24,
     },
     iconContainer: {
         width: 100,
@@ -383,3 +603,4 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 });
+
