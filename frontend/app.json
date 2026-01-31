@@ -36,20 +36,20 @@
       }
     },
     "android": {
+      "package": "com.shpenjit.officialapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#000000"
-    },
-    "edgeToEdgeEnabled": true,
-    "predictiveBackGestureEnabled": false,
-    "package": "com.shpenjit.officialapp",
-    "permissions": [
-      "android.permission.CAMERA",
-      "android.permission.READ_CALENDAR",
-      "android.permission.WRITE_CALENDAR",
-      "android.permission.POST_NOTIFICATIONS",
-      "android.permission.RECORD_AUDIO"
-    ]
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "notification": {
       "icon": "./assets/app-icon.png",
@@ -84,6 +84,15 @@
         "expo-calendar",
         {
           "calendarPermission": "This app needs calendar access to add events to your calendar."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.21",
+            "javaVersion": 17
+          }
         }
       ]
     ],
