@@ -77,13 +77,13 @@ export default function EventRegistrationSheet({
 
         return (
             <View key={question.id} style={styles.questionContainer}>
-                <Text style={[styles.questionLabel, { color: TEXT_COLOR }]}>
+                <Text style={[styles.questionLabel, { color: SUBTEXT_COLOR }]}>
                     {question.prompt || question.label}
                     {question.required && <Text style={{ color: '#ff4444' }}> *</Text>}
                 </Text>
 
                 {isSingleChoice || isMultipleChoice ? (
-                    <View style={[styles.optionsContainer, { backgroundColor: GLASS_BG, borderColor: BORDER_COLOR, borderWidth: 1 }]}>
+                    <View style={[styles.optionsContainer, { backgroundColor: GLASS_BG }]}>
                         {question.options?.map((option: string, index: number) => {
                             const isSelected = answer === option;
                             const isLast = index === question.options.length - 1;
@@ -123,9 +123,10 @@ export default function EventRegistrationSheet({
                     </View>
                 ) : (
                     <TextInput
-                        style={[styles.input, { color: TEXT_COLOR, borderColor: BORDER_COLOR, backgroundColor: GLASS_BG }]}
-                        placeholder={question.placeholder || 'Type your answer...'}
+                        style={[styles.input, { color: TEXT_COLOR, backgroundColor: GLASS_BG }]}
+                        placeholder=""
                         placeholderTextColor={SUBTEXT_COLOR}
+                        selectionColor="#FFFFFF"
                         value={answer}
                         onChangeText={(val) => handleUpdateAnswer(question.id, val)}
                         multiline={question.type === 'long_text'}
@@ -139,13 +140,14 @@ export default function EventRegistrationSheet({
         <Modal
             visible={visible}
             animationType="slide"
-            presentationStyle="pageSheet"
+            transparent={true}
+            presentationStyle="overFullScreen"
             onRequestClose={onClose}
         >
             <BlurView
-                intensity={90}
+                intensity={80}
                 tint="dark"
-                style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+                style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.2)' }]}
             >
 
                 {/* HEADER */}
@@ -320,7 +322,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     input: {
-        borderWidth: 1,
         borderRadius: 12,
         padding: 14,
         fontSize: 16,
