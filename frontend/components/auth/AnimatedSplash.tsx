@@ -13,6 +13,8 @@ import Animated, {
   withTiming,
   withDelay,
   withSequence,
+  withRepeat,
+  cancelAnimation,
   Easing,
   runOnJS,
   SharedValue,
@@ -155,7 +157,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplashProps) {
   const shouldSkip = hasShownSplashThisSession;
-  const [phase, setPhase] = useState<'waiting' | 'animating' | 'finishing' | 'complete'>(
+  const [phase, setPhase] = useState<'waiting' | 'breathing' | 'animating' | 'finishing' | 'complete'>(
     shouldSkip ? 'complete' : 'waiting'
   );
   const [isReady, setIsReady] = useState(false);
@@ -205,7 +207,7 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
   };
 
-  const runAnimation = useCallback(() => {
+  const runExitAnimation = useCallback(() => {
     hasShownSplashThisSession = true;
     playSound();
 
@@ -242,6 +244,27 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
     splashContainerOpacity.value = withDelay(T_IGNITION + T_EXPLODE, withTiming(1, { duration: 1 }, (finished) => { if (finished) runOnJS(setPhase)('finishing'); }));
   }, [shouldReduceMotion, playSound]);
 
+  // Breathing loop — subtle scale pulse while waiting for isReady
+  const startBreathing = useCallback(() => {
+    // Make the animated white logo visible at the same size as the static waiting frame
+    whiteLogoOpacity.value = 1;
+    // Snap to scale 1, then loop 1.0 → 1.05 → 1.0 indefinitely.
+    // withSequence wrapping ensures the first keyframe anchors at 1.0 (from logoScale's
+    // initial 0) before the repeat starts, avoiding any visible jump when the static
+    // waiting frame unmounts.
+    logoScale.value = withSequence(
+      withTiming(1, { duration: 50 }),
+      withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.0, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+  }, []);
+
   useEffect(() => {
     if (phase !== 'complete') {
         safetyTimerRef.current = setTimeout(() => { setIsReady(true); }, 8000);
@@ -262,11 +285,26 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
            soundRef.current = sound;
         }
       } catch (e) { console.warn("Splash asset error", e); }
-      finally { await SplashScreen.hideAsync(); setPhase('animating'); runAnimation(); }
+      finally {
+        await SplashScreen.hideAsync();
+        // Start breathing loop — animation values set before phase change so the
+        // animated logo is at scale 1 + visible before the static waiting frame unmounts.
+        startBreathing();
+        setPhase('breathing');
+      }
     };
     const handle = InteractionManager.runAfterInteractions(() => { prepareResources(); });
     return () => handle.cancel();
-  }, [runAnimation, shouldSkip]);
+  }, [startBreathing, shouldSkip]);
+
+  // Exit trigger — stop breathing and run the exit animation once the app signals ready
+  useEffect(() => {
+    if (isReady && phase === 'breathing') {
+      cancelAnimation(logoScale);
+      setPhase('animating');
+      runExitAnimation();
+    }
+  }, [isReady, phase, runExitAnimation]);
 
   useEffect(() => {
     if (phase === 'finishing' && isReady) {
@@ -294,6 +332,14 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
           <Animated.View style={[styles.overlay, { opacity: splashContainerOpacity }]} pointerEvents="none">
             <StatusBar style="light" hidden={true} animated={true} />
             <Animated.View style={[styles.blackBg, blackBgStyle]} />
+
+            {/* Static waiting frame — matches native splash exactly, no async/context deps */}
+            {phase === 'waiting' && (
+              <View style={styles.waitingFrame}>
+                <Image source={whiteLogo} style={styles.waitingLogo} resizeMode="contain" />
+              </View>
+            )}
+
             <GlowComponent opacity={glowOpacity} scale={glowScale} />
             <Animated.View style={[styles.logoContainer, containerTransform]}>
               <Animated.Image source={whiteLogo} style={[styles.logoImage, whiteLogoStyle]} resizeMode="contain" />
@@ -314,6 +360,8 @@ const styles = StyleSheet.create({
   glowContainer: { justifyContent: 'center', alignItems: 'center' },
   logoContainer: { width: LOGO_SOURCE_SIZE, height: LOGO_SOURCE_SIZE, justifyContent: 'center', alignItems: 'center' },
   logoImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  waitingFrame: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  waitingLogo: { width: LOGO_SIZE_INITIAL, height: LOGO_SIZE_INITIAL },
 });
 
 export default AnimatedSplash;

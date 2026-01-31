@@ -1,3 +1,4 @@
+import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -5,9 +6,10 @@ export default function Index() {
   const { session, isLoading, isBootstrapping, profile, user } = useAuth();
   const onboardingCompleted = user?.user_metadata?.onboarding_completed === true;
 
-  // Wait for bootstrapping to complete (let layout handle loading UI)
+  // Wait for bootstrapping to complete (let layout handle loading UI).
+  // Render a black fill so no white/default flash leaks through the splash overlay.
   if (isLoading || isBootstrapping) {
-    return null;
+    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
   }
 
   // No session → go to welcome

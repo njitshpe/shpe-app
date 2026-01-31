@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Slot, SplashScreen, useSegments, useRouter, usePathname } from 'expo-router';
@@ -317,12 +317,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
  * AnimatedSplash wraps everything to provide the Luma-style splash animation.
  */
 export default function RootLayout() {
-  const onLayoutRootView = useCallback(() => {
-    void SplashScreen.hideAsync();
-  }, []);
-
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <AnimatedSplash>
         <ThemeProvider>
           <ErrorBoundary>
