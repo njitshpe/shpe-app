@@ -294,6 +294,14 @@ export function AnimatedSplash({ children, onAnimationComplete }: AnimatedSplash
           <Animated.View style={[styles.overlay, { opacity: splashContainerOpacity }]} pointerEvents="none">
             <StatusBar style="light" hidden={true} animated={true} />
             <Animated.View style={[styles.blackBg, blackBgStyle]} />
+
+            {/* Static waiting frame — matches native splash exactly, no async/context deps */}
+            {phase === 'waiting' && (
+              <View style={styles.waitingFrame}>
+                <Image source={whiteLogo} style={styles.waitingLogo} resizeMode="contain" />
+              </View>
+            )}
+
             <GlowComponent opacity={glowOpacity} scale={glowScale} />
             <Animated.View style={[styles.logoContainer, containerTransform]}>
               <Animated.Image source={whiteLogo} style={[styles.logoImage, whiteLogoStyle]} resizeMode="contain" />
@@ -314,6 +322,8 @@ const styles = StyleSheet.create({
   glowContainer: { justifyContent: 'center', alignItems: 'center' },
   logoContainer: { width: LOGO_SOURCE_SIZE, height: LOGO_SOURCE_SIZE, justifyContent: 'center', alignItems: 'center' },
   logoImage: { ...StyleSheet.absoluteFillObject, width: undefined, height: undefined },
+  waitingFrame: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  waitingLogo: { width: LOGO_SIZE_INITIAL, height: LOGO_SIZE_INITIAL },
 });
 
 export default AnimatedSplash;
