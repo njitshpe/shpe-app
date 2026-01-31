@@ -12,6 +12,7 @@ import {
     Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Event } from '@/types/events';
@@ -32,7 +33,7 @@ export default function EventRegistrationSheet({
     onSubmit,
     isSubmitting = false,
 }: EventRegistrationSheetProps) {
-    const { theme, isDark } = useTheme();
+    const { theme } = useTheme();
     const [answers, setAnswers] = useState<Record<string, string>>({});
 
     // Reset answers when modal opens
@@ -41,6 +42,13 @@ export default function EventRegistrationSheet({
             setAnswers({});
         }
     }, [visible]);
+
+    // Force "Dark" theme values for consistency with Event View
+    const TEXT_COLOR = '#FFFFFF';
+    const SUBTEXT_COLOR = 'rgba(255,255,255, 0.6)';
+    const BORDER_COLOR = 'rgba(255,255,255, 0.15)';
+    const GLASS_BG = 'rgba(255,255,255, 0.1)';
+    const PRIMARY_COLOR = theme.primary; // Keep brand color
 
     const hasQuestions = event.registration_questions && event.registration_questions.length > 0;
 
@@ -64,42 +72,60 @@ export default function EventRegistrationSheet({
 
     const renderQuestion = (question: any) => {
         const answer = answers[question.id] || '';
+        const isMultipleChoice = question.type === 'multi_select';
+        const isSingleChoice = question.type === 'single_choice' || question.type === 'multiple_choice';
 
         return (
             <View key={question.id} style={styles.questionContainer}>
-                <Text style={[styles.questionLabel, { color: theme.text }]}>
+                <Text style={[styles.questionLabel, { color: TEXT_COLOR }]}>
                     {question.prompt || question.label}
                     {question.required && <Text style={{ color: '#ff4444' }}> *</Text>}
                 </Text>
 
-                {question.type === 'multiple_choice' || question.type === 'single_choice' || question.type === 'multi_select' ? (
-                    <View style={styles.optionsContainer}>
-                        {question.options?.map((option: string) => (
-                            <Pressable
-                                key={option}
-                                onPress={() => handleUpdateAnswer(question.id, option)}
-                                style={[
-                                    styles.optionPill,
-                                    { borderColor: theme.border },
-                                    answer === option && { backgroundColor: theme.text, borderColor: theme.text },
-                                ]}
-                            >
-                                <Text
-                                    style={{
-                                        color: answer === option ? theme.background : theme.text,
-                                        fontWeight: answer === option ? '600' : '400',
-                                    }}
-                                >
-                                    {option}
-                                </Text>
-                            </Pressable>
-                        ))}
+                {isSingleChoice || isMultipleChoice ? (
+                    <View style={[styles.optionsContainer, { backgroundColor: GLASS_BG, borderColor: BORDER_COLOR, borderWidth: 1 }]}>
+                        {question.options?.map((option: string, index: number) => {
+                            const isSelected = answer === option;
+                            const isLast = index === question.options.length - 1;
+                            return (
+                                <View key={option}>
+                                    <Pressable
+                                        onPress={() => handleUpdateAnswer(question.id, option)}
+                                        style={[
+                                            styles.optionRow,
+                                            isSelected && { backgroundColor: 'rgba(255,255,255,0.08)' },
+                                        ]}
+                                    >
+                                        <Ionicons
+                                            name={isSingleChoice
+                                                ? (isSelected ? "radio-button-on" : "radio-button-off")
+                                                : (isSelected ? "checkbox" : "square-outline")
+                                            }
+                                            size={20}
+                                            color={isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.5)'}
+                                            style={{ marginRight: 14 }}
+                                        />
+                                        <Text
+                                            style={{
+                                                color: isSelected ? '#FFFFFF' : 'rgba(255,255,255,0.8)',
+                                                fontWeight: isSelected ? '600' : '400',
+                                                fontSize: 16,
+                                                flex: 1,
+                                            }}
+                                        >
+                                            {option}
+                                        </Text>
+                                    </Pressable>
+                                    {!isLast && <View style={[styles.divider, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />}
+                                </View>
+                            );
+                        })}
                     </View>
                 ) : (
                     <TextInput
-                        style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.card }]}
+                        style={[styles.input, { color: TEXT_COLOR, borderColor: BORDER_COLOR, backgroundColor: GLASS_BG }]}
                         placeholder={question.placeholder || 'Type your answer...'}
-                        placeholderTextColor={theme.subtext}
+                        placeholderTextColor={SUBTEXT_COLOR}
                         value={answer}
                         onChangeText={(val) => handleUpdateAnswer(question.id, val)}
                         multiline={question.type === 'long_text'}
@@ -109,7 +135,6 @@ export default function EventRegistrationSheet({
             </View>
         );
     };
-
     return (
         <Modal
             visible={visible}
@@ -117,25 +142,29 @@ export default function EventRegistrationSheet({
             presentationStyle="pageSheet"
             onRequestClose={onClose}
         >
-            <View style={[styles.container, { backgroundColor: theme.background }]}>
+            <BlurView
+                intensity={90}
+                tint="dark"
+                style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+            >
 
                 {/* HEADER */}
-                <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                <View style={[styles.header, { borderBottomColor: BORDER_COLOR }]}>
                     <View style={styles.headerLeft}>
                         {event.coverImageUrl ? (
                             <Image source={event.coverImageUrl} style={styles.headerImage} contentFit="cover" />
                         ) : (
-                            <View style={[styles.headerPlaceholder, { backgroundColor: theme.primary }]}>
+                            <View style={[styles.headerPlaceholder, { backgroundColor: PRIMARY_COLOR }]}>
                                 <Ionicons name="calendar" size={24} color="#fff" />
                             </View>
                         )}
-                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={2}>
+                        <Text style={[styles.headerTitle, { color: TEXT_COLOR }]} numberOfLines={2}>
                             {event.title}
                         </Text>
                     </View>
 
                     <Pressable onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close-circle" size={30} color={theme.subtext} />
+                        <Ionicons name="close-circle" size={30} color={SUBTEXT_COLOR} />
                     </Pressable>
                 </View>
 
@@ -152,35 +181,32 @@ export default function EventRegistrationSheet({
                         {hasQuestions ? (
                             // SCENARIO A: QUESTIONS
                             <View style={styles.questionsList}>
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>Registration Questions</Text>
-                                <Text style={[styles.subtitle, { color: theme.subtext }]}>
-                                    Please answer the following questions to complete your registration.
-                                </Text>
+                                <Text style={[styles.sectionTitle, { color: TEXT_COLOR }]}>Registration Questions</Text>
 
                                 {event.registration_questions?.map(renderQuestion)}
                             </View>
                         ) : (
                             // SCENARIO B: SIMPLE CONFIRMATION
                             <View style={styles.confirmContainer}>
-                                <View style={[styles.iconContainer, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
-                                    <Ionicons name="calendar-outline" size={60} color={theme.text} />
+                                <View style={[styles.iconContainer, { backgroundColor: GLASS_BG }]}>
+                                    <Ionicons name="calendar-outline" size={60} color={TEXT_COLOR} />
                                 </View>
 
-                                <Text style={[styles.confirmTitle, { color: theme.text }]}>Confirm Registration</Text>
-                                <Text style={[styles.confirmText, { color: theme.subtext }]}>
+                                <Text style={[styles.confirmTitle, { color: TEXT_COLOR }]}>Confirm Registration</Text>
+                                <Text style={[styles.confirmText, { color: SUBTEXT_COLOR }]}>
                                     You are about to register for this event.
                                 </Text>
 
-                                <View style={[styles.infoCard, { backgroundColor: theme.card }]}>
+                                <View style={[styles.infoCard, { backgroundColor: GLASS_BG }]}>
                                     <View style={styles.infoRow}>
-                                        <Ionicons name="time-outline" size={20} color={theme.primary} />
-                                        <Text style={[styles.infoText, { color: theme.text }]}>
+                                        <Ionicons name="time-outline" size={20} color={PRIMARY_COLOR} />
+                                        <Text style={[styles.infoText, { color: TEXT_COLOR }]}>
                                             {formatDateHeader(event.startTimeISO)} • {formatTime(event.startTimeISO)}
                                         </Text>
                                     </View>
                                     <View style={styles.infoRow}>
-                                        <Ionicons name="location-outline" size={20} color={theme.primary} />
-                                        <Text style={[styles.infoText, { color: theme.text }]} numberOfLines={1}>
+                                        <Ionicons name="location-outline" size={20} color={PRIMARY_COLOR} />
+                                        <Text style={[styles.infoText, { color: TEXT_COLOR }]} numberOfLines={1}>
                                             {event.locationName}
                                         </Text>
                                     </View>
@@ -188,27 +214,25 @@ export default function EventRegistrationSheet({
                             </View>
                         )}
 
-                    </ScrollView>
-
-                    {/* FOOTER */}
-                    <View style={[styles.footer, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
+                        {/* INLINE SUBMIT BUTTON */}
                         <Pressable
                             style={[
                                 styles.submitButton,
-                                { backgroundColor: theme.text },
+                                { backgroundColor: TEXT_COLOR, marginTop: 40 },
                                 (!isFormValid() || isSubmitting) && { opacity: 0.5 }
                             ]}
                             onPress={handleSubmit}
                             disabled={!isFormValid() || isSubmitting}
                         >
-                            <Text style={[styles.submitButtonText, { color: theme.background }]}>
+                            <Text style={[styles.submitButtonText, { color: '#000000' }]}>
                                 {isSubmitting ? 'Processing...' : (hasQuestions ? 'Submit Answer' : 'Confirm Registration')}
                             </Text>
                         </Pressable>
-                    </View>
+
+                    </ScrollView>
 
                 </KeyboardAvoidingView>
-            </View>
+            </BlurView>
         </Modal>
     );
 }
@@ -303,15 +327,18 @@ const styles = StyleSheet.create({
         minHeight: 50,
     },
     optionsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
+        borderRadius: 16,
+        overflow: 'hidden',
     },
-    optionPill: {
-        paddingVertical: 10,
+    optionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
         paddingHorizontal: 16,
-        borderRadius: 20,
-        borderWidth: 1,
+    },
+    divider: {
+        height: 1,
+        marginHorizontal: 16,
     },
 
     // CONFIRM STYLES
