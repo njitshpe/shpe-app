@@ -83,8 +83,29 @@ export default function EventRegistrationSheet({
     const hasQuestions = event.registration_questions && event.registration_questions.length > 0;
     const isDirty = Object.keys(answers).filter(k => answers[k]?.trim().length > 0).length > 0;
 
-    const handleUpdateAnswer = (questionId: string, value: string) => {
-        setAnswers((prev) => ({ ...prev, [questionId]: value }));
+    const handleUpdateAnswer = (questionId: string, value: string, isMultiSelect: boolean) => {
+        setAnswers((prev) => {
+            const current = prev[questionId];
+
+            if (isMultiSelect) {
+                const options = current ? current.split(',') : [];
+                if (options.includes(value)) {
+                    const newOptions = options.filter(o => o !== value);
+                    return { ...prev, [questionId]: newOptions.join(',') };
+                } else {
+                    return { ...prev, [questionId]: [...options, value].join(',') };
+                }
+            }
+
+            // Single Select Toggle
+            if (current === value) {
+                const next = { ...prev };
+                delete next[questionId];
+                return next;
+            }
+
+            return { ...prev, [questionId]: value };
+        });
     };
 
     const isFormValid = () => {
@@ -191,12 +212,14 @@ export default function EventRegistrationSheet({
                 {isSingleChoice || isMultipleChoice ? (
                     <View style={[styles.optionsContainer, { backgroundColor: GLASS_BG }]}>
                         {question.options?.map((option: string, index: number) => {
-                            const isSelected = answer === option;
+                            const isSelected = isMultipleChoice
+                                ? answer.split(',').includes(option)
+                                : answer === option;
                             const isLast = index === question.options.length - 1;
                             return (
                                 <View key={option}>
                                     <Pressable
-                                        onPress={() => handleUpdateAnswer(question.id, option)}
+                                        onPress={() => handleUpdateAnswer(question.id, option, isMultipleChoice)}
                                         style={[
                                             styles.optionRow,
                                             isSelected && { backgroundColor: 'rgba(255,255,255,0.08)' },
@@ -234,7 +257,7 @@ export default function EventRegistrationSheet({
                         placeholderTextColor={SUBTEXT_COLOR}
                         selectionColor="#FFFFFF"
                         value={answer}
-                        onChangeText={(val) => handleUpdateAnswer(question.id, val)}
+                        onChangeText={(val) => handleUpdateAnswer(question.id, val, false)}
                         multiline={question.type === 'long_text'}
                         keyboardType={question.type === 'phone' ? 'phone-pad' : 'default'}
                     />
