@@ -24,12 +24,12 @@ import { useEvents } from '@/contexts/EventsContext';
 import { Event } from '@/types/events';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '@/components/shared';
-import RegistrationFormModal from '@/components/events/RegistrationFormModal';
+
 import {
   AttendeesPreview,
   RegistrationSuccessModal,
-  EventRegistrationConfirmModal,
   EventMoreMenu,
+  EventRegistrationSheet,
 } from '@/components/events';
 import { CheckInQRModal } from '@/components/admin/CheckInQRModal';
 import { useEventRegistration } from '@/hooks/events';
@@ -123,8 +123,7 @@ export default function EventDetailScreen() {
   const { isRegistered, loading, register, cancel } = useEventRegistration(id || '');
 
   // UI state
-  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showRegistrationSheet, setShowRegistrationSheet] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -193,23 +192,10 @@ export default function EventDetailScreen() {
       return;
     }
 
-    // Step 1: Open Confirmation Modal (Poster View)
-    setShowConfirmModal(true);
+    setShowRegistrationSheet(true);
   };
 
-  const handleConfirmRegistration = async () => {
-    if (!event) return;
-    setShowConfirmModal(false);
 
-    // Step 2: Check for questions
-    if (event.registration_questions && event.registration_questions.length > 0) {
-      // Delay slightly to allow confirm modal to close nicely
-      setTimeout(() => setShowRegistrationForm(true), 300);
-    } else {
-      // Step 3: No questions, just register
-      await executeRegistration({});
-    }
-  };
 
   const executeRegistration = async (answers: Record<string, string>) => {
     try {
@@ -217,7 +203,7 @@ export default function EventDetailScreen() {
 
       await register(answers);
       // Success Flow
-      setShowRegistrationForm(false);
+      setShowRegistrationSheet(false);
       setShowSuccessModal(true);
 
     } catch (error: any) {
@@ -627,20 +613,13 @@ export default function EventDetailScreen() {
       </ImageBackground>
 
       {/* MODALS */}
-      <RegistrationFormModal
-        isVisible={showRegistrationForm}
-        questions={event.registration_questions || []}
-        onClose={() => setShowRegistrationForm(false)}
+      <EventRegistrationSheet
+        visible={showRegistrationSheet}
+        event={event}
+        onClose={() => setShowRegistrationSheet(false)}
         onSubmit={executeRegistration}
+        isSubmitting={loading}
       />
-      {event && (
-        <EventRegistrationConfirmModal
-          visible={showConfirmModal}
-          event={event}
-          onConfirm={handleConfirmRegistration}
-          onClose={() => setShowConfirmModal(false)}
-        />
-      )}
       <RegistrationSuccessModal
         visible={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
