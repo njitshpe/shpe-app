@@ -201,7 +201,8 @@ export default function EventDetailScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      await register(answers);
+      const initialStatus = (event?.registration_questions && event.registration_questions.length > 0) ? 'pending' : 'going';
+      await register(answers, initialStatus);
       // Refresh events to get correct status (e.g. waitlist vs going)
       await refetchEvents();
 

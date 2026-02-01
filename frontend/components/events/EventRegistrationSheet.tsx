@@ -446,7 +446,7 @@ export default function EventRegistrationSheet({
                                         disabled={!isFormValid() || isSubmitting}
                                     >
                                         <Text style={[styles.submitButtonText, { color: '#000000' }]}>
-                                            {isSubmitting ? 'Processing...' : (hasQuestions ? 'Submit Answer' : 'Confirm Registration')}
+                                            {isSubmitting ? 'Processing...' : (hasQuestions ? 'Submit Answers' : 'Confirm Registration')}
                                         </Text>
                                     </AnimatedPressable>
                                 </View>

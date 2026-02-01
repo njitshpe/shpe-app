@@ -23,7 +23,7 @@ class RegistrationService {
   // Cache for slug -> uuid resolution to reduce DB calls
   private idCache: Record<string, string> = {};
 
-  async register(eventSlug: string, answers: Record<string, string> = {}): Promise<void> {
+  async register(eventSlug: string, answers: Record<string, string> = {}, status: 'going' | 'pending' | 'waitlist' = 'going'): Promise<void> {
     const userId = await this.getUserId();
     const eventUUID = await this.getEventUUID(eventSlug);
 
@@ -36,7 +36,7 @@ class RegistrationService {
         event_id: eventUUID,
         user_id: userId,
         rsvp_at: new Date().toISOString(),
-        status: 'going',
+        status: status,
         answers: answers
       }, {
         onConflict: 'event_id, user_id'

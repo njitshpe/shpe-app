@@ -5,7 +5,7 @@ export interface UseEventRegistrationResult {
   isRegistered: boolean;
   loading: boolean;
   error: string | null;
-  register: (answers?: Record<string, string>) => Promise<void>;
+  register: (answers?: Record<string, string>, status?: 'going' | 'pending' | 'waitlist') => Promise<void>;
   cancel: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -23,12 +23,12 @@ export function useEventRegistration(eventId: string): UseEventRegistrationResul
    * Check registration status
    */
 
-  const register = useCallback(async (answers: Record<string, string> = {}) => {
+  const register = useCallback(async (answers: Record<string, string> = {}, status: 'going' | 'pending' | 'waitlist' = 'going') => {
     try {
       setLoading(true);
       setError(null);
-      // UPDATE: Pass answers to the service
-      await registrationService.register(eventId, answers); 
+      // UPDATE: Pass answers and status to the service
+      await registrationService.register(eventId, answers, status);
       setIsRegistered(true);
     } catch (err) {
       console.error('Failed to register:', err);
@@ -38,7 +38,7 @@ export function useEventRegistration(eventId: string): UseEventRegistrationResul
       setLoading(false);
     }
   }, [eventId]);
-  
+
   const checkRegistration = useCallback(async () => {
     try {
       setLoading(true);
