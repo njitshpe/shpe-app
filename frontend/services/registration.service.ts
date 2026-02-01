@@ -124,7 +124,7 @@ class RegistrationService {
         return false;
       }
 
-      return data?.status === 'going' || data?.status === 'confirmed';
+      return ['going', 'confirmed', 'pending', 'waitlist'].includes(data?.status);
     } catch (error) {
       console.error('Failed to check registration:', error);
       return false;

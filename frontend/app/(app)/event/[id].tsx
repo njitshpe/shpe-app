@@ -188,7 +188,7 @@ export default function EventDetailScreen() {
     }
 
     if (isRegistered) {
-      Alert.alert('Already Registered', 'You are already registered for this event.');
+      setShowSuccessModal(true);
       return;
     }
 
@@ -202,6 +202,9 @@ export default function EventDetailScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       await register(answers);
+      // Refresh events to get correct status (e.g. waitlist vs going)
+      await refetchEvents();
+
       // Success Flow
       setShowRegistrationSheet(false);
       setShowSuccessModal(true);
@@ -445,8 +448,34 @@ export default function EventDetailScreen() {
             {/* Attendance Status */}
             {isRegistered && (
               <View style={styles.statusRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
-                <Text style={styles.statusText}>You're Going</Text>
+                {(() => {
+                  const status = event.userRegistrationStatus || 'going';
+                  let iconName = 'checkmark-circle';
+                  let iconColor = '#4ADE80';
+                  let statusText = "You're Going";
+
+                  switch (status) {
+                    case 'pending':
+                      iconName = 'time';
+                      iconColor = '#FBBF24';
+                      statusText = "Registration Pending";
+                      break;
+                    case 'waitlist':
+                      iconName = 'people';
+                      iconColor = '#A78BFA';
+                      statusText = "Waitlisted";
+                      break;
+                  }
+
+                  return (
+                    <>
+                      <Ionicons name={iconName as any} size={16} color={iconColor} />
+                      <Text style={[styles.statusText, { color: iconColor }]}>
+                        {statusText}
+                      </Text>
+                    </>
+                  );
+                })()}
               </View>
             )}
 
@@ -623,6 +652,8 @@ export default function EventDetailScreen() {
       <RegistrationSuccessModal
         visible={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
+        event={event}
+        status={event.userRegistrationStatus || 'going'}
       />
       <EventMoreMenu
         visible={showMoreMenu}
@@ -750,7 +781,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 12
+    marginBottom: 4
   },
   statusText: {
     color: '#4ADE80',

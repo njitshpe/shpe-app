@@ -5,192 +5,318 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Animated,
+  Platform,
   Dimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
+import { Image } from 'expo-image';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  runOnJS,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatDateHeader, formatTime } from '@/utils';
+import { Event } from '@/types/events';
 
 interface RegistrationSuccessModalProps {
   visible: boolean;
   onClose: () => void;
+  event: Event;
+  status?: string; // 'going' | 'pending' | 'waitlist'
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function RegistrationSuccessModal({
   visible,
   onClose,
+  event,
+  status = 'going'
 }: RegistrationSuccessModalProps) {
-  const { theme, isDark } = useTheme();
-  const scaleAnim = React.useRef(new Animated.Value(0)).current;
-  const opacityAnim = React.useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+
+  // Animations
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
     if (visible) {
-      // Animate in
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      translateY.value = withTiming(0, { duration: 300 });
     } else {
-      // Reset
-      scaleAnim.setValue(0);
-      opacityAnim.setValue(0);
+      // Reset is handled by on request close mostly, but if prop changes:
+      // translateY.value = SCREEN_HEIGHT; 
     }
-  }, [visible, scaleAnim, opacityAnim]);
+  }, [visible]);
 
-  const dynamicStyles = {
-    content: { backgroundColor: theme.card },
-    closeButton: { backgroundColor: theme.background },
-    title: { color: theme.text },
-    subtitle: { color: theme.subtext },
-    iconColor: theme.text,
+  const handleClose = () => {
+    translateY.value = withTiming(SCREEN_HEIGHT, { duration: 250 }, () => {
+      runOnJS(onClose)();
+    });
   };
+
+  // Gesture Logic
+  const pan = Gesture.Pan()
+    .onChange((event) => {
+      if (event.translationY > 0) {
+        translateY.value = event.translationY;
+      }
+    })
+    .onEnd((event) => {
+      if (event.translationY > 150 || event.velocityY > 500) {
+        runOnJS(handleClose)();
+      } else {
+        translateY.value = withTiming(0, { duration: 300 });
+      }
+    });
+
+  const animatedSheetStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: translateY.value }],
+    };
+  });
+
+  const animatedBackdropStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      translateY.value,
+      [0, SCREEN_HEIGHT * 0.5],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity,
+    };
+  });
+
+  const animatedButtonStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: buttonScale.value }],
+    };
+  });
+
+  const handlePressIn = () => {
+    buttonScale.value = withSpring(0.95);
+  };
+
+  const handlePressOut = () => {
+    buttonScale.value = withSpring(1);
+  };
+
+  // Config based on Status
+  const getStatusConfig = () => {
+    switch (status) {
+      case 'pending':
+        return {
+          title: "Registration Pending",
+          message: "Your registration has been received and is pending approval.",
+          icon: "time",
+          color: "#FBBF24", // Amber
+          tintColor: "rgba(251, 191, 36, 0.15)",
+        };
+      case 'waitlist':
+        return {
+          title: "Waitlisted",
+          message: "You have been added to the waitlist. We'll notify you if a spot opens up.",
+          icon: "people",
+          color: "#A78BFA", // Purple
+          tintColor: "rgba(167, 139, 250, 0.15)",
+        };
+      case 'going':
+      default:
+        return {
+          title: "You're Going!",
+          message: "You have successfully registered for this event.",
+          icon: "checkmark-circle",
+          color: "#4ADE80", // Green
+          tintColor: "rgba(74, 222, 128, 0.15)",
+        };
+    }
+  };
+
+  const config = getStatusConfig();
+  const TEXT_COLOR = '#FFFFFF';
+  const SUBTEXT_COLOR = 'rgba(255,255,255, 0.6)';
+  const GLASS_BG = 'rgba(255,255,255, 0.1)';
 
   return (
     <Modal
       visible={visible}
-      transparent
       animationType="none"
-      onRequestClose={onClose}
+      transparent={true}
+      presentationStyle="overFullScreen"
+      onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <BlurView intensity={20} tint={isDark ? "dark" : "light"} style={styles.blurContainer}>
-        <Animated.View
-          style={[
-            styles.overlay,
-            {
-              opacity: opacityAnim,
-            },
-          ]}
-        >
-          <Pressable style={styles.backdrop} onPress={onClose} />
+      <View style={styles.container}>
+        {/* Backdrop */}
+        <Animated.View style={[styles.backdrop, animatedBackdropStyle]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
+        </Animated.View>
 
-          <Animated.View
-            style={[
-              styles.content,
-              {
-                backgroundColor: isDark ? 'rgba(30,30,30,0.2)' : 'rgba(255,255,255,0.25)',
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
+        {/* Sheet */}
+        <GestureDetector gesture={pan}>
+          <Animated.View style={[styles.sheetContainer, animatedSheetStyle]}>
             <BlurView
               intensity={80}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
-
-            <View style={styles.cardContent}>
-              {/* Close Button */}
-              <Pressable style={[styles.closeButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }]} onPress={onClose}>
-                <Ionicons name="close" size={24} color={theme.text} />
-              </Pressable>
-
-              {/* Success Icon - Big Green Check Circle */}
-              <View style={styles.iconContainer}>
-                <View style={styles.checkCircle}>
-                  <Ionicons name="checkmark" size={64} color="#FFFFFF" />
-                </View>
+              tint="dark"
+              style={[
+                styles.blurContent,
+                {
+                  paddingTop: insets.top + 20,
+                  backgroundColor: 'rgba(20,20,20,0.6)'
+                }
+              ]}
+            >
+              {/* PILL HANDLE */}
+              <View style={styles.pillContainer}>
+                <View style={styles.pill} />
               </View>
 
-              {/* Title */}
-              <Text style={[styles.title, dynamicStyles.title]}>You're In</Text>
+              {/* CONTENT */}
+              <View style={styles.content}>
 
-              {/* Subtitle */}
-              <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
-                Thank you. We look forward to seeing you!
-              </Text>
-            </View>
+                <View style={styles.confirmContainer}>
+                  <View style={[styles.iconContainer, { backgroundColor: config.tintColor }]}>
+                    <Ionicons name={config.icon as any} size={64} color={config.color} />
+                  </View>
+
+                  <Text style={[styles.confirmTitle, { color: TEXT_COLOR }]}>
+                    {config.title}
+                  </Text>
+
+                  <Text style={[styles.confirmText, { color: SUBTEXT_COLOR }]}>
+                    {config.message}
+                  </Text>
+
+
+                </View>
+
+              </View>
+
+              {/* FOOTER */}
+              <View style={[styles.footer, { paddingBottom: Platform.OS === 'ios' ? 40 : 20 }]}>
+                <AnimatedPressable
+                  style={[
+                    styles.doneButton,
+                    { backgroundColor: TEXT_COLOR },
+                    animatedButtonStyle
+                  ]}
+                  onPress={handleClose}
+                  onPressIn={handlePressIn}
+                  onPressOut={handlePressOut}
+                >
+                  <Text style={styles.doneButtonText}>Done</Text>
+                </AnimatedPressable>
+              </View>
+
+            </BlurView>
           </Animated.View>
-        </Animated.View>
-      </BlurView>
+        </GestureDetector>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  blurContainer: {
+  container: {
     flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'flex-end',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sheetContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  blurContent: {
+    flex: 1,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    overflow: 'hidden',
+  },
+  pillContainer: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingBottom: 5,
+  },
+  pill: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.4)',
   },
   content: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: 32,
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center', // Center vertically roughly
+    paddingBottom: 100, // Space for footer
   },
-  cardContent: {
-    padding: 40,
-    alignItems: 'center',
-    width: '100%',
-    zIndex: 1,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+
+  // Confirm Styles
+  confirmContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
   iconContainer: {
-    marginBottom: 24,
-    marginTop: 20,
-  },
-  checkCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#10B981', // Green
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    marginBottom: 24,
   },
-  title: {
-    fontSize: 32,
+  confirmTitle: {
+    fontSize: 24,
     fontWeight: '800',
     marginBottom: 12,
-    letterSpacing: -0.5,
     textAlign: 'center',
   },
-  subtitle: {
+  confirmText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 32,
+    paddingHorizontal: 10,
+    lineHeight: 22,
+  },
+  infoCard: {
+    width: '100%',
+    borderRadius: 20,
+    padding: 20,
+    gap: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoText: {
     fontSize: 16,
     fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 20,
+  },
+
+  footer: {
+    padding: 24,
+    // backgroundColor: 'rgba(0,0,0,0.2)', // Optional footer bg
+  },
+  doneButton: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
   },
 });
