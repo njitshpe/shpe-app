@@ -132,8 +132,8 @@ export default function RegistrationSuccessModal({
       case 'going':
       default:
         return {
-          title: "You're Going!",
-          message: "You have successfully registered for this event.",
+          title: "You're In!",
+          message: "You have successfully registered for this event. We hope to see you there!",
           icon: "checkmark-circle",
           color: "#4ADE80", // Green
           tintColor: "rgba(74, 222, 128, 0.15)",
@@ -176,7 +176,7 @@ export default function RegistrationSuccessModal({
               ]}
             >
               {/* PILL HANDLE */}
-              <View style={styles.pillContainer}>
+              <View style={[styles.pillContainer, { top: insets.top + 10 }]}>
                 <View style={styles.pill} />
               </View>
 
@@ -245,9 +245,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   pillContainer: {
+    position: 'absolute',
+    top: 0,
+    width: '100%',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingBottom: 5,
+    zIndex: 10,
   },
   pill: {
     width: 40,

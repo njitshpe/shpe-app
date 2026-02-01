@@ -24,6 +24,7 @@ import Animated, {
     withTiming,
     runOnJS,
     interpolate,
+    interpolateColor,
     Extrapolation,
     useAnimatedScrollHandler,
 } from 'react-native-reanimated';
@@ -252,7 +253,11 @@ export default function EventRegistrationSheet({
                     </View>
                 ) : (
                     <TextInput
-                        style={[styles.input, { color: TEXT_COLOR, backgroundColor: GLASS_BG }]}
+                        style={[
+                            styles.input,
+                            { color: TEXT_COLOR, backgroundColor: GLASS_BG },
+                            question.type === 'long_text' && { minHeight: 100, textAlignVertical: 'top', paddingTop: 12 }
+                        ]}
                         placeholder=""
                         placeholderTextColor={SUBTEXT_COLOR}
                         selectionColor="#FFFFFF"
@@ -290,30 +295,49 @@ export default function EventRegistrationSheet({
                             style={[
                                 styles.blurContent,
                                 {
-                                    paddingTop: insets.top, // Handle safe area properly
                                     backgroundColor: 'rgba(20,20,20,0.6)' // Slightly darker base
                                 }
                             ]}
                         >
                             {/* PILL HANDLE */}
                             {!isDirty && (
-                                <View style={styles.pillContainer}>
+                                <View style={[styles.pillContainer, { top: insets.top }]}>
                                     <View style={styles.pill} />
                                 </View>
                             )}
 
                             {/* HEADER */}
-                            <View style={[styles.header, { borderBottomColor: 'transparent' }]}>
+                            <Animated.View style={[
+                                styles.header,
+                                {
+                                    borderBottomColor: 'transparent',
+                                    paddingTop: insets.top + 30
+                                },
+                                useAnimatedStyle(() => {
+                                    return {
+                                        backgroundColor: interpolateColor(
+                                            scrollY.value,
+                                            [0, 50],
+                                            ['rgba(20,20,20,0)', 'rgba(20,20,20,0.95)']
+                                        ),
+                                        borderBottomColor: interpolateColor(
+                                            scrollY.value,
+                                            [0, 50],
+                                            ['rgba(255,255,255,0)', 'rgba(255,255,255,0.1)']
+                                        )
+                                    };
+                                })
+                            ]}>
                                 {hasQuestions && (
                                     <Text style={[styles.headerTitle, { color: TEXT_COLOR }]}>
                                         Registration
                                     </Text>
                                 )}
 
-                                <Pressable onPress={onClose} style={styles.closeButton}>
+                                <Pressable onPress={onClose} style={[styles.closeButton, { top: insets.top + 22 }]}>
                                     <Ionicons name="close-circle" size={30} color={SUBTEXT_COLOR} />
                                 </Pressable>
-                            </View>
+                            </Animated.View>
 
                             <KeyboardAvoidingView
                                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -457,9 +481,12 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     pillContainer: {
+        position: 'absolute',
+        top: 0,
+        width: '100%',
         alignItems: 'center',
         paddingVertical: 10,
-        paddingBottom: 5,
+        zIndex: 10,
     },
     pill: {
         width: 40,
@@ -469,7 +496,6 @@ const styles = StyleSheet.create({
     },
     header: {
         padding: 12,
-        paddingTop: 10, // Adjust for pill
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -484,7 +510,6 @@ const styles = StyleSheet.create({
         padding: 4,
         position: 'absolute',
         right: 16,
-        top: 12,
     },
     // Event Info Styles
     eventInfoContainer: {
@@ -493,14 +518,14 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     eventInfoImage: {
-        width: 60,
-        height: 60,
+        width: 80,
+        height: 80,
         borderRadius: 12,
         backgroundColor: '#eee',
     },
     eventInfoPlaceholder: {
-        width: 60,
-        height: 60,
+        width: 80,
+        height: 80,
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
