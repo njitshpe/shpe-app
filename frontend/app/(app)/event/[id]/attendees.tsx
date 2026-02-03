@@ -183,7 +183,7 @@ export default function EventAttendeesScreen() {
         <FlatList
           data={filteredAttendees}
           renderItem={renderAttendeeItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => item.id || `attendee-${index}`}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
           refreshControl={

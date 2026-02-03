@@ -23,6 +23,9 @@ class RegistrationService {
   // Cache for slug -> uuid resolution to reduce DB calls
   private idCache: Record<string, string> = {};
 
+  // Regex for validating UUIDs
+  private readonly UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   async register(eventSlug: string, answers: Record<string, string> = {}, status: 'going' | 'pending' | 'waitlist' = 'going'): Promise<void> {
     const userId = await this.getUserId();
     const eventUUID = await this.getEventUUID(eventSlug);
@@ -64,8 +67,7 @@ class RegistrationService {
    */
   private async getEventUUID(eventSlug: string): Promise<string | null> {
     // If it looks like a UUID, return it directly
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(eventSlug)) {
+    if (this.UUID_REGEX.test(eventSlug)) {
       return eventSlug;
     }
 
@@ -196,8 +198,17 @@ class RegistrationService {
       return [];
     }
 
-    // 2. Extract user IDs
-    const userIds = attendanceData.map(a => a.user_id);
+    // Filter out rows with invalid user_ids immediately
+    const validAttendance = attendanceData.filter(a =>
+      a.user_id && this.UUID_REGEX.test(a.user_id)
+    );
+
+    if (validAttendance.length === 0) {
+      return [];
+    }
+
+    // 2. Extract user IDs from valid records
+    const userIds = validAttendance.map(a => a.user_id);
 
     // 3. Fetch profiles for these users
     const { data: profilesData, error: profilesError } = await supabase
@@ -208,7 +219,7 @@ class RegistrationService {
     if (profilesError) {
       console.error('Failed to fetch attendee profiles:', profilesError);
       // Return without profiles if fetch fails
-      return attendanceData.map(a => ({
+      return validAttendance.map(a => ({
         user_id: a.user_id,
         rsvp_at: a.rsvp_at,
         profile: null
@@ -221,7 +232,7 @@ class RegistrationService {
     );
 
     // 5. Combine data
-    return attendanceData.map(a => ({
+    return validAttendance.map(a => ({
       user_id: a.user_id,
       rsvp_at: a.rsvp_at,
       profile: (profilesMap.get(a.user_id) as UserProfile) || null
