@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,6 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { notificationService } from '@/services/notification.service';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Disclaimer } from './Disclaimer';
@@ -34,63 +33,16 @@ import { GRADIENTS } from '@/constants/colors';
 export const GeneralSettings = () => {
   const router = useRouter();
   const { theme, isDark, setMode, mode } = useTheme();
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + 44; // Standard iOS header height
   const scrollY = React.useRef(new Animated.Value(0)).current;
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
 
-  useEffect(() => {
-    checkPermissionStatus();
-  }, []);
-
-  // Check permissions on mount
-  const checkPermissionStatus = async () => {
-    try {
-      const { granted } = await notificationService.checkPermission();
-      setNotificationsEnabled(granted);
-    } catch (error) {
-      console.log('Error checking permissions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const headerOptions = {
     headerShown: false,
-  };
-
-  const handleToggleNotifications = async () => {
-    if (notificationsEnabled) {
-      // Guide user to settings since we cannot programmatically revoke permissions
-      Alert.alert(
-        "Notifications Enabled",
-        "To turn off notifications, please go to your device settings.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Open Settings", onPress: () => Linking.openSettings() }
-        ]
-      );
-    } else {
-      // Request permission
-      const { granted } = await notificationService.requestPermission();
-      setNotificationsEnabled(granted);
-
-      if (!granted) {
-        // If they denied it previously, we might need to send them to settings
-        Alert.alert(
-          "Permission Required",
-          "Notifications are currently disabled. Please enable them in your device settings to receive updates.",
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: "Open Settings", onPress: () => Linking.openSettings() }
-          ]
-        );
-      }
-    }
   };
 
   const handleLogout = async () => {
@@ -396,24 +348,15 @@ export const GeneralSettings = () => {
             <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Preferences</Text>
           </View>
           <View style={[styles.card, dynamicStyles.card]}>
-            <TouchableOpacity style={styles.row} onPress={handleToggleNotifications}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => router.push('/(app)/(tabs)/profile/settings/notification-settings')}
+            >
               <View style={styles.labelContainer}>
-                <Ionicons
-                  name={notificationsEnabled ? "notifications" : "notifications-off"}
-                  size={22}
-                  color={notificationsEnabled ? "#00d220ff" : "#FF3B30"}
-                />
-                <Text style={[styles.rowLabel, dynamicStyles.text]}>
-                  {notificationsEnabled ? "Notifications On" : "Enable Notifications"}
-                </Text>
+                <Ionicons name="notifications-outline" size={22} color="#5856D6" />
+                <Text style={[styles.rowLabel, dynamicStyles.text]}>Notifications</Text>
               </View>
-
-              {/* Visual Indicator of state */}
-              <Ionicons
-                name={notificationsEnabled ? "checkmark-circle" : "chevron-forward"}
-                size={22}
-                color={theme.subtext}
-              />
+              <Ionicons name="chevron-forward" size={22} color={theme.subtext} />
             </TouchableOpacity>
 
             <View style={[styles.divider, dynamicStyles.divider]} />

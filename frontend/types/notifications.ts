@@ -54,3 +54,14 @@ export interface ReceivedNotification {
   notification: Notification;
   type?: NotificationType;
 }
+
+// Row from public.notifications table (inbox history)
+export interface InboxNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown> | null;
+  is_read: boolean;
+  created_at: string;
+}

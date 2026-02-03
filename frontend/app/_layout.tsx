@@ -12,6 +12,7 @@ import { EventsProvider } from '@/contexts/EventsContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { BlockProvider } from '@/contexts/BlockContext';
 import { ErrorBoundary } from '@/components/shared';
+import { useNotificationObserver } from '@/hooks/notifications';
 import { OfflineNotice } from '@/components/ui/OfflineNotice';
 import { SuccessToast } from '@/components/ui/SuccessToast';
 import { AnimatedSplash, useSplashReady } from '@/components/auth/AnimatedSplash';
@@ -50,6 +51,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { setReady } = useSplashReady();
+
+  // Deep link from push notification taps (warm start + cold start)
+  useNotificationObserver();
 
   // Toast State for Points
   const [toast, setToast] = React.useState({ visible: false, message: '' });

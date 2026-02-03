@@ -43,10 +43,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     initializeNotifications();
 
-    // Register notification listeners
+    // Register foreground notification listener.
+    // Response handling (notification taps) is done by useNotificationObserver in _layout.tsx.
     const cleanup = notificationService.registerNotificationListeners(
-      handleNotificationReceived,
-      handleNotificationResponse
+      handleNotificationReceived
     );
 
     return () => {
@@ -279,24 +279,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const handleNotificationReceived = (notification: Notifications.Notification) => {
     console.log('Notification received in foreground:', notification);
     // You can add custom logic here, like updating UI or incrementing badge
-  };
-
-  // Handle notification tap/response
-  const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-    console.log('User tapped notification:', response);
-    const data = response.notification.request.content.data;
-
-    // Handle different notification types
-    if (data.type === 'event_reminder') {
-      // Navigate to event details (implement navigation later)
-      console.log('Navigate to event:', data.eventName);
-    } else if (data.type === 'new_event') {
-      // Navigate to events list (implement navigation later)
-      console.log('Navigate to events list');
-    } else if (data.type === 'announcement') {
-      // Show announcement (implement later)
-      console.log('Show announcement');
-    }
   };
 
   return (
