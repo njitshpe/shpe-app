@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import type { AppError } from '../types/errors';
 import { mapSupabaseError, validators, createError } from '../types/errors';
@@ -54,6 +55,47 @@ const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number = 5000): Promise
   ]);
 };
 
+// ============================================================================
+// PROFILE CACHE (stale-while-revalidate)
+// ============================================================================
+const CACHE_KEYS = {
+  userId: 'cached_user_id',
+  profile: (id: string) => `user_profile:${id}`,
+} as const;
+
+async function readCachedProfile(userId: string): Promise<UserProfile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEYS.profile(userId));
+    if (!raw) return null;
+    return JSON.parse(raw) as UserProfile;
+  } catch {
+    // Corrupt JSON — remove the bad key
+    AsyncStorage.removeItem(CACHE_KEYS.profile(userId)).catch(() => {});
+    return null;
+  }
+}
+
+async function writeCachedProfile(userId: string, profile: UserProfile): Promise<void> {
+  try {
+    await Promise.all([
+      AsyncStorage.setItem(CACHE_KEYS.profile(userId), JSON.stringify(profile)),
+      AsyncStorage.setItem(CACHE_KEYS.userId, userId),
+    ]);
+  } catch {
+    if (__DEV__) console.warn('[AuthContext] Failed to write profile cache');
+  }
+}
+
+async function clearCachedProfile(userId?: string | null): Promise<void> {
+  try {
+    const keys: string[] = [CACHE_KEYS.userId];
+    if (userId) keys.push(CACHE_KEYS.profile(userId));
+    await AsyncStorage.multiRemove(keys);
+  } catch {
+    if (__DEV__) console.warn('[AuthContext] Failed to clear profile cache');
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -69,65 +111,129 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentUserIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    // Load initial session and profile
-    supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
+    let cancelled = false;
+    const bootstrapDoneRef = { current: false };
+
+    const bootstrap = async () => {
+      try {
+        // 1. Parallel read: session + last-cached user ID
+        const [{ data: { session } }, cachedUserId] = await Promise.all([
+          supabase.auth.getSession(),
+          AsyncStorage.getItem(CACHE_KEYS.userId),
+        ]);
+
+        if (cancelled) return;
+
         setSession(session);
         setUser(session?.user ?? null);
 
         const onboardingCompleted = session?.user?.user_metadata?.onboarding_completed === true;
-        // Load profile only after onboarding is complete
+
         if (session?.user?.id && onboardingCompleted) {
           currentUserIdRef.current = session.user.id;
-          setProfileLoading(true);
-          try {
-            if (__DEV__) {
-              console.log('[AuthContext] Loading profile for user:', session.user.id);
-            }
-            const result = await withTimeout(
-              profileService.getProfile(session.user.id)
-            );
-            if (result.success && result.data) {
-              setProfile(result.data);
-              if (__DEV__) {
-                console.log('[AuthContext] Profile loaded successfully');
-              }
-            } else {
-              // Profile not found but session exists - account may be corrupted/deleted
-              console.warn('[AuthContext] Critical: Session exists but profile missing on startup. Force signing out.');
-              await supabase.auth.signOut();
-              setProfile(null);
-            }
-          } catch (error) {
-            if (__DEV__) {
-              console.warn('[AuthContext] Failed to load profile on startup (may be normal during onboarding):', error);
-            }
-            setProfile(null);
-          } finally {
-            setProfileLoading(false);
+
+          // 2. Try per-user cached profile (fast local read)
+          let cached: UserProfile | null = null;
+          if (cachedUserId === session.user.id) {
+            cached = await readCachedProfile(session.user.id);
           }
+
+          if (cached) {
+            // ── Optimistic unblock: show cached data, revalidate in background ──
+            setProfile(cached);
+            setIsLoading(false);
+            setIsBootstrapping(false);
+            bootstrapDoneRef.current = true;
+
+            if (__DEV__) {
+              console.log('[AuthContext] Bootstrap unblocked with cached profile');
+            }
+
+            // Background revalidation (no timeout — non-blocking)
+            profileService.getProfile(session.user.id)
+              .then((result) => {
+                if (cancelled) return;
+                if (result.success && result.data) {
+                  setProfile(result.data);
+                  writeCachedProfile(session.user.id, result.data);
+                }
+                // On failure: keep cached profile silently
+              })
+              .catch((err) => {
+                if (__DEV__) console.warn('[AuthContext] Background revalidation failed:', err);
+              });
+            return;
+          }
+
+          // ── No cache: unblock UI immediately, fetch with profileLoading skeleton ──
+          setProfileLoading(true);
+          setIsLoading(false);
+          setIsBootstrapping(false);
+          bootstrapDoneRef.current = true;
+
+          if (__DEV__) {
+            console.log('[AuthContext] No cached profile — unblocking UI, fetching in background');
+          }
+
+          withTimeout(profileService.getProfile(session.user.id))
+            .then(async (result) => {
+              if (cancelled) return;
+              if (result.success && result.data) {
+                setProfile(result.data);
+                writeCachedProfile(session.user.id, result.data);
+                if (__DEV__) {
+                  console.log('[AuthContext] Profile loaded and cached successfully');
+                }
+              } else {
+                console.warn('[AuthContext] Critical: Session exists but profile missing on startup. Force signing out.');
+                await supabase.auth.signOut();
+                setProfile(null);
+              }
+            })
+            .catch((error) => {
+              if (cancelled) return;
+              if (__DEV__) {
+                console.warn('[AuthContext] Failed to load profile on startup (may be normal during onboarding):', error);
+              }
+              setProfile(null);
+            })
+            .finally(() => {
+              if (!cancelled) setProfileLoading(false);
+            });
+          return;
         } else {
-          // No session, ensure profileLoading is false
           setProfileLoading(false);
           currentUserIdRef.current = null;
         }
 
         setIsLoading(false);
         setIsBootstrapping(false);
-      })
-      .catch((error) => {
-        console.error('Failed to get session:', error);
+        bootstrapDoneRef.current = true;
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to bootstrap auth:', error);
         setSession(null);
         setUser(null);
         setProfile(null);
         setIsLoading(false);
         setIsBootstrapping(false);
         setProfileLoading(false);
-      });
+        bootstrapDoneRef.current = true;
+      }
+    };
+
+    bootstrap();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // Handle PASSWORD_RECOVERY event
+        // Guard: skip events while bootstrap is in-flight to avoid race conditions
+        if (!bootstrapDoneRef.current) {
+          if (__DEV__) {
+            console.log('[AuthContext] Skipping onAuthStateChange during bootstrap, event:', event);
+          }
+          return;
+        }
+
         if (event === 'PASSWORD_RECOVERY') {
           if (__DEV__) {
             console.log('[AuthContext] PASSWORD_RECOVERY event received');
@@ -139,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         const onboardingCompleted = session?.user?.user_metadata?.onboarding_completed === true;
-        // Load profile when auth state changes (only after onboarding is complete)
+
         if (session?.user?.id && onboardingCompleted) {
           // Skip if we're already loading a profile for the same user
           if (loadingProfileRef.current && currentUserIdRef.current === session.user.id) {
@@ -160,14 +266,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             );
             if (result.success && result.data) {
               setProfile(result.data);
+              writeCachedProfile(session.user.id, result.data);
             } else {
-              // Profile not found but session exists - account may be corrupted/deleted
               console.warn('[AuthContext] Critical: Session exists but profile missing. Force signing out.');
               await supabase.auth.signOut();
               setProfile(null);
             }
           } catch (error) {
-            // Only log if it's not a timeout during onboarding
             if (__DEV__) {
               console.warn('[AuthContext] Profile load failed (may be normal during onboarding):', error);
             }
@@ -177,7 +282,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loadingProfileRef.current = false;
           }
         } else {
-          // Clear profile when logged out or onboarding incomplete
+          // Logged out or onboarding incomplete — clear cache on sign-out
+          if (event === 'SIGNED_OUT' || !session) {
+            clearCachedProfile(currentUserIdRef.current);
+          }
           setProfile(null);
           setProfileLoading(false);
           loadingProfileRef.current = false;
@@ -188,7 +296,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Sign in with email and password
@@ -466,7 +577,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    const userId = currentUserIdRef.current;
     await supabase.auth.signOut();
+    clearCachedProfile(userId);
   };
 
   // Reset password - sends a password reset email
@@ -557,6 +670,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       if (result.success && result.data) {
         setProfile(result.data);
+        writeCachedProfile(userId, result.data);
       } else {
         // Profile not found - this could mean the account was deleted or corrupted
         // Check if we have an active session
