@@ -24,12 +24,12 @@ import { useEvents } from '@/contexts/EventsContext';
 import { Event } from '@/types/events';
 import { Ionicons } from '@expo/vector-icons';
 import { MapPreview } from '@/components/shared';
-import RegistrationFormModal from '@/components/events/RegistrationFormModal';
+
 import {
   AttendeesPreview,
   RegistrationSuccessModal,
-  EventRegistrationConfirmModal,
   EventMoreMenu,
+  EventRegistrationSheet,
 } from '@/components/events';
 import { CheckInQRModal } from '@/components/admin/CheckInQRModal';
 import { useEventRegistration } from '@/hooks/events';
@@ -123,8 +123,7 @@ export default function EventDetailScreen() {
   const { isRegistered, loading, register, cancel } = useEventRegistration(id || '');
 
   // UI state
-  const [showRegistrationForm, setShowRegistrationForm] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showRegistrationSheet, setShowRegistrationSheet] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -189,35 +188,26 @@ export default function EventDetailScreen() {
     }
 
     if (isRegistered) {
-      Alert.alert('Already Registered', 'You are already registered for this event.');
+      setShowSuccessModal(true);
       return;
     }
 
-    // Step 1: Open Confirmation Modal (Poster View)
-    setShowConfirmModal(true);
+    setShowRegistrationSheet(true);
   };
 
-  const handleConfirmRegistration = async () => {
-    if (!event) return;
-    setShowConfirmModal(false);
 
-    // Step 2: Check for questions
-    if (event.registration_questions && event.registration_questions.length > 0) {
-      // Delay slightly to allow confirm modal to close nicely
-      setTimeout(() => setShowRegistrationForm(true), 300);
-    } else {
-      // Step 3: No questions, just register
-      await executeRegistration({});
-    }
-  };
 
   const executeRegistration = async (answers: Record<string, string>) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      await register(answers);
+      const initialStatus = (event?.registration_questions && event.registration_questions.length > 0) ? 'pending' : 'going';
+      await register(answers, initialStatus);
+      // Refresh events to get correct status (e.g. waitlist vs going)
+      await refetchEvents();
+
       // Success Flow
-      setShowRegistrationForm(false);
+      setShowRegistrationSheet(false);
       setShowSuccessModal(true);
 
     } catch (error: any) {
@@ -459,8 +449,34 @@ export default function EventDetailScreen() {
             {/* Attendance Status */}
             {isRegistered && (
               <View style={styles.statusRow}>
-                <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
-                <Text style={styles.statusText}>You're Going</Text>
+                {(() => {
+                  const status = event.userRegistrationStatus || 'going';
+                  let iconName = 'checkmark-circle';
+                  let iconColor = '#4ADE80';
+                  let statusText = "You're Going";
+
+                  switch (status) {
+                    case 'pending':
+                      iconName = 'time';
+                      iconColor = '#FBBF24';
+                      statusText = "Registration Pending";
+                      break;
+                    case 'waitlist':
+                      iconName = 'people';
+                      iconColor = '#A78BFA';
+                      statusText = "Waitlisted";
+                      break;
+                  }
+
+                  return (
+                    <>
+                      <Ionicons name={iconName as any} size={16} color={iconColor} />
+                      <Text style={[styles.statusText, { color: iconColor }]}>
+                        {statusText}
+                      </Text>
+                    </>
+                  );
+                })()}
               </View>
             )}
 
@@ -627,23 +643,18 @@ export default function EventDetailScreen() {
       </ImageBackground>
 
       {/* MODALS */}
-      <RegistrationFormModal
-        isVisible={showRegistrationForm}
-        questions={event.registration_questions || []}
-        onClose={() => setShowRegistrationForm(false)}
+      <EventRegistrationSheet
+        visible={showRegistrationSheet}
+        event={event}
+        onClose={() => setShowRegistrationSheet(false)}
         onSubmit={executeRegistration}
+        isSubmitting={loading}
       />
-      {event && (
-        <EventRegistrationConfirmModal
-          visible={showConfirmModal}
-          event={event}
-          onConfirm={handleConfirmRegistration}
-          onClose={() => setShowConfirmModal(false)}
-        />
-      )}
       <RegistrationSuccessModal
         visible={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
+        event={event}
+        status={event.userRegistrationStatus || 'going'}
       />
       <EventMoreMenu
         visible={showMoreMenu}
@@ -771,7 +782,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 12
+    marginBottom: 4
   },
   statusText: {
     color: '#4ADE80',
