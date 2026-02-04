@@ -176,11 +176,9 @@ class RegistrationService {
   }
 
   /**
-   * Get list of attendees with their profiles
-   * Used for "Who's Going" preview
    * Performs manual join for reliability
    */
-  async getAttendees(eventSlug: string, limit = 5): Promise<Attendee[]> {
+  async getAttendees(eventSlug: string, offset = 0, limit = 30): Promise<Attendee[]> {
     const eventUUID = await this.getEventUUID(eventSlug);
     if (!eventUUID) return [];
 
@@ -191,7 +189,7 @@ class RegistrationService {
       .eq('event_id', eventUUID)
       .eq('status', 'going')
       .order('rsvp_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (attendanceError || !attendanceData || attendanceData.length === 0) {
       if (attendanceError) console.error('Failed to get attendees:', attendanceError);

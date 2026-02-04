@@ -608,7 +608,7 @@ export default function EventDetailScreen() {
 
             {/* Who's Going */}
             <View style={styles.hostsSection}>
-              <AttendeesPreview eventId={event.id} previewCount={3} />
+              <AttendeesPreview eventId={event.id} previewCount={4} />
             </View>
 
             {/* Highlights Section (Moved) */}

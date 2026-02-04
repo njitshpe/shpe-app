@@ -18,4 +18,6 @@ export interface EventAttendeesData {
   attendees: Attendee[];
   isLoading: boolean;
   error: string | null;
+  hasMore: boolean;
+  loadMore: () => void;
 }
