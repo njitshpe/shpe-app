@@ -189,6 +189,7 @@ const styles = StyleSheet.create({
   avatarFallback: {
     width: '100%',
     height: '100%',
+    borderRadius: AVATAR_SIZE / 2,
     // backgroundColor removed
     alignItems: 'center',
     justifyContent: 'center',
