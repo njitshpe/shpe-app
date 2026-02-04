@@ -19,6 +19,8 @@ import {
   ImageBackground,
   Platform,
   Dimensions,
+  Linking,
+  TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -80,6 +82,10 @@ export default function EventAttendeesScreen() {
     router.push(`/profile/${attendeeId}`);
   };
 
+  const handlePressLinkedIn = (url: string) => {
+    Linking.openURL(url).catch((err) => console.error("Couldn't load page", err));
+  };
+
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
   });
@@ -107,49 +113,59 @@ export default function EventAttendeesScreen() {
   });
 
   const renderAttendeeItem = ({ item }: { item: Attendee }) => (
-    <Pressable
-      style={({ pressed }) => [
-        styles.attendeeRow,
-        pressed && styles.attendeeRowPressed
-      ]}
-      onPress={() => handlePressAttendee(item.id)}
-    >
-      {/* Avatar */}
-      <View style={styles.avatarContainer}>
-        {item.avatarUrl ? (
-          <Image
-            source={{ uri: item.avatarUrl }}
-            style={styles.avatar}
-            contentFit="cover"
-            transition={200}
-          />
-        ) : (
-          <View style={styles.avatarFallback}>
-            <Text style={styles.avatarInitials}>{getInitials(item.name)}</Text>
+    <View style={styles.attendeeRowContainer}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.attendeeRow,
+          pressed && styles.attendeeRowPressed
+        ]}
+        onPress={() => handlePressAttendee(item.id)}
+      >
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          {item.avatarUrl ? (
+            <Image
+              source={{ uri: item.avatarUrl }}
+              style={styles.avatar}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarInitials}>{getInitials(item.name)}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Info */}
+        <View style={styles.attendeeInfo}>
+          <Text style={styles.attendeeName}>{item.name}</Text>
+          {(item.major || item.year) && (
+            <Text style={styles.attendeeMeta}>
+              {[item.major, item.year].filter(Boolean).join(' • ')}
+            </Text>
+          )}
+        </View>
+
+        {/* Role Badge (optional) */}
+        {item.role && item.role !== 'Member' && (
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText}>{item.role}</Text>
           </View>
         )}
-      </View>
+      </Pressable>
 
-      {/* Info */}
-      <View style={styles.attendeeInfo}>
-        <Text style={styles.attendeeName}>{item.name}</Text>
-        {(item.major || item.year) && (
-          <Text style={styles.attendeeMeta}>
-            {[item.major, item.year].filter(Boolean).join(' • ')}
-          </Text>
-        )}
-      </View>
-
-      {/* Role Badge (optional) */}
-      {item.role && item.role !== 'Member' && (
-        <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>{item.role}</Text>
-        </View>
+      {/* LinkedIn Button (outside of main press area to avoid conflicts) */}
+      {item.linkedinUrl && (
+        <TouchableOpacity
+          style={styles.linkedinButton}
+          onPress={() => handlePressLinkedIn(item.linkedinUrl!)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="logo-linkedin" size={24} color="rgba(255,255,255,0.6)" />
+        </TouchableOpacity>
       )}
-
-      {/* Chevron */}
-      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.4)" style={{ marginLeft: 8 }} />
-    </Pressable>
+    </View>
   );
 
   const renderFooter = () => {
@@ -337,16 +353,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
-    paddingBottom: 8, // Little padding at bottom of header block
+    // paddingBottom: 8, // Removed to keep border on edge
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8, // Reduced from 12
+    paddingVertical: 8,
   },
   backButton: {
-    width: 36, // Smaller button
+    width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -395,18 +411,24 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     // paddingTop is handled dynamically in render
   },
-  attendeeRow: {
+  attendeeRowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingVertical: 10, // Slightly more compact
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    marginBottom: 8,
+    marginBottom: 16, // Increased spacing since we removed card bg
+    paddingHorizontal: 8, // Little breathing room
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+    paddingBottom: 16,
+  },
+  attendeeRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    // Removed background and padding that made it a card
   },
   attendeeRowPressed: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    transform: [{ scale: 0.995 }],
+    opacity: 0.7,
+    // transform: [{ scale: 0.995 }], // Removed scale
   },
   avatarContainer: {
     marginRight: 14,
@@ -502,5 +524,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: 'rgba(255,255,255,0.6)',
     marginTop: 16,
+  },
+  linkedinButton: {
+    padding: 8,
+    marginLeft: 8,
   },
 });

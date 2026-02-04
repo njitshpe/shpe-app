@@ -8,6 +8,7 @@ export interface Attendee {
   major?: string;
   year?: string;
   role?: string; // e.g., "Member", "Officer", "Guest"
+  linkedinUrl?: string; // LinkedIn profile URL
 }
 
 /**

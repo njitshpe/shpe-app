@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Attendee, EventAttendeesData } from '@/types/attendee';
 import { registrationService } from '@/services';
+import { getProfileValue } from '@/types/userProfile';
 
 /**
  * Hook to fetch event attendees
@@ -97,14 +98,20 @@ export function useEventAttendees(eventId: string): EventAttendeesData {
 
 // Helper to map DB response to UI type
 const mapToAttendee = (data: any[]) => {
-  return data.map(a => ({
-    id: a.user_id,
-    name: a.profile ? `${a.profile.first_name} ${a.profile.last_name}` : 'SHPE Member',
-    avatarUrl: a.profile?.profile_picture_url || undefined,
-    major: (a.profile as any)?.major || undefined,
-    year: (a.profile as any)?.year || undefined,
-    role: 'Member'
-  }));
+  return data.map(a => {
+    const profile = a.profile;
+    const linkedinUrl = profile ? getProfileValue(profile, 'linkedin_url') : undefined;
+
+    return {
+      id: a.user_id,
+      name: profile ? `${profile.first_name} ${profile.last_name}` : 'SHPE Member',
+      avatarUrl: profile?.profile_picture_url || undefined,
+      major: (profile as any)?.major || undefined,
+      year: (profile as any)?.year || undefined,
+      role: 'Member',
+      linkedinUrl: linkedinUrl || undefined
+    };
+  });
 };
 
 /**
