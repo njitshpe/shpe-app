@@ -416,7 +416,7 @@ export default function EventDetailScreen() {
                 }
               }}
             >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <Ionicons name="chevron-back" size={28} color="#fff" />
             </Pressable>
 
 
@@ -608,7 +608,7 @@ export default function EventDetailScreen() {
 
             {/* Who's Going */}
             <View style={styles.hostsSection}>
-              <AttendeesPreview eventId={event.id} previewCount={3} />
+              <AttendeesPreview eventId={event.id} previewCount={4} />
             </View>
 
             {/* Highlights Section (Moved) */}

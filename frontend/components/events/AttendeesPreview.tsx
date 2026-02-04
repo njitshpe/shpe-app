@@ -34,7 +34,8 @@ export default function AttendeesPreview({
     if (attendees.length === 0) return 'Be the first to register';
 
     const displayNames = attendees.slice(0, namesCount).map((a) => a.name);
-    const remaining = totalCount - namesCount;
+    // Calculate remaining based on how many names we ACTUALLY displayed
+    const remaining = totalCount - displayNames.length;
 
     if (remaining > 0) {
       return `${displayNames.join(', ')}, and ${remaining} more`;
@@ -188,6 +189,7 @@ const styles = StyleSheet.create({
   avatarFallback: {
     width: '100%',
     height: '100%',
+    borderRadius: AVATAR_SIZE / 2,
     // backgroundColor removed
     alignItems: 'center',
     justifyContent: 'center',

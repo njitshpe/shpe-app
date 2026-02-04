@@ -23,6 +23,9 @@ class RegistrationService {
   // Cache for slug -> uuid resolution to reduce DB calls
   private idCache: Record<string, string> = {};
 
+  // Regex for validating UUIDs
+  private readonly UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   async register(eventSlug: string, answers: Record<string, string> = {}, status: 'going' | 'pending' | 'waitlist' = 'going'): Promise<void> {
     const userId = await this.getUserId();
     const eventUUID = await this.getEventUUID(eventSlug);
@@ -64,8 +67,7 @@ class RegistrationService {
    */
   private async getEventUUID(eventSlug: string): Promise<string | null> {
     // If it looks like a UUID, return it directly
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(eventSlug)) {
+    if (this.UUID_REGEX.test(eventSlug)) {
       return eventSlug;
     }
 
@@ -174,32 +176,37 @@ class RegistrationService {
   }
 
   /**
-   * Get list of attendees with their profiles
-   * Used for "Who's Going" preview
-   * Performs manual join for reliability
+   * Get attendees with profile data
    */
-  async getAttendees(eventSlug: string, limit = 5): Promise<Attendee[]> {
+  async getAttendees(eventSlug: string, offset = 0, limit = 30): Promise<Attendee[]> {
     const eventUUID = await this.getEventUUID(eventSlug);
     if (!eventUUID) return [];
 
-    // 1. Get attendees list from attendance table
+    // Get attendees list from attendance table
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('event_attendance')
       .select('user_id, rsvp_at')
       .eq('event_id', eventUUID)
       .eq('status', 'going')
       .order('rsvp_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (attendanceError || !attendanceData || attendanceData.length === 0) {
       if (attendanceError) console.error('Failed to get attendees:', attendanceError);
       return [];
     }
 
-    // 2. Extract user IDs
-    const userIds = attendanceData.map(a => a.user_id);
+    // Filter out rows with invalid user_ids immediately
+    const validAttendance = attendanceData.filter(a =>
+      a.user_id && this.UUID_REGEX.test(a.user_id)
+    );
 
-    // 3. Fetch profiles for these users
+    if (validAttendance.length === 0) {
+      return [];
+    }
+
+    // Extract user IDs and fetch profiles
+    const userIds = validAttendance.map(a => a.user_id);
     const { data: profilesData, error: profilesError } = await supabase
       .from('user_profiles')
       .select('*')
@@ -207,21 +214,19 @@ class RegistrationService {
 
     if (profilesError) {
       console.error('Failed to fetch attendee profiles:', profilesError);
-      // Return without profiles if fetch fails
-      return attendanceData.map(a => ({
+      return validAttendance.map(a => ({
         user_id: a.user_id,
         rsvp_at: a.rsvp_at,
         profile: null
       }));
     }
 
-    // 4. Map profiles to a lookup object
+    // Map profiles to lookup object
     const profilesMap = new Map(
       profilesData?.map(p => [p.id, this.flattenProfileData(p)])
     );
 
-    // 5. Combine data
-    return attendanceData.map(a => ({
+    return validAttendance.map(a => ({
       user_id: a.user_id,
       rsvp_at: a.rsvp_at,
       profile: (profilesMap.get(a.user_id) as UserProfile) || null

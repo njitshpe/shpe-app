@@ -8,6 +8,7 @@ export interface Attendee {
   major?: string;
   year?: string;
   role?: string; // e.g., "Member", "Officer", "Guest"
+  linkedinUrl?: string; // LinkedIn profile URL
 }
 
 /**
@@ -18,4 +19,6 @@ export interface EventAttendeesData {
   attendees: Attendee[];
   isLoading: boolean;
   error: string | null;
+  hasMore: boolean;
+  loadMore: () => void;
 }
