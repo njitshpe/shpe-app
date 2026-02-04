@@ -69,6 +69,9 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
     const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [uploadingImage, setUploadingImage] = useState(false);
 
+    // --- Featured State ---
+    const [isFeatured, setIsFeatured] = useState(initialData?.is_featured || false);
+
     // --- RSVP & Questions State ---
     const [requiresRSVP, setRequiresRSVP] = useState(initialData?.requires_rsvp || false);
     const [questions, setQuestions] = useState<EventQuestion[]>(initialData?.registration_questions || []);
@@ -216,6 +219,7 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                 event_limit: eventLimit.trim() === '' ? undefined : parseInt(eventLimit, 10),
                 latitude: latitude,
                 longitude: longitude,
+                is_featured: isFeatured,
             };
 
             // Call the service and capture the result
@@ -467,6 +471,25 @@ export function AdminEventForm({ initialData, onSubmit, onCancel, mode }: AdminE
                                     Leave blank if there is no limit for this event.
                                 </Text>
                             </View>
+
+                            {/* --- FEATURED & NOTIFICATION REACH --- */}
+                            <View style={styles.rsvpHeader}>
+                                <Text style={[styles.sectionTitle, dynamicStyles.text]}>Visibility</Text>
+                                <View style={styles.switchRow}>
+                                    <Text style={[styles.label, dynamicStyles.text, { marginBottom: 0 }]}>Featured Event</Text>
+                                    <Switch
+                                        value={isFeatured}
+                                        onValueChange={setIsFeatured}
+                                        trackColor={{ false: '#767577', true: theme.primary }}
+                                        thumbColor={'#f4f3f4'}
+                                    />
+                                </View>
+                            </View>
+                            <Text style={[styles.subtext, dynamicStyles.subtext, { marginTop: -8 }]}>
+                                {isFeatured
+                                    ? 'Push notifications will be sent to users who opted into New Events. All users will see this in their Inbox.'
+                                    : 'All users will see this event in their Inbox. Push notifications go only to users who opted into New Events.'}
+                            </Text>
 
                             {/* --- RSVP & QUESTIONS --- */}
                             <View style={styles.rsvpHeader}>

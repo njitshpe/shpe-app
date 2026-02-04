@@ -46,7 +46,7 @@ export function useNotificationSettings(): UseNotificationSettingsResult {
         .insert({
           user_id: user.id,
           notifications_enabled: true,
-          new_events_enabled: true,
+          new_events_enabled: false,
           event_reminders_enabled: true,
           announcements_enabled: true,
         })

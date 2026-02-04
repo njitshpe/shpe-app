@@ -31,6 +31,7 @@ export interface Event {
   requiresRsvp: boolean;
   eventLimit?: number;
   userRegistrationStatus?: 'going' | 'waitlist' | 'not_going' | 'confirmed' | string; // Status from event_attendance
+  isFeatured?: boolean;
 }
 
 // 1. Rename 'Event' to 'EventDB' to match your imports and avoid conflicts
@@ -54,6 +55,7 @@ export interface EventDB {
   requires_rsvp: boolean;
   event_limit?: number;
   cover_image_url?: string | null;
+  is_featured: boolean;
 }
 
 // 2. Update this to use EventDB

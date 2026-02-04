@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '@/contexts/EventsContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { EventsFeed } from '@/components/events/EventsFeed';
 import { LibraryCalendarWrapper } from '@/components/calendar/LibraryCalendarWrapper';
 import { MonthHeroHeader } from '@/components/events/MonthHeroHeader';
@@ -28,12 +29,14 @@ const HEADER_TRIGGER_OFFSET = 300;
 export default function EventsScreen() {
     const { events, isLoading, refetchEvents } = useEvents();
     const { theme, isDark } = useTheme();
+    const { preferences, updatePreference } = useNotifications();
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [showCalendar, setShowCalendar] = useState(false);
+    const [nudgeDismissed, setNudgeDismissed] = useState(false);
 
     const scrollY = useSharedValue(0);
     const feedRef = useRef<any>(null);
@@ -132,6 +135,33 @@ export default function EventsScreen() {
                                     onMonthChange={handleMonthChange}
                                 />
                             </Animated.View>
+                        )}
+
+                        {/* Nudge banner: new event push notifications are off */}
+                        {!preferences.new_events && !nudgeDismissed && (
+                            <View style={[
+                                styles.nudgeBanner,
+                                { backgroundColor: isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)' },
+                            ]}>
+                                <View style={styles.nudgeContent}>
+                                    <Ionicons name="notifications-outline" size={18} color={theme.primary} />
+                                    <Text style={[styles.nudgeText, { color: theme.text }]}>
+                                        Want to know when new events drop?{' '}
+                                        <Text
+                                            style={{ color: theme.primary, fontWeight: '600' }}
+                                            onPress={() => updatePreference('new_events', true)}
+                                        >
+                                            Turn on notifications
+                                        </Text>
+                                    </Text>
+                                </View>
+                                <Pressable
+                                    onPress={() => setNudgeDismissed(true)}
+                                    hitSlop={8}
+                                >
+                                    <Ionicons name="close" size={18} color={theme.subtext} />
+                                </Pressable>
+                            </View>
                         )}
                     </>
                 }
@@ -294,5 +324,25 @@ const styles = StyleSheet.create({
     floatingButtonText: {
         fontSize: 14,
         fontWeight: '600',
+    },
+    nudgeBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 16,
+        marginBottom: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+    },
+    nudgeContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    nudgeText: {
+        flex: 1,
+        fontSize: 13,
+        lineHeight: 18,
     },
 });

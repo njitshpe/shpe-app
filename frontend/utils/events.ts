@@ -24,6 +24,7 @@ export function mapEventDBToUI(event: EventDB): Event {
     points: event.points ?? 0,
     requiresRsvp: event.requires_rsvp ?? false,
     eventLimit: event.event_limit ?? undefined,
+    isFeatured: event.is_featured ?? false,
   };
 }
 
@@ -43,5 +44,6 @@ export function mapEventUIToDB(event: Event): Partial<EventDB> {
     requires_rsvp: event.requiresRsvp,
     event_limit: event.eventLimit ?? undefined,
     points: event.points,
+    is_featured: event.isFeatured ?? false,
   };
 }

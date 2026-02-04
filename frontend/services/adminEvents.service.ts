@@ -34,6 +34,7 @@ export interface CreateEventData {
     longitude?: number;
     requires_rsvp: boolean; // Correct variable name
     event_limit?: number;
+    is_featured?: boolean;
 
     // New Question interfaces
     registration_questions?: EventQuestion[];

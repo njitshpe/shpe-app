@@ -22,8 +22,13 @@ export default function AppLayout() {
                     presentation: 'modal',
                 }}
             />
-
-
+            <Stack.Screen
+                name="notifications"
+                options={{
+                    headerShown: false,
+                    presentation: 'card',
+                }}
+            />
         </Stack>
     );
 }

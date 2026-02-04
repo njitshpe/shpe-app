@@ -24,7 +24,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   event_reminders: true,
-  new_events: true,
+  new_events: false,
   announcements: true,
   all_enabled: true,
 };
@@ -147,7 +147,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from('user_notification_settings').insert({
         user_id: user.id,
         event_reminders_enabled: true,
-        new_events_enabled: true,
+        new_events_enabled: false,
         announcements_enabled: true,
         notifications_enabled: true,
       });

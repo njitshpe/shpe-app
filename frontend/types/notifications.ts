@@ -62,6 +62,7 @@ export interface InboxNotification {
   title: string;
   body: string;
   data: Record<string, unknown> | null;
+  category: string; // 'announcement' | 'event_update' | 'new_event' | 'general'
   is_read: boolean;
   created_at: string;
 }

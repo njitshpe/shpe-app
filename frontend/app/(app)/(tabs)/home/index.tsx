@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEvents } from '@/contexts/EventsContext';
-import { eventsService, notificationService, rankService } from '@/services';
+import { eventsService, rankService } from '@/services';
 import { fetchAnnouncementPosts } from '@/lib/feedService';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HeroEventCard } from '@/components/home/HeroEventCard';
@@ -19,6 +19,7 @@ import { Announcements } from '@/components/home/Announcements';
 import { MissionLog } from '@/components/home/MissionLog';
 import { RankTrajectory } from '@/components/home/RankTrajectory';
 import { AdminControls } from '@/components/home/AdminControls';
+import { useUnreadCount } from '@/hooks/notifications';
 
 interface HeroEvent {
   id: string;
@@ -48,21 +49,20 @@ export default function HomeScreen() {
   const [heroEvents, setHeroEvents] = useState<HeroEvent[]>([]);
   const [missionEvents, setMissionEvents] = useState<MissionEvent[]>([]);
   const [announcement, setAnnouncement] = useState<{ title: string; message: string } | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPoints, setCurrentPoints] = useState(0);
+  const { unreadCount } = useUnreadCount();
 
   // --- Logic ---
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const userId = user?.id;
-      const [upcomingResponse, myEventsResponse, announcementsResponse, badgeCount, rankResponse] =
+      const [upcomingResponse, myEventsResponse, announcementsResponse, rankResponse] =
         await Promise.all([
           eventsService.getUpcomingEvents(),
           userId ? eventsService.getUserUpcomingEvents(userId) : Promise.resolve({ success: true, data: [] }),
           fetchAnnouncementPosts(1),
-          notificationService.getBadgeCount(),
           rankService.getMyRank(),
         ]);
 
@@ -101,7 +101,6 @@ export default function HomeScreen() {
         setAnnouncement(null);
       }
 
-      setUnreadCount(typeof badgeCount === 'number' ? badgeCount : 0);
       setCurrentPoints(rankResponse.success ? rankResponse.data.points_total : 0);
     } catch (error) {
       console.error(error);
@@ -194,7 +193,7 @@ export default function HomeScreen() {
         ) : null}
 
         {/* 2. Quick Actions */}
-        <QuickActions onPress={handleActionPress} />
+        <QuickActions onPress={handleActionPress} unreadCount={unreadCount} />
 
         {/* 3. Announcements */}
         <Announcements
@@ -231,7 +230,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Header Overlay */}
-      <HomeHeader hasUnreadNotifications={unreadCount > 0} />
+      <HomeHeader unreadCount={unreadCount} />
     </View>
   );
 }

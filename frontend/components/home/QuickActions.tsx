@@ -22,9 +22,10 @@ const ACTIONS = [
 
 interface QuickActionsProps {
   onPress: (route: string) => void;
+  unreadCount?: number;
 }
 
-export function QuickActions({ onPress }: QuickActionsProps) {
+export function QuickActions({ onPress, unreadCount = 0 }: QuickActionsProps) {
   const { theme, isDark } = useTheme();
 
   const getRoute = (id: string) => {
@@ -65,6 +66,13 @@ export function QuickActions({ onPress }: QuickActionsProps) {
               {/* Icon Halo with dynamic color tint */}
               <View style={[styles.iconHalo, { backgroundColor: `${action.color}20` }]}>
                 <Ionicons name={action.icon as any} size={24} color={action.color} />
+                {action.id === 'alerts' && unreadCount > 0 && (
+                  <View style={styles.alertsBadge}>
+                    <Text style={styles.alertsBadgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text style={[styles.cardLabel, { color: theme.text }]}>{action.label}</Text>
             </LinearGradient>
@@ -112,5 +120,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  alertsBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  alertsBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
 });

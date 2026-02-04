@@ -9,6 +9,7 @@ export interface UseInboxResult {
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -76,6 +77,32 @@ export function useInbox(): UseInboxResult {
           setNotifications((prev) => [payload.new, ...prev]);
         },
       )
+      .on<InboxNotification>(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === payload.new.id ? payload.new : n)),
+          );
+        },
+      )
+      .on<InboxNotification>(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
+        },
+      )
       .subscribe();
 
     channelRef.current = channel;
@@ -127,6 +154,27 @@ export function useInbox(): UseInboxResult {
     }
   }, [user?.id, fetchNotifications]);
 
+  const deleteNotification = useCallback(
+    async (id: string) => {
+      // Snapshot for rollback
+      const snapshot = notifications;
+
+      // Optimistic remove
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Failed to delete notification:', error.message);
+        setNotifications(snapshot);
+      }
+    },
+    [notifications],
+  );
+
   // ── Derived state ────────────────────────────────────────────────────
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.is_read).length,
@@ -137,5 +185,5 @@ export function useInbox(): UseInboxResult {
     await fetchNotifications();
   }, [fetchNotifications]);
 
-  return { notifications, loading, unreadCount, markAsRead, markAllAsRead, refresh };
+  return { notifications, loading, unreadCount, markAsRead, markAllAsRead, deleteNotification, refresh };
 }
