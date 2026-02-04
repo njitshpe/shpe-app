@@ -416,7 +416,7 @@ export default function EventDetailScreen() {
                 }
               }}
             >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <Ionicons name="chevron-back" size={28} color="#fff" />
             </Pressable>
 
 

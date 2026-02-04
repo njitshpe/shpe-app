@@ -45,12 +45,11 @@ export default function EventAttendeesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { isDark } = useTheme();
 
-  // Animation Refs
   const scrollY = useSharedValue(0);
 
   const event = events.find((evt) => evt.id === id);
 
-  // Filter attendees based on search query
+  // Filter based on search query
   const filteredAttendees = useMemo(() => {
     if (!searchQuery.trim()) return attendees;
 
@@ -81,34 +80,18 @@ export default function EventAttendeesScreen() {
     router.push(`/profile/${attendeeId}`);
   };
 
-  // Scroll Handler
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
   });
 
-  // Animated Header Style
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {
-      // Just border here, background handled by overlay
       borderBottomColor: interpolateColor(
         scrollY.value,
         [0, 50],
-        ['rgba(255,255,255,0)', 'rgba(255,255,255,0.15)'] // Slightly sharper border
+        ['rgba(255,255,255,0)', 'rgba(255,255,255,0.15)']
       ),
       borderBottomWidth: 1,
-    };
-  });
-
-  // Animated Background Overlay for Header
-  const headerBackgroundAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: interpolateColor(
-        scrollY.value,
-        [0, 50],
-        [0, 1]
-      ) as unknown as number, // Cast for opacity interpolation if needed, or just use value interpolation
-      // Actually interpolateColor returns string. Opacity expects number.
-      // We should use interpolate for opacity.
     };
   });
 
@@ -122,7 +105,6 @@ export default function EventAttendeesScreen() {
       ),
     };
   });
-
 
   const renderAttendeeItem = ({ item }: { item: Attendee }) => (
     <Pressable
@@ -218,7 +200,6 @@ export default function EventAttendeesScreen() {
     return null;
   };
 
-  // Header Title Logic
   const headerTitle = useMemo(() => {
     if (isLoading) return 'Loading...';
 
@@ -229,12 +210,9 @@ export default function EventAttendeesScreen() {
     return `${totalCount} Attending`;
   }, [isLoading, searchQuery, filteredAttendees.length, totalCount]);
 
-  // If no event found, fallback (should rarely happen if navigated from event page)
   const bgSource = event?.coverImageUrl ? { uri: event.coverImageUrl } : undefined;
 
-  // Approximate header height for padding: 
-  // StatusBar/Notch (insets.top) + Header Row (~44) + Search (~50) + Padding (~10)
-  // We'll calculate dynamic padding for the list
+  // Header height approximation for padding calculation
   const HEADER_HEIGHT = 100;
 
   return (
@@ -254,13 +232,11 @@ export default function EventAttendeesScreen() {
 
         <View style={styles.contentContainer}>
 
-          {/* Sticky Header Block */}
           <Animated.View style={[
             styles.stickyHeaderContainer,
             { paddingTop: insets.top },
             headerAnimatedStyle
           ]}>
-            {/* Animated Blur Background Container */}
             <Animated.View
               style={[
                 StyleSheet.absoluteFill,
@@ -272,7 +248,6 @@ export default function EventAttendeesScreen() {
                 tint="dark"
                 style={StyleSheet.absoluteFill}
               />
-              {/* Dark Overlay */}
               <View
                 style={[
                   StyleSheet.absoluteFill,
@@ -283,7 +258,7 @@ export default function EventAttendeesScreen() {
 
             <View style={styles.header}>
               <Pressable style={styles.backButton} onPress={() => router.back()}>
-                <Ionicons name="arrow-back" size={24} color="#fff" />
+                <Ionicons name="chevron-back" size={28} color="#fff" />
               </Pressable>
               <View style={styles.headerContent}>
                 <Text style={styles.headerTitle}>{headerTitle}</Text>
@@ -291,7 +266,6 @@ export default function EventAttendeesScreen() {
               <View style={styles.headerSpacer} />
             </View>
 
-            {/* Compact Search Bar */}
             <View style={styles.searchContainer}>
               <Ionicons name="search" size={16} color="rgba(255,255,255,0.6)" style={styles.searchIcon} />
               <TextInput
@@ -312,7 +286,6 @@ export default function EventAttendeesScreen() {
             </View>
           </Animated.View>
 
-          {/* Loading State (Initial) */}
           {isLoading && attendees.length === 0 && (
             <View style={[styles.loadingContainer, { marginTop: HEADER_HEIGHT + insets.top }]}>
               <ActivityIndicator size="large" color="#fff" />
@@ -320,7 +293,6 @@ export default function EventAttendeesScreen() {
             </View>
           )}
 
-          {/* Attendees List */}
           <AnimatedFlatList
             data={filteredAttendees}
             renderItem={renderAttendeeItem}

@@ -176,13 +176,13 @@ class RegistrationService {
   }
 
   /**
-   * Performs manual join for reliability
+   * Get attendees with profile data
    */
   async getAttendees(eventSlug: string, offset = 0, limit = 30): Promise<Attendee[]> {
     const eventUUID = await this.getEventUUID(eventSlug);
     if (!eventUUID) return [];
 
-    // 1. Get attendees list from attendance table
+    // Get attendees list from attendance table
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('event_attendance')
       .select('user_id, rsvp_at')
@@ -205,10 +205,8 @@ class RegistrationService {
       return [];
     }
 
-    // 2. Extract user IDs from valid records
+    // Extract user IDs and fetch profiles
     const userIds = validAttendance.map(a => a.user_id);
-
-    // 3. Fetch profiles for these users
     const { data: profilesData, error: profilesError } = await supabase
       .from('user_profiles')
       .select('*')
@@ -216,7 +214,6 @@ class RegistrationService {
 
     if (profilesError) {
       console.error('Failed to fetch attendee profiles:', profilesError);
-      // Return without profiles if fetch fails
       return validAttendance.map(a => ({
         user_id: a.user_id,
         rsvp_at: a.rsvp_at,
@@ -224,12 +221,11 @@ class RegistrationService {
       }));
     }
 
-    // 4. Map profiles to a lookup object
+    // Map profiles to lookup object
     const profilesMap = new Map(
       profilesData?.map(p => [p.id, this.flattenProfileData(p)])
     );
 
-    // 5. Combine data
     return validAttendance.map(a => ({
       user_id: a.user_id,
       rsvp_at: a.rsvp_at,

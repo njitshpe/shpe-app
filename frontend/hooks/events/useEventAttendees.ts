@@ -40,7 +40,7 @@ export function useEventAttendees(eventId: string): EventAttendeesData {
             attendees,
             isLoading: false,
             error: null,
-            hasMore: attendees.length < count, // More straightforward logic
+            hasMore: attendees.length < count,
           });
         }
       } catch (error) {
@@ -112,8 +112,6 @@ const mapToAttendee = (data: any[]) => {
  * More efficient than fetching all attendees when only showing a preview
  */
 export function useEventAttendeesPreview(eventId: string, previewCount: number = 4): EventAttendeesData {
-  // Currently re-uses the main hook, but limits the displayed list. 
-  // Optimization: In the future, pass previewCount to the service to limit SQL query.
   const fullData = useEventAttendees(eventId);
 
   return {
