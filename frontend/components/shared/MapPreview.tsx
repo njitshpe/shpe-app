@@ -7,6 +7,7 @@ import {
   Modal,
   Animated,
   Linking,
+  Platform,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,6 +54,13 @@ export default function MapPreview({
 
   const handleMapPress = () => {
     if (hasLocation) {
+      // ANDROID: Skip modal, go straight to Google Maps
+      if (Platform.OS === 'android') {
+        openGoogleMaps();
+        return;
+      }
+
+      // IOS: Show the modal (Apple Maps vs Google Maps)
       setModalVisible(true);
       Animated.spring(scaleAnim, {
         toValue: 1,
@@ -96,14 +104,27 @@ export default function MapPreview({
 
   const openGoogleMaps = async () => {
     let url: string;
-    if (hasCoordinates) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-    } else if (hasAddress) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-        address!
-      )}`;
-    } else {
-      return;
+    
+    // ANDROID: Use geo scheme for direct app launch
+    if (Platform.OS === 'android') {
+      const label = encodeURIComponent(locationName || 'Event Location');
+      if (hasCoordinates) {
+        url = `geo:0,0?q=${latitude},${longitude}(${label})`;
+      } else if (hasAddress) {
+        url = `geo:0,0?q=${encodeURIComponent(address!)}`;
+      } else {
+        return;
+      }
+    } 
+    // IOS/WEB: Use Universal Link
+    else {
+      if (hasCoordinates) {
+        url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+      } else if (hasAddress) {
+        url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address!)}`;
+      } else {
+        return;
+      }
     }
 
     try {
@@ -111,6 +132,11 @@ export default function MapPreview({
       if (supported) {
         await Linking.openURL(url);
         handleCloseModal();
+      } else {
+        // Fallback for Android if Maps app isn't installed (opens browser)
+        if (Platform.OS === 'android') {
+           await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);
+        }
       }
     } catch (error) {
       console.error('Error opening Google Maps:', error);

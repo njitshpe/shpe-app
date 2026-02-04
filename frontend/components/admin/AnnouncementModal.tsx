@@ -108,8 +108,12 @@ export function AnnouncementModal({ visible, onClose, onSend }: AnnouncementModa
                     <View style={styles.previewContainer}>
                         {/* Mock Wallpaper Background */}
                         <View style={[styles.wallpaper, { backgroundColor: isDark ? '#1a2a4d' : '#a2c2e6' }]}>
-                            <BlurView intensity={20} style={StyleSheet.absoluteFill} />
 
+                            {/* Only render BlurView if we are on iOS */}
+                            {Platform.OS === 'ios' && (
+                                <BlurView intensity={20} style={StyleSheet.absoluteFill} />
+                            )}
+                            
                             {/* Notification Card */}
                             <View style={[styles.notificationCard, dynamicStyles.previewCard]}>
                                 <View style={styles.notificationHeader}>

@@ -36,12 +36,8 @@
       }
     },
     "android": {
-      "package": "com.shpenjit.officialapp",
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyC48807AaxS97C47kAHfp2j2udyhKhbuks"
-        }
-      },
+    "googleServicesFile": "./google-services.json",      
+    "package": "com.shpenjit.officialapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#000000"
