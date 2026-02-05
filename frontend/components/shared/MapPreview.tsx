@@ -135,7 +135,11 @@ export default function MapPreview({
       } else {
         // Fallback for Android if Maps app isn't installed (opens browser)
         if (Platform.OS === 'android') {
-           await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);
+          if (hasCoordinates) {
+            await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`);
+          } else if (hasAddress) {
+            await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address!)}`);
+          }
         }
       }
     } catch (error) {
