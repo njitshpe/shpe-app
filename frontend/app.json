@@ -94,7 +94,8 @@
             "javaVersion": 17
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},
