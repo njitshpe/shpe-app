@@ -57,7 +57,8 @@ export default function EventRegistrationSheet({
     const [answers, setAnswers] = useState<Record<string, string>>({});
 
     // Refs
-    const scrollRef = useRef(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scrollRef = useRef<any>(null);
 
     // Animations
     const translateY = useSharedValue(0);
