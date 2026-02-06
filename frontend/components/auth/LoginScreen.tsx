@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,12 +20,13 @@ export function LoginScreen({
   onAppleLogin,
   onEmailLogin,
   onGuestScan,
-  onContinueWithPhone, // Add this
-  onContinueWithEmail, // Add this
+  onContinueWithPhone,
+  onContinueWithEmail,
 }: LoginScreenProps) {
+  const isAndroid = Platform.OS === 'android';
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Content pushed to bottom */}
       <View style={styles.content}>
         {/* Subtext */}
         <Text style={styles.subtext}>
@@ -42,26 +43,38 @@ export function LoginScreen({
           <Text style={styles.primaryButtonText}>Continue with Google</Text>
         </TouchableOpacity>
 
-        {/* Social Login Row */}
-        <View style={styles.socialRow}>
+        {/* ANDROID: Stacked Email (Full Width), No Apple */}
+        {isAndroid ? (
           <TouchableOpacity
-            style={styles.socialButton}
-            onPress={onAppleLogin}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="logo-apple" size={20} color="#FFFFFF" style={styles.socialIcon} />
-            <Text style={styles.socialButtonText}>Apple</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.socialButton}
+            style={[styles.socialButton, styles.androidEmailButton]}
             onPress={onEmailLogin}
             activeOpacity={0.8}
           >
             <Ionicons name="mail-outline" size={20} color="#FFFFFF" style={styles.socialIcon} />
-            <Text style={styles.socialButtonText}>Email</Text>
+            <Text style={styles.socialButtonText}>Continue with Email</Text>
           </TouchableOpacity>
-        </View>
+        ) : (
+          /* IOS: Split Row (Apple & Email) */
+          <View style={styles.socialRow}>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={onAppleLogin}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="logo-apple" size={20} color="#FFFFFF" style={styles.socialIcon} />
+              <Text style={styles.socialButtonText}>Apple</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={onEmailLogin}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="mail-outline" size={20} color="#FFFFFF" style={styles.socialIcon} />
+              <Text style={styles.socialButtonText}>Email</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Guest Scan Button */}
         <TouchableOpacity
@@ -148,6 +161,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  androidEmailButton: {
+    width: '100%',
+    flex: 0,
+    marginBottom: 12,
+  },
   socialIcon: {
     marginRight: 8,
   },
@@ -164,7 +182,7 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#DFDFDF',
   },
-  guestButton: { // Added style
+  guestButton: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,

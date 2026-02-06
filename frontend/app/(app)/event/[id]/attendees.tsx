@@ -12,6 +12,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  FlatListProps,
   TextInput,
   Pressable,
   ActivityIndicator,
@@ -34,7 +35,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+const AnimatedFlatList = Animated.createAnimatedComponent(
+  FlatList as React.ComponentClass<FlatListProps<Attendee>>
+);
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
 export default function EventAttendeesScreen() {
